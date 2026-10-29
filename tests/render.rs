@@ -114,10 +114,25 @@ fn pack_charge_fills_cells_in_order_from_bottom_to_top() {
                     .0
                     .iter()
                     .filter(|(_, priority, hit)| *priority == 2 && *hit == Hit::Part(Part::Battery))
-                    .map(|(r, _, _)| ui::kit::inner(*r, 1, 1))
+                    .map(|(r, _, _)| *r)
                     .collect();
                 assert_eq!(cells.len(), 6);
-                for (r, expected) in cells.into_iter().zip(expected) {
+                let bms = a.parts.iter().find(|(p, _)| *p == Part::Battery).unwrap().1;
+                let green = (bms.x + 1..bms.right() - 1)
+                    .map(|x| &term.backend().buffer()[(x, bms.y + 1)])
+                    .find(|cell| cell.symbol().chars().any(|c| c.is_ascii_digit()))
+                    .unwrap()
+                    .fg;
+                for (outer, expected) in cells.into_iter().zip(expected) {
+                    let r = ui::kit::inner(outer, 1, 1);
+                    let border = term.backend().buffer()[(outer.x, outer.y + 1)].fg;
+                    assert_eq!(border == green, expected > 0.);
+                    for x in outer.x..outer.right() {
+                        let cell = &term.backend().buffer()[(x, outer.y)];
+                        if cell.symbol().chars().any(|c| c.is_ascii_alphanumeric()) {
+                            assert_eq!(cell.fg, border);
+                        }
+                    }
                     let mut rows = Vec::new();
                     for y in r.y..r.bottom() {
                         let symbol = term.backend().buffer()[(r.x, y)].symbol();

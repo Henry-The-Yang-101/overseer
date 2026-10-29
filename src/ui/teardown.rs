@@ -781,6 +781,14 @@ fn physical(b: &mut Buffer, c: Rect, available: Rect, a: &mut App) {
             a.parts.push((Part::Cell(i as u8), r));
             a.hitmap.add(r, 3, Hit::Part(Part::Cell(i as u8)));
         } else {
+            let charge = s
+                .battery
+                .value()
+                .map(|b| b.percent)
+                .filter(|p| p.is_finite())
+                .map(|percent| {
+                    (percent.clamp(0., 100.) / 100. * CELLS.len() as f32 - i as f32).clamp(0., 1.)
+                });
             let inside = outline(
                 b,
                 r,
@@ -790,21 +798,18 @@ fn physical(b: &mut Buffer, c: Rect, available: Rect, a: &mut App) {
                     ""
                 },
                 Provenance::Photo,
-                t.wire,
+                if charge.is_some_and(|v| v > 0.) {
+                    t.battery
+                } else {
+                    t.wire
+                },
                 &t,
                 alignment(r, c),
             );
-            if let Some(percent) = s
-                .battery
-                .value()
-                .map(|b| b.percent)
-                .filter(|p| p.is_finite())
-            {
+            if let Some(charge) = charge {
                 // Six equal shares of pack charge, independent of silhouette size.
-                let charge =
-                    (percent.clamp(0., 100.) / 100. * CELLS.len() as f32 - i as f32).clamp(0., 1.);
                 let fill = charge * inside.height as f32 * 8.;
-                let color = blend(t.battery, t.panel, 0.5);
+                let color = t.battery;
                 for from_bottom in 0..inside.height {
                     let eighths = (fill - from_bottom as f32 * 8.).round().clamp(0., 8.) as u32;
                     if eighths == 0 {
