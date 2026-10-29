@@ -38,6 +38,33 @@ fn representative_layouts() {
             frames += &format!("\n{}\n{}", page.name(), render(&mut a, w, h));
         }
         insta::assert_snapshot!(format!("layouts_{w}x{h}"), frames);
+        if w >= 120 {
+            a.act(Action::GoTo(Screen::Teardown));
+            let mut numbered = None;
+            for orientation in ["front", "back"] {
+                a.cfg.teardown.orientation = orientation.into();
+                let view = render(&mut a, w, h);
+                let fans = view.lines().find(|line| line.contains("FAN 0")).unwrap();
+                assert!(fans.find("FAN 0").unwrap() < fans.find("FAN 1").unwrap());
+                let rect = |part| a.parts.iter().find(|(p, _)| *p == part).unwrap().1;
+                let positions = [Part::Fan0, Part::Fan1]
+                    .into_iter()
+                    .chain((0..6).map(Part::Cell))
+                    .map(rect)
+                    .collect::<Vec<_>>();
+                assert!(positions[0].x < positions[1].x);
+                // Cells run down the left pair, across the middle, then down the right pair.
+                assert_eq!(positions[2].x, positions[3].x);
+                assert_eq!(positions[6].x, positions[7].x);
+                assert!(positions[2].x < positions[4].x);
+                assert!(positions[4].x < positions[5].x);
+                assert!(positions[5].x < positions[6].x);
+                if let Some(front) = &numbered {
+                    assert_eq!(front, &positions);
+                }
+                numbered = Some(positions);
+            }
+        }
     }
 }
 #[test]

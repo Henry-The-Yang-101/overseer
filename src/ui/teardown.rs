@@ -164,8 +164,12 @@ struct Layout {
 }
 impl Layout {
     fn new(c: Rect, mirror: bool) -> Self {
-        let mut components: [Rect; 9] =
-            std::array::from_fn(|i| to_cells(COMPONENTS[i].rect, c, mirror));
+        let mut components: [Rect; 9] = std::array::from_fn(|i| {
+            let spec = COMPONENTS[i];
+            // Numbered fans keep their screen order and telemetry identity in either view.
+            let mirror = mirror && !matches!(spec.part, Part::Fan0 | Part::Fan1);
+            to_cells(spec.rect, c, mirror)
+        });
         // Reserve a clear trunk and a short lead after even the longest port label.
         for i in [1, 2] {
             let r = &mut components[i];
@@ -205,7 +209,8 @@ impl Layout {
         components[8].y = battery_top + 1;
         components[8].height = battery_h.saturating_sub(1);
         let cells = std::array::from_fn(|i| {
-            let mut r = to_cells(CELLS[i], c, mirror);
+            // Cell numbers and configured telemetry slots follow screen order as well.
+            let mut r = to_cells(CELLS[i], c, false);
             let upper_h = battery_h.saturating_sub(1) / 2;
             r.y = if i == 1 || i == 5 {
                 battery_top + upper_h + 1
@@ -1012,7 +1017,7 @@ fn reticle(b: &mut Buffer, r: Rect, c: ratatui::style::Color) {
     }
 }
 
-// Coordinates retain the underside basis; the default front orientation mirrors every layer.
+// Port coordinates use the underside basis and mirror with the chassis orientation.
 const PORTS: [(PortKind, bool, f32, &str); 7] = [
     (PortKind::MagSafe, false, 0.15, "MAG"),
     (PortKind::UsbC(1), false, 0.25, "TB1"),
