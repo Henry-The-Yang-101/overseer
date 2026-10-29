@@ -897,6 +897,16 @@ impl App {
             2.
         } else if !self.focused || self.motion == Motion::Reduced {
             4.
+        } else if self.cfg.teardown.audio_enabled
+            && self.cursor.is_none()
+            && (self.screen == Screen::Teardown
+                || matches!(self.zoom, Some(Part::SpeakerLeft | Part::SpeakerRight))
+                || matches!(
+                    self.layers.last(),
+                    Some(Layer::Inspector(Part::SpeakerLeft | Part::SpeakerRight))
+                ))
+        {
+            60.
         } else if s.energy() > 0.08
             || s.fans.value().is_some_and(|v| v.iter().any(|f| f.rpm > 0))
             || self.fx.is_running()

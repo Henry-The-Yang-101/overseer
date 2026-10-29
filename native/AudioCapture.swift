@@ -73,7 +73,7 @@ if #available(macOS 14.2, *) {
         try check(AudioDeviceStart(device, io), "Start capture")
         emit(["status": "Waiting for audio / macOS permission"])
         let timer = DispatchSource.makeTimerSource(queue: .main)
-        timer.schedule(deadline: .now(), repeating: .milliseconds(50))
+        timer.schedule(deadline: .now(), repeating: .microseconds(16_667), leeway: .milliseconds(1))
         timer.setEventHandler {
             lock.lock()
             let frame = latest.map { $0.map { $0 } }
