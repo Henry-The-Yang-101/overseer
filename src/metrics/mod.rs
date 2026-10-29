@@ -2,9 +2,11 @@ mod collector;
 mod demo;
 pub mod details;
 pub mod ports;
+pub mod power_mode;
 mod sockets;
 pub use collector::{send_signal, spawn_collector};
 pub use demo::{SCENARIOS, demo};
+pub use power_mode::PowerMode;
 use serde::Serialize;
 use std::sync::Arc;
 
@@ -148,6 +150,7 @@ pub struct Sample {
     pub energy_wh: f64,
     pub machine: Arc<Machine>,
     pub cpu: f32,
+    pub power_mode: Avail<PowerMode>,
     pub cpu_split: Avail<[f32; 3]>,
     pub load: [f64; 3],
     pub tiers: Vec<Tier>,

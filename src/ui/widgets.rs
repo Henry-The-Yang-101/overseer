@@ -371,7 +371,8 @@ fn cpu(b: &mut Buffer, r: Rect, s: &Sample, a: &App) {
         );
     }
     let footer = format!(
-        "CPU {}   {}   UP {}",
+        "{} · CPU {}   {}   UP {}",
+        avail(&s.power_mode, |mode| mode.label().into()),
         watts(&s.power[0]),
         temp(&s.cpu_temp, &a.cfg.units),
         duration(s.uptime as f64)

@@ -43,6 +43,8 @@ fn collect(tx: &mpsc::SyncSender<Sample>) -> anyhow::Result<()> {
     let mut last_ports = Instant::now();
     let mut battery = Avail::Acquiring;
     let mut last_battery = Instant::now() - Duration::from_secs(20);
+    let mut power_mode = Avail::Acquiring;
+    let mut last_power_mode = Instant::now() - Duration::from_secs(20);
     #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
     let mut sampler = macmon::Sampler::new().ok();
     loop {
@@ -411,6 +413,11 @@ fn collect(tx: &mpsc::SyncSender<Sample>) -> anyhow::Result<()> {
             last_battery = Instant::now();
         }
         s.battery = battery.clone();
+        if last_power_mode.elapsed() >= Duration::from_secs(3) {
+            power_mode = super::power_mode::read();
+            last_power_mode = Instant::now();
+        }
+        s.power_mode = power_mode.clone();
         if let Some(rx) = &port_rx {
             match rx.try_recv() {
                 Ok(state) => {

@@ -85,6 +85,7 @@ pub fn demo(scenario: &str, t: f64) -> Sample {
             cpu_count: tiers.iter().map(|t| t.cores.len()).sum(),
         }),
         cpu,
+        power_mode: Avail::Ok(PowerMode::Automatic),
         cpu_split: Avail::Ok([cpu * 0.78, cpu * 0.22, 1. - cpu]),
         load: [cpu as f64 * 12., 3.18, 2.76],
         tiers,
@@ -303,6 +304,7 @@ pub fn demo(scenario: &str, t: f64) -> Sample {
         Arc::make_mut(&mut s.machine).chip = "Three-tier CPU".into();
     }
     if scenario == "missing-sensors" {
+        s.power_mode = Avail::Unsupported("power mode unavailable in this scenario".into());
         s.ports = Avail::Unsupported("port sensors unavailable in this scenario".into());
         s.gpu = Avail::Unsupported("GPU residency not reported".into());
         s.gpu_mhz = Avail::Unsupported("GPU clock not reported".into());

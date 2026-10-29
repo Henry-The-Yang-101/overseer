@@ -83,6 +83,24 @@ fn representative_layouts() {
                 }
                 numbered = Some(positions);
             }
+            // The chip and CPU page use the sampled mode.
+            for mode in [
+                overseer::metrics::PowerMode::LowPower,
+                overseer::metrics::PowerMode::Automatic,
+                overseer::metrics::PowerMode::HighPower,
+            ] {
+                std::sync::Arc::make_mut(a.history.back_mut().unwrap()).power_mode =
+                    overseer::metrics::Avail::Ok(mode);
+                let chip = render(&mut a, w, h);
+                assert!(chip.contains(if w == 120 {
+                    mode.compact_label()
+                } else {
+                    mode.label()
+                }));
+                a.act(Action::GoPage(Page::Cpu));
+                assert!(render(&mut a, w, h).contains(mode.label()));
+                a.act(Action::GoTo(Screen::Teardown));
+            }
         }
     }
 }

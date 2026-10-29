@@ -39,7 +39,15 @@ pub fn draw(b: &mut Buffer, r: Rect, a: &mut App, size: SizeClass) {
     let s = a.sample();
     let t = a.theme.clone();
     let color = widgets::tint(a.page.part(), &t);
-    let title = format!("{} · {}", a.page.name().to_uppercase(), a.page.title());
+    let title = if a.page == Page::Cpu {
+        format!(
+            "CPU · {} · {}",
+            a.page.title(),
+            avail(&s.power_mode, |mode| mode.label().into())
+        )
+    } else {
+        format!("{} · {}", a.page.name().to_uppercase(), a.page.title())
+    };
     let subtitle = if a.expanded {
         "z restore tasks"
     } else {

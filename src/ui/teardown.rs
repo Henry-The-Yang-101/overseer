@@ -566,6 +566,20 @@ fn physical(b: &mut Buffer, c: Rect, available: Rect, a: &mut App) {
                     t.gpu,
                 );
                 side_text(b, inside, c, 2, temp(&s.cpu_temp, &a.cfg.units), heat_color);
+                side_text(
+                    b,
+                    inside,
+                    c,
+                    3,
+                    avail(&s.power_mode, |mode| {
+                        if inside.width >= 10 {
+                            mode.label().into()
+                        } else {
+                            mode.compact_label().into()
+                        }
+                    }),
+                    t.muted,
+                );
                 let phase = if a.motion == crate::motion::Motion::Full {
                     a.anim.phases.get("ambient").copied().unwrap_or(0.)
                 } else {
