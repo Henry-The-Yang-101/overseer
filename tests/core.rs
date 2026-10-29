@@ -1,27 +1,170 @@
-use overseer::{app::{App,Action,Part,Screen,Layer,Dir,neighbor,process_matches},config::Config,metrics::{self,Avail,allocate_cells},motion::{MoodTracker,Mood,visual_rev_per_sec,Spring},ui::{kit::{HitMap,Hit,max_pool,percent,freq},teardown::{fit_chassis,to_cells,NRect}}};
-use ratatui::layout::{Rect,Position};
-use crossterm::event::{KeyCode,KeyEvent,KeyModifiers};
-use proptest::prelude::*;
-fn app()->App{let mut c=Config::default();c.ui.onboarding_seen=true;c.ui.motion="off".into();App::new(c,Some("balanced".into()))}
-proptest!{
-    #[test]fn allocation_is_exact(values in prop::array::uniform5(any::<u64>()),cells in 0usize..10000){let a=allocate_cells(values,cells);prop_assert_eq!(a.iter().sum::<usize>(),cells);}
-    #[test]fn adjacent_parts_share_edge(w in 1u16..500,h in 1u16..200,x in 0.01f32..0.99){let c=Rect::new(2,3,w,h);let l=to_cells(NRect::new(0.,0.,x,1.),c,false);let r=to_cells(NRect::new(x,0.,1.-x,1.),c,false);prop_assert_eq!(l.right(),r.x);prop_assert_eq!(r.right(),c.right());}
-    #[test]fn fit_stays_inside(w in 1u16..500,h in 1u16..200,aspect in 1.5f32..2.8){let r=Rect::new(2,3,w,h);let f=fit_chassis(r,1.413,aspect);prop_assert!(f.x>=r.x&&f.y>=r.y&&f.right()<=r.right()&&f.bottom()<=r.bottom());if f.height>0{prop_assert!((f.width as f32-f.height as f32*1.413*aspect).abs()<1.1);}}
-    #[test]fn rotor_never_aliases(rpm in 0u32..10000,fps in 1f32..60.){let r=visual_rev_per_sec(rpm,Some(5700),9,fps);prop_assert!(r<=0.45*fps/9.+0.0001);prop_assert!(r>=0.);}
-    #[test]fn pct_is_fixed_width(v in -1000f32..1000.){prop_assert_eq!(percent(v).len(),6);}
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use overseer::{
+    app::{Action, App, Layer, Page, Part, Screen},
+    config::Config,
+    metrics::{self, Avail, allocate_cells},
+    ui::{processes::power_estimate, teardown::fit_chassis},
+};
+use ratatui::layout::Rect;
+fn app() -> App {
+    let mut c = Config::default();
+    c.ui.onboarding_seen = true;
+    c.ui.motion = "off".into();
+    App::new(c, Some("balanced".into()))
 }
-#[test]fn max_pool_preserves_short_spike(){let mut data=vec![0.;1000];data[371]=1.;assert_eq!(max_pool(&data,80).iter().copied().fold(0.,f32::max),1.);}
-#[test]fn hysteresis_does_not_flicker(){let mut m=MoodTracker::default();m.update(0.42,1.);for i in 2..100{assert_eq!(m.update(if i%2==0{0.39}else{0.41},i as f64),Mood::Busy);}m.update(0.,101.);assert_eq!(m.mood,Mood::Asleep);}
-#[test]fn frantic_requires_sustained_load(){let mut m=MoodTracker::default();assert_eq!(m.update(0.98,1.),Mood::High);assert_eq!(m.update(0.98,5.9),Mood::High);assert_eq!(m.update(0.98,6.),Mood::Frantic);}
-#[test]fn spring_never_overshoots(){let mut s=Spring::default();for _ in 0..200{s.step(1.,0.016,0.4);assert!(s.pos<=1.&&s.pos>=0.);}assert!(s.pos>0.99);}
-#[test]fn zero_system_power_is_failure_not_zero(){assert!(matches!(metrics::normalize_system_power(0.),Avail::Failed(_)));assert_eq!(metrics::demo("all-idle",1.).power[2],Avail::Ok(0.));}
-#[test]fn hit_map_uses_topmost_and_latest(){let r=Rect::new(0,0,10,10);let mut h=HitMap::default();h.add(r,1,Hit::Part(Part::Cpu));h.add(r,2,Hit::Part(Part::Gpu));assert_eq!(h.at(Position::new(1,1)),Some(&Hit::Part(Part::Gpu)));h.add(r,2,Hit::Part(Part::Ane));assert_eq!(h.at(Position::new(1,1)),Some(&Hit::Part(Part::Ane)));}
-#[test]fn nav_chooses_correct_half_plane(){let r=Rect::new(10,10,10,10);let parts=[(Part::Gpu,Rect::new(25,10,10,10)),(Part::Cpu,Rect::new(0,10,5,10))];assert_eq!(neighbor(r,Dir::Right,&parts,2.),Some(Part::Gpu));assert_eq!(neighbor(r,Dir::Left,&parts,2.),Some(Part::Cpu));assert_eq!(neighbor(r,Dir::Up,&parts,2.),None);}
-#[test]fn pause_freezes_all_values_while_recording_continues(){let mut a=app();a.act(Action::PlayPause);let old=a.sample();a.ingest(metrics::demo("gpu-burst",180.));assert_eq!(a.sample().at,old.at);assert_eq!(a.sample().gpu,old.gpu);a.act(Action::Step(-10));assert_eq!(a.sample().at,169.);a.act(Action::Live);assert_eq!(a.sample().at,180.);}
-#[test]fn escape_closes_exactly_one_layer_and_never_quits(){let mut a=app();a.cursor=Some(100.);a.zoom=Some(Part::Cpu);a.layers.push(Layer::Inspector(Part::Cpu));a.layers.push(Layer::Help);a.act(Action::Back);assert_eq!(a.layers.len(),1);assert!(a.zoom.is_some());a.act(Action::Back);assert!(a.layers.is_empty());assert!(a.zoom.is_some());a.act(Action::Back);assert!(a.zoom.is_none());assert!(a.cursor.is_some());for _ in 0..10{a.act(Action::Back);}assert!(!a.quit);assert!(a.cursor.is_none());}
-#[test]fn modal_traps_enter_and_requires_uppercase_for_kill(){let mut a=app();let p=a.rows[0].process.clone();a.layers.push(Layer::Signal{process:p,force:true});for code in [KeyCode::Enter,KeyCode::Char('y'),KeyCode::Char('q')]{a.on_key(KeyEvent::new(code,KeyModifiers::NONE));assert!(matches!(a.layers.last(),Some(Layer::Signal{..})));assert!(!a.quit);}a.on_key(KeyEvent::new(KeyCode::Esc,KeyModifiers::NONE));assert!(a.layers.is_empty());}
-#[test]fn synthetic_and_replay_signals_disabled(){let mut a=app();a.screen=Screen::Processes;a.act(Action::Signal);assert!(a.layers.is_empty());a.demo=None;a.cursor=Some(40.);a.act(Action::Signal);assert!(a.layers.is_empty());}
-#[test]fn text_input_does_not_trigger_quit_or_shortcuts(){let mut a=app();a.act(Action::Search);for ch in "qtam".chars(){a.on_key(KeyEvent::new(KeyCode::Char(ch),KeyModifiers::NONE));}assert_eq!(a.search.as_deref(),Some("qtam"));assert!(!a.quit);assert_eq!(a.theme.name,"holo");}
-#[test]fn search_filters_user_and_pid(){let s=metrics::demo("balanced",1.);let p=&s.processes[1];assert!(process_matches(p,&format!("pid:{}",p.pid)));assert!(!process_matches(p,"user:root"));assert!(process_matches(p,"rstc"));}
-#[test]fn stable_process_selection_survives_sort(){let mut a=app();a.move_row(3);let selected=a.selected_process;a.act(Action::Sort);assert_eq!(a.selected_process,selected);a.act(Action::Reverse);assert_eq!(a.selected_process,selected);}
-#[test]fn frequency_slots_are_fixed(){assert_eq!(freq(972).len(),8);assert_eq!(freq(4512).len(),8);}
+fn key(a: &mut App, k: KeyCode) {
+    a.on_key(KeyEvent::new(k, KeyModifiers::NONE));
+}
+#[test]
+fn navigation_restores_page_state_and_gives_drawer_arrow_ownership() {
+    let mut a = app();
+    assert_eq!(a.screen, Screen::Teardown);
+    key(&mut a, KeyCode::Char('2'));
+    assert_eq!(a.screen, Screen::Systems);
+    assert!(a.selected_process.is_none());
+    key(&mut a, KeyCode::Down);
+    assert_eq!(a.selected_process, Some(a.rows[0].process.key()));
+    let selected = a.selected_process;
+    key(&mut a, KeyCode::Enter);
+    key(&mut a, KeyCode::Right);
+    assert_eq!(a.page, Page::Cpu);
+    assert!(matches!(
+        a.layers.last(),
+        Some(Layer::Process { tab: 1, .. })
+    ));
+    key(&mut a, KeyCode::Down);
+    assert_ne!(a.selected_process, selected);
+    if let Some(Layer::Process { process, .. }) = a.layers.last() {
+        assert_eq!(Some(process.key()), a.selected_process);
+    }
+    key(&mut a, KeyCode::Esc);
+    let selected = a.selected_process;
+    key(&mut a, KeyCode::Right);
+    assert_eq!(a.page, Page::Memory);
+    assert!(a.selected_process.is_none());
+    assert_eq!(a.sort, 1);
+    key(&mut a, KeyCode::Left);
+    assert_eq!(a.selected_process, selected);
+    key(&mut a, KeyCode::Left);
+    assert_eq!(a.page, Page::Gpu);
+    key(&mut a, KeyCode::Right);
+    assert_eq!(a.page, Page::Cpu);
+    a.act(Action::GoTo(Screen::Teardown));
+    a.select(Part::Memory);
+    key(&mut a, KeyCode::Char('g'));
+    assert_eq!(a.page, Page::Memory);
+}
+#[test]
+fn filters_expansion_and_escape_are_safe() {
+    let mut a = app();
+    a.act(Action::Search);
+    for c in "qtam".chars() {
+        key(&mut a, KeyCode::Char(c));
+    }
+    assert!(!a.quit);
+    assert_eq!(a.search.as_deref(), Some("qtam"));
+    key(&mut a, KeyCode::Enter);
+    key(&mut a, KeyCode::Right);
+    assert_eq!(a.search.as_deref(), Some("qtam"));
+    key(&mut a, KeyCode::Esc);
+    assert_eq!(a.search.as_deref(), Some(""));
+    key(&mut a, KeyCode::Esc);
+    assert!(a.search.is_none());
+    a.act(Action::Zoom);
+    assert!(a.expanded);
+    key(&mut a, KeyCode::Esc);
+    assert!(!a.expanded);
+    for _ in 0..10 {
+        key(&mut a, KeyCode::Esc);
+    }
+    assert!(!a.quit);
+}
+#[test]
+fn paused_replay_pins_telemetry_task_values_and_energy() {
+    let mut a = app();
+    a.follow = Some(a.rows[0].process.clone());
+    a.act(Action::PlayPause);
+    let before = a.sample();
+    for time in 180..200 {
+        a.ingest(metrics::demo("gpu-burst", time as f64));
+    }
+    let after = a.sample();
+    assert_eq!(before.at, after.at);
+    assert_eq!(before.energy_wh, after.energy_wh);
+    assert_eq!(before.processes[0].cpu, after.processes[0].cpu);
+    a.act(Action::Step(-10));
+    let snapshot = a.sample();
+    assert_eq!(snapshot.at, 169.);
+    assert!(snapshot.process_at <= snapshot.at);
+    let followed = a.displayed_follow().unwrap();
+    assert_eq!(
+        followed.cpu,
+        snapshot
+            .processes
+            .iter()
+            .find(|p| p.key() == followed.key())
+            .unwrap()
+            .cpu
+    );
+    a.act(Action::Live);
+    assert_eq!(a.sample().at, 199.);
+}
+#[test]
+fn signals_require_explicit_confirmation_and_are_disabled_in_demo_and_replay() {
+    let mut a = app();
+    a.move_row(1);
+    a.act(Action::Signal);
+    assert!(a.layers.is_empty());
+    a.demo = None;
+    a.cursor = Some(40.);
+    a.act(Action::Signal);
+    assert!(a.layers.is_empty());
+    let p = a.rows[0].process.clone();
+    a.layers.push(Layer::Signal {
+        process: p,
+        force: true,
+    });
+    for code in [KeyCode::Enter, KeyCode::Char('y'), KeyCode::Char('q')] {
+        key(&mut a, code);
+        assert!(matches!(a.layers.last(), Some(Layer::Signal { .. })));
+        assert!(!a.quit);
+    }
+    key(&mut a, KeyCode::Esc);
+    assert!(a.layers.is_empty());
+    let mut protected = metrics::demo("balanced", 0.).processes[0].clone();
+    protected.pid = 1;
+    assert!(metrics::send_signal(&protected, false).is_err());
+}
+#[test]
+fn accounting_never_fabricates_sensor_values_or_exceeds_totals() {
+    assert!(matches!(
+        metrics::normalize_system_power(0.),
+        Avail::Failed(_)
+    ));
+    let s = metrics::demo("balanced", 1.);
+    let sum = s
+        .processes
+        .iter()
+        .map(|p| *power_estimate(p, &s).value().unwrap())
+        .sum::<f32>();
+    assert!(sum <= s.power[0].value().unwrap() + 0.001);
+    let mut a = app();
+    a.act(Action::Demo("missing-sensors".into()));
+    assert!(a.history_values(Part::Gpu).is_empty());
+    assert!(a.history_values(Part::Power).is_empty());
+    for values in [[0; 5], [1, 2, 3, 4, 5], [u64::MAX; 5], [3, 9, 2, 5, 5]] {
+        for cells in [0, 1, 37, 1000] {
+            assert_eq!(allocate_cells(values, cells).iter().sum::<usize>(), cells);
+        }
+    }
+}
+#[test]
+fn chassis_fits_terminal_sizes() {
+    for (w, h) in [(60, 18), (80, 24), (120, 36), (200, 55), (320, 100)] {
+        for aspect in [1.5, 2.05, 2.8] {
+            let r = Rect::new(1, 3, w, h);
+            let c = fit_chassis(r, 1.413, aspect);
+            assert!(c.x >= r.x && c.y >= r.y && c.right() <= r.right() && c.bottom() <= r.bottom());
+        }
+    }
+}

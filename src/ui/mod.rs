@@ -1,9 +1,10 @@
-pub mod board;
 pub mod kit;
 pub mod overlays;
 pub mod processes;
+pub mod systems;
 pub mod teardown;
 pub mod theme;
+pub mod widgets;
 use crate::{
     app::{App, Screen},
     motion::Motion,
@@ -68,20 +69,23 @@ pub fn draw(f: &mut Frame, a: &mut App, dt: std::time::Duration) {
         overlays::detail(b, stage, a, p, true);
     } else {
         match a.screen {
-            Screen::Board => board::draw(b, stage, a, size),
             Screen::Teardown => teardown::draw(b, stage, a, size),
-            Screen::Processes => processes::draw(b, stage, a, size),
+            Screen::Systems => systems::draw(b, stage, a, size),
         }
     }
     if a.transition && a.motion == Motion::Full {
         a.fx.add_unique_effect(
             1,
             tachyonfx::fx::sweep_in(
-                tachyonfx::Motion::LeftToRight,
+                if a.slide_direction < 0 {
+                    tachyonfx::Motion::RightToLeft
+                } else {
+                    tachyonfx::Motion::LeftToRight
+                },
                 10,
                 0,
                 t.void,
-                (200, tachyonfx::Interpolation::QuadOut),
+                (180, tachyonfx::Interpolation::QuadOut),
             )
             .with_area(stage),
         );
@@ -237,9 +241,8 @@ fn chrome(b: &mut ratatui::buffer::Buffer, r: Rect, a: &mut App, size: SizeClass
     }
     let mut x = 1;
     for (screen, name) in [
-        (Screen::Board, "1 Board"),
-        (Screen::Teardown, "2 Teardown"),
-        (Screen::Processes, "3 Processes"),
+        (Screen::Teardown, "1 Teardown"),
+        (Screen::Systems, "2 Systems"),
     ] {
         let selected = a.screen == screen;
         let label = format!(" {} ", name);
@@ -255,7 +258,7 @@ fn chrome(b: &mut ratatui::buffer::Buffer, r: Rect, a: &mut App, size: SizeClass
         a.hitmap.add(Rect::new(x, 2, w, 1), 10, Hit::Screen(screen));
         x += w + 1;
     }
-    if let Some(p) = &a.displayed_follow().or_else(|| a.follow.clone()) {
+    if let Some(p) = &a.displayed_follow() {
         let label = format!(
             "◎ {} #{}  {:.1}%  {}{}",
             p.name,
@@ -352,17 +355,17 @@ fn timeline(b: &mut ratatui::buffer::Buffer, r: Rect, a: &mut App) {
 fn hints(b: &mut ratatui::buffer::Buffer, r: Rect, a: &App, size: SizeClass) {
     let t = &a.theme;
     let h = if !a.layers.is_empty() {
-        "Esc back"
+        "←→ inspector tabs   ↑↓ task   PgUp/PgDn scroll   Esc close"
     } else if a.searching {
         "Type to filter   ↑↓ choose   Enter done   Esc clear"
     } else if a.cursor.is_some() {
         ", . step   < > ×10   { } spikes   Space play   End live   ? help"
     } else if a.zoom.is_some() {
         "← → sibling   Enter details   Esc back"
-    } else if a.screen == Screen::Processes {
-        "/ search   s sort   T tree   Enter inspect   f follow   X signal   ? help"
+    } else if a.screen == Screen::Systems {
+        "←→ pages   ↑↓ tasks   Enter inspect   / filter   z expand   f follow   ? help"
     } else if a.screen == Screen::Teardown {
-        "Tab select   Enter inspect   z zoom   m cells   L labels   v board   ? help"
+        "Tab select   g system page   Enter inspect   z zoom   m cells   2 Systems   ? help"
     } else if size == SizeClass::Compact {
         "Tab select   Enter inspect   v teardown   Space pause   ? help"
     } else {

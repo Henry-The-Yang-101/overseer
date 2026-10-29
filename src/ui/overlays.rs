@@ -1,4 +1,4 @@
-use super::{board, kit::*, processes, theme::blend};
+use super::{kit::*, processes, theme::blend, widgets};
 use crate::{
     app::{App, Layer, Part, filtered_commands, metric},
     motion::Motion,
@@ -16,8 +16,13 @@ pub fn centered(r: Rect, w: u16, h: u16) -> Rect {
 pub fn draw(b: &mut Buffer, r: Rect, a: &mut App) {
     let t = a.theme.clone();
     if let Some(layer) = a.layers.last().cloned() {
-        for y in r.y..r.bottom() {
-            for x in r.x..r.right() {
+        let dim = if matches!(layer, Layer::Process { .. }) && r.width >= 98 {
+            a.task_rect
+        } else {
+            r
+        };
+        for y in dim.y..dim.bottom() {
+            for x in dim.x..dim.right() {
                 let c = &mut b[(x, y)];
                 c.set_fg(blend(c.fg, t.void, 0.55));
             }
@@ -137,7 +142,12 @@ pub fn draw(b: &mut Buffer, r: Rect, a: &mut App) {
                 line(b, rr, 11, "Enter does not send a signal.", t.muted);
             }
             Layer::Process { process, tab } => {
-                let rect = centered(r, 100, 31);
+                let rect = if r.width < 98 {
+                    r
+                } else {
+                    let w = r.width * if r.width >= 148 { 40 } else { 55 } / 100;
+                    Rect::new(r.right() - w, a.task_rect.y, w, a.task_rect.height)
+                };
                 Clear.render(rect, b);
                 let rr = frame(
                     b,
@@ -333,7 +343,7 @@ pub fn draw(b: &mut Buffer, r: Rect, a: &mut App) {
         let i = (a.started.elapsed().as_secs() / 4).min(2) as usize;
         let tip = [
             "Tab cycles parts · Enter inspects · Esc goes back",
-            "v switches to the MacBook teardown",
+            "2 opens Systems · ← → switches resource pages",
             "? shows controls · : finds any command",
         ][i];
         let rr = Rect::new(
@@ -386,7 +396,7 @@ pub fn draw(b: &mut Buffer, r: Rect, a: &mut App) {
                 b,
                 rr,
                 0,
-                format!("{} · {}", p.name(), board::readout(*p, &a.sample(), a)),
+                format!("{} · {}", p.name(), widgets::readout(*p, &a.sample(), a)),
                 t.text,
             );
         }
@@ -402,50 +412,29 @@ fn help(b: &mut Buffer, r: Rect, a: &App) {
     let t = &a.theme;
     Clear.render(r, b);
     let rr = frame(b, r, "OVERSEER / CONTROLS", "Esc close", true, t);
-    let compact = rr.width < 85;
-    let entries = if compact {
-        vec![
-            "MOVE     1 2 3 screens · v board / teardown",
-            "         Tab / Shift+Tab next / previous part",
-            "         Arrows or h j k l move · Enter inspect",
-            "         z zoom · Esc back one layer (never quits)",
-            "",
-            "TIME     Space pause / play · , . step one",
-            "         < > step ten · { } previous / next spike",
-            "         [ ] history window · + - replay speed",
-            "         End live · click / drag timeline to scrub",
-            "",
-            "LOOK     t theme · a motion · : commands",
-            "PROCESS  / search · s sort · S reverse · T tree",
-            "         f follow · X signal (y / Y confirmation)",
-            "TEARDOWN m telemetry · L labels · H activity · o mirror",
-            "",
-            "q quits · Ctrl+C restores terminal and quits",
-        ]
-    } else {
-        vec![
-            "MOVE                             INSPECT                          TIME",
-            "1 2 3      screens               Enter      component / process   Space   pause / play",
-            "v          board / teardown      z          zoom part             , .     step one",
-            "Tab / ⇧Tab next / previous       f          follow process        < >     step ten",
-            "↑↓←→ hjkl  spatial navigation    /          process search        { }     jump to spike",
-            "Esc        back one layer        :          command palette       [ ]     history window",
-            "                                 ?          this help             + -     replay speed",
-            "                                                                  End     return to live",
-            "",
-            "TEARDOWN     m telemetry cells   L labels   H highlight activity   o mirror orientation",
-            "PROCESSES    s sort   S reverse   T tree   X send signal   user:root / pid:123 filters",
-            "LOOK & FEEL  t theme   a motion (full / reduced / off)   ASCII toggle in command palette",
-            "MOUSE        click select   double-click zoom / inspect   drag rail scrub   wheel scroll",
-            "",
-            "MEMORY       ▣ wired   ■ app   ⣿ compressed   ▒ cache   · free  (symbolic aggregate map)",
-            "PROVENANCE   ── photo-matched   ┄┄ approximate   ┈┈ conceptual   ≈ estimated",
-            "VALUES       0.00 W measured zero   N/A unsupported   READ FAILED sensor error",
-            "",
-            "Signals require y for SIGTERM or Y for SIGKILL. Enter never confirms. Disabled in replay.",
-            "Esc is always safe. It closes one layer and never quits. q or Ctrl+C quits Overseer.",
-        ]
-    };
+    let entries = vec![
+        "1 Teardown · 2 Systems · v switches between them",
+        "",
+        "SYSTEMS   ← → or Tab / Shift+Tab switches resource pages",
+        "          ↑ ↓ selects tasks · Enter opens the inspector",
+        "          / filters · s sort · S reverse · T tree · ⇧← ⇧→ folds tree",
+        "          z expands visualizer · f pins task · X opens signal prompt",
+        "DRAWER    ← → tabs · ↑ ↓ tasks · PgUp/PgDn scroll · Esc closes",
+        "TEARDOWN  Tab selects · arrows navigate · g opens resource page",
+        "          Enter inspects · z zooms · m telemetry cells · L labels",
+        "          H highlights activity · o mirrors orientation",
+        "",
+        "HISTORY   Space pause / play · , . step · < > step ten",
+        "          { } spikes · [ ] window · + - speed · End returns live",
+        "LOOK      t theme · a motion · : command palette · ? help",
+        "MOUSE     Click page / part / task · double-click inspect",
+        "          Drag timeline to scrub · wheel to scroll tasks",
+        "",
+        "VALUES    ≈ estimate · N/A unavailable · zero means measured zero",
+        "SIGNALS   y sends SIGTERM; Y sends SIGKILL. Enter never confirms.",
+        "          Signals disabled in demo / replay. PID identity is checked.",
+        "Esc backs out one layer. q or Ctrl+C quits and restores the terminal.",
+    ];
     for (i, l) in entries.iter().enumerate() {
         line(
             b,
@@ -611,7 +600,7 @@ pub fn detail(b: &mut Buffer, r: Rect, a: &mut App, part: Part, zoom: bool) {
         );
         text(b, widget, ring_w + 3, 8, watts(&s.power[0]), t.text);
     } else {
-        board::content(b, widget, p, &s, a);
+        widgets::content(b, widget, p, &s, a);
     }
     if wide {
         let snap = Rect::new(
@@ -706,7 +695,7 @@ pub fn detail(b: &mut Buffer, r: Rect, a: &mut App, part: Part, zoom: bool) {
         chart,
         &plot,
         max,
-        board::tint(p, &t),
+        widgets::tint(p, &t),
         &t,
         a.cfg.ui.glyphs == "ascii",
     );
@@ -723,7 +712,7 @@ pub fn detail(b: &mut Buffer, r: Rect, a: &mut App, part: Part, zoom: bool) {
                 .fold(f32::INFINITY, f32::min)
                 .min(max),
             max,
-            board::readout(p, &s, a)
+            widgets::readout(p, &s, a)
         ),
         t.muted,
     );

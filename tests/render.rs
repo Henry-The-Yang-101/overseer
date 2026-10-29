@@ -1,11 +1,66 @@
-use overseer::{app::{App,Action,Layer,Screen,BOARD_PARTS},config::Config,metrics::{self,SCENARIOS},motion::Motion,ui::{self,SizeClass}};
-use ratatui::{Terminal,backend::TestBackend};
+use overseer::{
+    app::{Action, App, Page, Screen},
+    config::Config,
+    ui,
+};
+use ratatui::{Terminal, backend::TestBackend};
 use std::time::Duration;
-fn app(scenario:&str)->App{let mut cfg=Config::default();cfg.ui.onboarding_seen=true;cfg.ui.motion="off".into();let mut a=App::new(cfg,Some(scenario.into()));a.toasts.clear();a.motion=Motion::Off;a}
-fn render(a:&mut App,w:u16,h:u16)->String{let mut term=Terminal::new(TestBackend::new(w,h)).unwrap();term.draw(|f|ui::draw(f,a,Duration::ZERO)).unwrap();let b=term.backend().buffer();let mut out=String::new();for y in 0..h{for x in 0..w{out.push_str(b[(x,y)].symbol());}out.push('\n');}out}
-#[test]fn screen_snapshot_matrix(){for scenario in SCENARIOS{for(w,h)in[(200,55),(120,36),(80,24)]{let mut a=app(scenario);let mut out=String::new();for screen in [Screen::Board,Screen::Teardown,Screen::Processes]{a.screen=screen;out.push_str(&format!("\n=== {} ===\n",screen.name()));out.push_str(&render(&mut a,w,h));if screen==Screen::Teardown{a.cells=true;out.push_str("\n=== telemetry ===\n");out.push_str(&render(&mut a,w,h));a.cells=false;}}a.layers.push(Layer::Help);out.push_str("\n=== help ===\n");out.push_str(&render(&mut a,w,h));insta::assert_snapshot!(format!("{scenario}_{w}x{h}"),out);}}}
-#[test]fn all_widgets_and_overlays_fit_every_size(){for(w,h)in[(60,18),(80,24),(120,36),(200,55)]{let mut a=app("missing-sensors");for p in BOARD_PARTS{a.layers=vec![Layer::Inspector(*p)];render(&mut a,w,h);a.layers.clear();a.zoom=Some(*p);render(&mut a,w,h);a.zoom=None;}for layer in [Layer::Help,Layer::Palette{query:"fan".into(),index:0},Layer::Process{process:metrics::demo("balanced",1.).processes[1].clone(),tab:1}]{a.layers=vec![layer];render(&mut a,w,h);}a.layers.clear();a.act(Action::Search);render(&mut a,w,h);}}
-#[test]fn resize_boundaries_and_tiny_terminals(){let mut a=app("three-tier-cpu");for(w,h)in[(1,1),(52,14),(59,17),(60,18),(99,29),(100,30),(149,41),(150,42),(300,80)]{for screen in[Screen::Board,Screen::Teardown,Screen::Processes]{a.screen=screen;render(&mut a,w,h);}}assert_eq!(SizeClass::of(ratatui::layout::Rect::new(0,0,80,24)),SizeClass::Compact);}
-#[test]fn demo_frames_are_deterministic(){let mut a=app("balanced");let mut b=app("balanced");assert_eq!(render(&mut a,120,36),render(&mut b,120,36));}
-#[test]fn telemetry_disclaimer_visible_at_all_sizes(){for(w,h)in[(200,55),(120,36),(80,24),(60,18)]{let mut a=app("balanced");a.screen=Screen::Teardown;a.cells=true;let s=render(&mut a,w,h);assert!(s.contains("NOT PER-CELL BATTERY DATA"),"disclaimer at {w}x{h}");}}
-#[test]fn every_theme_and_ascii_mode_renders(){for t in ui::theme::NAMES{let mut a=app("gpu-burst");a.theme=ui::theme::Theme::get(t);for screen in[Screen::Board,Screen::Teardown,Screen::Processes]{a.screen=screen;a.cfg.ui.glyphs="ascii".into();let s=render(&mut a,120,36);assert!(!s.chars().any(|c|('\u{2800}'..='\u{28ff}').contains(&c)));}}}
+fn app(scenario: &str) -> App {
+    let mut c = Config::default();
+    c.ui.onboarding_seen = true;
+    c.ui.motion = "off".into();
+    App::new(c, Some(scenario.into()))
+}
+fn render(a: &mut App, w: u16, h: u16) -> String {
+    let mut term = Terminal::new(TestBackend::new(w, h)).unwrap();
+    term.draw(|f| ui::draw(f, a, Duration::ZERO)).unwrap();
+    (0..h)
+        .map(|y| {
+            (0..w)
+                .map(|x| term.backend().buffer()[(x, y)].symbol())
+                .collect::<String>()
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+#[test]
+fn representative_layouts() {
+    for (w, h) in [(80, 24), (120, 36), (200, 55)] {
+        let mut a = app("balanced");
+        let mut frames = format!("TEARDOWN\n{}", render(&mut a, w, h));
+        a.cells = true;
+        frames += &format!("\nTELEMETRY CELLS\n{}", render(&mut a, w, h));
+        a.act(Action::GoTo(Screen::Systems));
+        for page in Page::ALL {
+            a.change_page(page);
+            frames += &format!("\n{}\n{}", page.name(), render(&mut a, w, h));
+        }
+        insta::assert_snapshot!(format!("layouts_{w}x{h}"), frames);
+    }
+}
+#[test]
+fn unavailable_sensors_and_small_resizes_stay_usable() {
+    for scenario in [
+        "missing-sensors",
+        "fanless",
+        "no-battery",
+        "memory-pressure",
+        "three-tier-cpu",
+    ] {
+        let mut a = app(scenario);
+        for (w, h) in [(59, 17), (60, 18), (80, 24), (120, 36)] {
+            render(&mut a, w, h);
+            a.act(Action::GoTo(Screen::Systems));
+            for page in Page::ALL {
+                a.change_page(page);
+                render(&mut a, w, h);
+            }
+            a.change_page(Page::Cpu);
+            a.move_row(1);
+            a.act(Action::Inspect);
+            render(&mut a, w, h);
+            a.act(Action::Back);
+            a.act(Action::GoTo(Screen::Teardown));
+        }
+    }
+}

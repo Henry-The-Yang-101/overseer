@@ -16,25 +16,99 @@ use std::{
 };
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Screen {
-    Board,
     Teardown,
-    Processes,
+    Systems,
 }
 impl Screen {
     pub fn name(self) -> &'static str {
         match self {
-            Self::Board => "board",
             Self::Teardown => "teardown",
-            Self::Processes => "processes",
+            Self::Systems => "systems",
         }
     }
     pub fn parse(s: &str) -> Self {
-        match s {
-            "teardown" => Self::Teardown,
-            "processes" => Self::Processes,
-            _ => Self::Board,
+        if matches!(s, "systems" | "processes") {
+            Self::Systems
+        } else {
+            Self::Teardown
         }
     }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Page {
+    Cpu,
+    Memory,
+    Energy,
+    Disk,
+    Network,
+    Gpu,
+}
+impl Page {
+    pub const ALL: [Self; 6] = [
+        Self::Cpu,
+        Self::Memory,
+        Self::Energy,
+        Self::Disk,
+        Self::Network,
+        Self::Gpu,
+    ];
+    pub fn index(self) -> usize {
+        Self::ALL.iter().position(|p| *p == self).unwrap()
+    }
+    pub fn name(self) -> &'static str {
+        ["cpu", "memory", "energy", "disk", "network", "gpu"][self.index()]
+    }
+    pub fn title(self) -> &'static str {
+        [
+            "EXECUTION FLOOR",
+            "ADDRESS MATRIX",
+            "POWER FLOW",
+            "NAND ARRAY",
+            "SIGNAL TRACES",
+            "SHADER FABRIC",
+        ][self.index()]
+    }
+    pub fn part(self) -> Part {
+        [
+            Part::Cpu,
+            Part::Memory,
+            Part::Power,
+            Part::Disk,
+            Part::Network,
+            Part::Gpu,
+        ][self.index()]
+    }
+    pub fn parse(s: &str) -> Self {
+        Self::ALL
+            .into_iter()
+            .find(|p| p.name() == s)
+            .unwrap_or(Self::Cpu)
+    }
+    pub fn step(self, n: i32) -> Self {
+        Self::ALL[(self.index() as i32 + n).rem_euclid(6) as usize]
+    }
+    pub fn for_part(p: Part) -> Self {
+        match p {
+            Part::Gpu | Part::Ane => Self::Gpu,
+            Part::Memory => Self::Memory,
+            Part::Disk => Self::Disk,
+            Part::Network => Self::Network,
+            Part::Cpu | Part::Soc => Self::Cpu,
+            _ => Self::Energy,
+        }
+    }
+    pub fn default_sort(self) -> usize {
+        [0, 1, 5, 6, 7, 8][self.index()]
+    }
+}
+#[derive(Clone, Default)]
+pub struct TaskListState {
+    pub sort: usize,
+    pub reverse: bool,
+    pub tree: bool,
+    pub collapsed: HashSet<u32>,
+    pub selected: Option<(u32, u64)>,
+    pub scroll: usize,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Part {
@@ -121,7 +195,7 @@ impl Part {
         }
     }
 }
-pub const BOARD_PARTS: &[Part] = &[
+pub const METRIC_PARTS: &[Part] = &[
     Part::Cpu,
     Part::Gpu,
     Part::Ane,
@@ -157,6 +231,11 @@ pub enum Action {
     Palette,
     GoTo(Screen),
     ToggleView,
+    GoPage(Page),
+    OpenPartPage,
+    Collapse(bool),
+    PageRows(i32),
+    Loopback,
     Next(i32),
     Move(Dir),
     Inspect,
@@ -197,9 +276,14 @@ pub struct Command {
 pub fn commands() -> Vec<Command> {
     let mut c = vec![];
     for (name, key, action) in [
-        ("Open Board", "1", Action::GoTo(Screen::Board)),
-        ("Open Teardown", "2", Action::GoTo(Screen::Teardown)),
-        ("Open Processes", "3", Action::GoTo(Screen::Processes)),
+        ("Open Teardown", "1", Action::GoTo(Screen::Teardown)),
+        ("Open Systems", "2", Action::GoTo(Screen::Systems)),
+        (
+            "Open selected component in Systems",
+            "g",
+            Action::OpenPartPage,
+        ),
+        ("Show / hide loopback interfaces", "", Action::Loopback),
         ("Search processes", "/", Action::Search),
         ("Show keyboard controls", "?", Action::Help),
         ("Pause / play history", "Space", Action::PlayPause),
@@ -227,6 +311,13 @@ pub fn commands() -> Vec<Command> {
             action,
         });
     }
+    for page in Page::ALL {
+        c.push(Command {
+            name: format!("Systems: {}", page.name().to_uppercase()),
+            key: "← →",
+            action: Action::GoPage(page),
+        });
+    }
     for (i, n) in NAMES.iter().enumerate() {
         c.push(Command {
             name: format!("Theme: {n}"),
@@ -234,7 +325,7 @@ pub fn commands() -> Vec<Command> {
             action: Action::SetTheme(i),
         });
     }
-    for p in BOARD_PARTS {
+    for p in METRIC_PARTS {
         c.push(Command {
             name: format!("Inspect {}", p.name()),
             key: "Enter",
@@ -248,7 +339,7 @@ pub fn commands() -> Vec<Command> {
             action: Action::InspectPart(p),
         });
     }
-    for p in BOARD_PARTS
+    for p in METRIC_PARTS
         .iter()
         .copied()
         .chain([Part::Fan0, Part::Fan1, Part::Soc])
@@ -274,7 +365,7 @@ pub fn commands() -> Vec<Command> {
         });
     }
     for cell in 0..6 {
-        for p in BOARD_PARTS {
+        for p in METRIC_PARTS {
             c.push(Command {
                 name: format!("Assign cell {} to {}", cell + 1, p.name()),
                 key: "",
@@ -292,9 +383,17 @@ pub fn map_key(k: KeyEvent, s: Screen) -> Option<Action> {
         Char('?') => Action::Help,
         Char(':') => Action::Palette,
         Char('/') => Action::Search,
-        Char('1') => Action::GoTo(Screen::Board),
-        Char('2') => Action::GoTo(Screen::Teardown),
-        Char('3') => Action::GoTo(Screen::Processes),
+        Char('1') => Action::GoTo(Screen::Teardown),
+        Char('2') => Action::GoTo(Screen::Systems),
+        Char('g') if s == Screen::Teardown => Action::OpenPartPage,
+        Left if s == Screen::Systems && k.modifiers.contains(KeyModifiers::SHIFT) => {
+            Action::Collapse(true)
+        }
+        Right if s == Screen::Systems && k.modifiers.contains(KeyModifiers::SHIFT) => {
+            Action::Collapse(false)
+        }
+        PageUp if s == Screen::Systems => Action::PageRows(-1),
+        PageDown if s == Screen::Systems => Action::PageRows(1),
         Char('v') => Action::ToggleView,
         Tab => Action::Next(1),
         BackTab => Action::Next(-1),
@@ -323,11 +422,11 @@ pub fn map_key(k: KeyEvent, s: Screen) -> Option<Action> {
         Char('L') if s == Screen::Teardown => Action::Labels,
         Char('H') if s == Screen::Teardown => Action::Highlight,
         Char('o') if s == Screen::Teardown => Action::Mirror,
-        Char('s') if s == Screen::Processes => Action::Sort,
-        Char('S') if s == Screen::Processes => Action::Reverse,
-        Char('T') if s == Screen::Processes => Action::Tree,
+        Char('s') if s == Screen::Systems => Action::Sort,
+        Char('S') if s == Screen::Systems => Action::Reverse,
+        Char('T') if s == Screen::Systems => Action::Tree,
         Char('f') => Action::Follow,
-        Char('X') if s == Screen::Processes => Action::Signal,
+        Char('X') if s == Screen::Systems => Action::Signal,
         _ => return None,
     })
 }
@@ -356,6 +455,11 @@ pub struct ProcessRow {
 pub struct App {
     pub cfg: Config,
     pub screen: Screen,
+    pub page: Page,
+    pub lists: [TaskListState; 6],
+    pub expanded: bool,
+    pub task_rect: Rect,
+    pub slide_direction: i32,
     pub theme: Theme,
     pub motion: Motion,
     pub demo: Option<String>,
@@ -428,18 +532,31 @@ impl App {
             "1h" => 3,
             _ => 1,
         };
-        let sort = match cfg.processes.sort.as_str() {
-            "memory" => 1,
-            "pid" => 2,
-            "name" => 3,
-            "time" => 4,
-            _ => 0,
-        };
+        let page = Page::parse(&cfg.systems.page);
+        let lists = std::array::from_fn(|i| {
+            let page = Page::ALL[i];
+            let sort = cfg
+                .systems
+                .sorts
+                .get(page.name())
+                .map(|s| sort_index(s))
+                .unwrap_or(page.default_sort());
+            TaskListState {
+                sort,
+                ..TaskListState::default()
+            }
+        });
+        let sort = lists[page.index()].sort;
         let now = Instant::now();
         let mut a = Self {
             boot: cfg.ui.show_boot && motion == Motion::Full,
             cfg,
             screen,
+            page,
+            lists,
+            expanded: false,
+            task_rect: Rect::default(),
+            slide_direction: 1,
             theme,
             motion,
             demo,
@@ -666,7 +783,7 @@ impl App {
             self.cursor = Some(first.at);
             self.toast("history", "Oldest retained sample reached".into(), false);
         }
-        if self.last_input.elapsed() > Duration::from_millis(800) || self.rows.is_empty() {
+        if self.last_input.elapsed() > Duration::from_millis(1500) || self.rows.is_empty() {
             self.refresh_rows(false);
         }
     }
@@ -766,7 +883,7 @@ impl App {
             self.cursor.is_none(),
             self.fps,
         );
-        if self.last_input.elapsed() > Duration::from_millis(800) {
+        if self.last_input.elapsed() > Duration::from_millis(1500) {
             self.refresh_rows(false);
         }
     }
@@ -792,7 +909,7 @@ impl App {
     }
     pub fn part_order(&self) -> Vec<Part> {
         if self.screen != Screen::Teardown {
-            BOARD_PARTS.to_vec()
+            METRIC_PARTS.to_vec()
         } else if self.cells {
             (0..6)
                 .map(Part::Cell)
@@ -823,6 +940,34 @@ impl App {
             self.select(self.part_order()[0]);
         }
     }
+    pub fn change_page(&mut self, page: Page) {
+        if page == self.page {
+            return;
+        }
+        self.lists[self.page.index()] = TaskListState {
+            sort: self.sort,
+            reverse: self.reverse,
+            tree: self.tree,
+            collapsed: self.collapsed.clone(),
+            selected: self.selected_process,
+            scroll: self.scroll,
+        };
+        self.slide_direction = if self.page.step(-1) == page { -1 } else { 1 };
+        self.page = page;
+        self.cfg.systems.page = page.name().into();
+        let state = &self.lists[page.index()];
+        self.sort = state.sort;
+        self.reverse = state.reverse;
+        self.tree = state.tree;
+        self.collapsed = state.collapsed.clone();
+        self.selected_process = state.selected;
+        self.scroll = state.scroll;
+        self.rows.clear();
+        self.ghosts.clear();
+        self.last_row_at = -1.;
+        self.refresh_rows(true);
+        self.transition = true;
+    }
     pub fn move_row(&mut self, n: i32) {
         if self.rows.is_empty() {
             return;
@@ -831,8 +976,9 @@ impl App {
             .rows
             .iter()
             .position(|r| Some(r.process.key()) == self.selected_process)
-            .unwrap_or(0);
-        let j = (i as i32 + n).clamp(0, self.rows.len() as i32 - 1) as usize;
+            .map(|i| i as i32)
+            .unwrap_or(if n > 0 { -1 } else { 1 });
+        let j = (i + n).clamp(0, self.rows.len() as i32 - 1) as usize;
         self.selected_process = Some(self.rows[j].process.key());
     }
     pub fn selected_proc(&self) -> Option<Proc> {
@@ -854,10 +1000,17 @@ impl App {
             self.searching = false;
             return;
         }
+        if self.expanded {
+            self.expanded = false;
+            return;
+        }
         if self.zoom.take().is_some() {
             return;
         }
-        if self.selection.take().is_some() {
+        if self.screen == Screen::Systems && self.selected_process.take().is_some() {
+            return;
+        }
+        if self.screen == Screen::Teardown && self.selection.take().is_some() {
             return;
         }
         if self.follow.take().is_some() {
@@ -890,14 +1043,35 @@ impl App {
                 });
                 self.transition = true;
             }
-            Action::ToggleView => self.act(Action::GoTo(if self.screen == Screen::Board {
-                Screen::Teardown
+            Action::ToggleView => self.act(Action::GoTo(if self.screen == Screen::Teardown {
+                Screen::Systems
             } else {
-                Screen::Board
+                Screen::Teardown
             })),
+            Action::GoPage(page) => {
+                self.act(Action::GoTo(Screen::Systems));
+                self.change_page(page);
+            }
+            Action::OpenPartPage => self.act(Action::GoPage(Page::for_part(
+                self.resolve(self.selection.unwrap_or(Part::Soc)),
+            ))),
+            Action::Loopback => self.cfg.systems.show_loopback = !self.cfg.systems.show_loopback,
+            Action::PageRows(n) => {
+                self.move_row(n * self.task_rect.height.saturating_sub(4).max(1) as i32)
+            }
+            Action::Collapse(collapse) => {
+                if let Some(p) = self.selected_process {
+                    if collapse {
+                        self.collapsed.insert(p.0);
+                    } else {
+                        self.collapsed.remove(&p.0);
+                    }
+                    self.refresh_rows(true);
+                }
+            }
             Action::Next(n) => {
-                if self.screen == Screen::Processes {
-                    self.move_row(n);
+                if self.screen == Screen::Systems {
+                    self.change_page(self.page.step(n));
                 } else {
                     let p = self.part_order();
                     let i = p
@@ -911,22 +1085,12 @@ impl App {
                 }
             }
             Action::Move(d) => {
-                if self.screen == Screen::Processes {
+                if self.screen == Screen::Systems {
                     match d {
                         Dir::Up => self.move_row(-1),
                         Dir::Down => self.move_row(1),
-                        Dir::Left => {
-                            if let Some(p) = self.selected_process {
-                                self.collapsed.insert(p.0);
-                                self.refresh_rows(true);
-                            }
-                        }
-                        Dir::Right => {
-                            if let Some(p) = self.selected_process {
-                                self.collapsed.remove(&p.0);
-                                self.refresh_rows(true);
-                            }
-                        }
+                        Dir::Left => self.change_page(self.page.step(-1)),
+                        Dir::Right => self.change_page(self.page.step(1)),
                     }
                 } else if self.zoom.is_some() {
                     self.act(Action::Next(if matches!(d, Dir::Left | Dir::Up) {
@@ -939,7 +1103,7 @@ impl App {
                 }
             }
             Action::Inspect => {
-                if self.screen == Screen::Processes {
+                if self.screen == Screen::Systems {
                     if let Some(p) = self.selected_proc() {
                         self.layers.push(Layer::Process { process: p, tab: 0 });
                     }
@@ -962,21 +1126,28 @@ impl App {
                 self.cfg.timeline.window = ["1m", "5m", "15m", "1h"][self.window].into();
             }
             Action::Zoom => {
-                if self.screen != Screen::Processes {
+                if self.screen == Screen::Systems {
+                    self.expanded = !self.expanded;
+                } else {
                     self.zoom = Some(self.selection.unwrap_or(Part::Soc));
                     self.transition = true;
                 }
             }
             Action::Search => {
-                self.screen = Screen::Processes;
-                self.search = Some(String::new());
+                self.screen = Screen::Systems;
+                self.search.get_or_insert_with(String::new);
+                self.expanded = false;
                 self.searching = true;
                 self.refresh_rows(true);
             }
             Action::Sort => {
-                self.sort = (self.sort + 1) % 5;
-                self.cfg.processes.sort =
-                    ["cpu", "memory", "pid", "name", "time"][self.sort].into();
+                let options = [self.page.default_sort(), 0, 1, 3, 2];
+                let i = options.iter().position(|s| *s == self.sort).unwrap_or(0);
+                self.sort = options[(i + 1) % options.len()];
+                self.cfg.systems.sorts.insert(
+                    self.page.name().into(),
+                    SORT_NAMES[self.sort].to_lowercase(),
+                );
                 self.refresh_rows(true);
             }
             Action::Reverse => {
@@ -996,7 +1167,7 @@ impl App {
                         self.follow_exited = None;
                     }
                 } else {
-                    self.info("Select a running process in Processes first".into());
+                    self.info("Select a task with ↓ in Systems first".into());
                 }
             }
             Action::Signal => {
@@ -1225,7 +1396,7 @@ impl App {
                 }
                 Layer::Process { tab, .. } => {
                     match k.code {
-                        KeyCode::Left | KeyCode::Char('h') => {
+                        KeyCode::Left | KeyCode::Char('h') | KeyCode::BackTab => {
                             *tab = (*tab + 4) % 5;
                             self.detail_scroll = 0;
                         }
@@ -1233,9 +1404,23 @@ impl App {
                             *tab = (*tab + 1) % 5;
                             self.detail_scroll = 0;
                         }
-                        KeyCode::Down | KeyCode::Char('j') => self.detail_scroll += 1,
-                        KeyCode::Up | KeyCode::Char('k') => {
-                            self.detail_scroll = self.detail_scroll.saturating_sub(1)
+                        KeyCode::Down | KeyCode::Char('j') | KeyCode::Up | KeyCode::Char('k') => {
+                            let n = if matches!(k.code, KeyCode::Down | KeyCode::Char('j')) {
+                                1
+                            } else {
+                                -1
+                            };
+                            self.move_row(n);
+                            if let Some(p) = self.selected_proc()
+                                && let Some(Layer::Process { process, .. }) = self.layers.last_mut()
+                                {
+                                    *process = p;
+                                }
+                            self.detail_scroll = 0;
+                        }
+                        KeyCode::PageDown => self.detail_scroll += 8,
+                        KeyCode::PageUp => {
+                            self.detail_scroll = self.detail_scroll.saturating_sub(8)
                         }
                         KeyCode::Esc => {
                             self.layers.pop();
@@ -1316,6 +1501,7 @@ impl App {
                             }
                         }
                         Hit::Screen(s) => self.act(Action::GoTo(s)),
+                        Hit::Page(p) => self.change_page(p),
                         Hit::Rail => self.scrub(m.column),
                         _ => {}
                     }
@@ -1327,14 +1513,14 @@ impl App {
             MouseEventKind::ScrollUp => {
                 if self.rail.contains(p) {
                     self.act(Action::Step(-1));
-                } else if self.screen == Screen::Processes {
+                } else if self.screen == Screen::Systems {
                     self.move_row(-3);
                 }
             }
             MouseEventKind::ScrollDown => {
                 if self.rail.contains(p) {
                     self.act(Action::Step(1));
-                } else if self.screen == Screen::Processes {
+                } else if self.screen == Screen::Systems {
                     self.move_row(3);
                 }
             }
@@ -1381,7 +1567,14 @@ impl App {
                 }
             }
         }
-        let mut all: Vec<Proc> = s.processes.as_ref().clone();
+        let mut all: Vec<Proc> = if self.page == Page::Gpu {
+            vec![]
+        } else {
+            s.processes.as_ref().clone()
+        };
+        if self.page == Page::Network {
+            all.retain(|p| p.connections.value().is_some_and(|n| *n > 0));
+        }
         let sort = self.sort;
         all.sort_by(|a, b| {
             let cmp = match sort {
@@ -1389,7 +1582,11 @@ impl App {
                 1 => b.memory.cmp(&a.memory),
                 2 => a.pid.cmp(&b.pid),
                 3 => a.name.cmp(&b.name),
-                _ => b.runtime.cmp(&a.runtime),
+                4 => b.runtime.cmp(&a.runtime),
+                5 => b.cpu.total_cmp(&a.cpu),
+                6 => (b.read + b.write).total_cmp(&(a.read + a.write)),
+                7 => b.connections.value().cmp(&a.connections.value()),
+                _ => a.pid.cmp(&b.pid),
             }
             .then(a.pid.cmp(&b.pid));
             if self.reverse { cmp.reverse() } else { cmp }
@@ -1449,7 +1646,7 @@ impl App {
             .iter()
             .any(|r| Some(r.process.key()) == self.selected_process)
         {
-            self.selected_process = rows.first().map(|r| r.process.key());
+            self.selected_process = None;
         }
         self.rows = rows;
     }
@@ -1580,4 +1777,22 @@ pub fn metric_available(p: Part, s: &Sample) -> bool {
             .is_some_and(|fs| fs.len() > if p == Part::Fan0 { 0 } else { 1 }),
         Part::Cell(_) => false,
     }
+}
+
+pub const SORT_NAMES: [&str; 9] = [
+    "CPU",
+    "MEMORY",
+    "PID",
+    "NAME",
+    "TIME",
+    "POWER",
+    "IO",
+    "CONNECTIONS",
+    "GPU",
+];
+pub fn sort_index(s: &str) -> usize {
+    SORT_NAMES
+        .iter()
+        .position(|n| n.eq_ignore_ascii_case(s))
+        .unwrap_or(0)
 }

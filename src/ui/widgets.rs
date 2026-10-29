@@ -1,5 +1,4 @@
 use super::{
-    SizeClass,
     kit::*,
     theme::{Theme, blend},
 };
@@ -9,93 +8,6 @@ use crate::{
     motion::{Mood, face},
 };
 use ratatui::{buffer::Buffer, layout::Rect};
-pub fn draw(b: &mut Buffer, r: Rect, a: &mut App, size: SizeClass) {
-    let split = if size == SizeClass::Compact {
-        r.width * 56 / 100
-    } else {
-        r.width * 60 / 100
-    };
-    let gap = if size == SizeClass::Compact { 1 } else { 3 };
-    let left = Rect::new(r.x, r.y, split, r.height);
-    let right = Rect::new(r.x + split + gap, r.y, r.width - split - gap, r.height);
-    let cpu_h = if size >= SizeClass::Regular {
-        left.height * 55 / 100
-    } else {
-        left.height * 49 / 100
-    };
-    panel(
-        b,
-        Rect::new(left.x, left.y, left.width, cpu_h),
-        Part::Cpu,
-        a,
-    );
-    let mid_y = left.y + cpu_h;
-    let mid_h = if size == SizeClass::Compact {
-        4
-    } else {
-        (left.height - cpu_h) * 55 / 100
-    };
-    let gpu_w = if size == SizeClass::Compact {
-        left.width * 65 / 100
-    } else {
-        left.width * 67 / 100
-    };
-    panel(b, Rect::new(left.x, mid_y, gpu_w, mid_h), Part::Gpu, a);
-    panel(
-        b,
-        Rect::new(left.x + gpu_w + 1, mid_y, left.width - gpu_w - 1, mid_h),
-        Part::Ane,
-        a,
-    );
-    panel(
-        b,
-        Rect::new(
-            left.x,
-            mid_y + mid_h,
-            left.width,
-            left.height - cpu_h - mid_h,
-        ),
-        Part::Power,
-        a,
-    );
-    let heights = if size == SizeClass::Compact {
-        vec![4, 3, 3, 3, right.height.saturating_sub(13)]
-    } else {
-        let m = right.height * 26 / 100;
-        let io = right.height * 15 / 100;
-        let th = right.height * 24 / 100;
-        vec![m, io, io, th, right.height - m - io * 2 - th]
-    };
-    let mut y = right.y;
-    for (p, h) in [
-        Part::Memory,
-        Part::Disk,
-        Part::Network,
-        Part::Thermal,
-        Part::Battery,
-    ]
-    .into_iter()
-    .zip(heights)
-    {
-        panel(b, Rect::new(right.x, y, right.width, h), p, a);
-        y += h;
-    }
-    if gap >= 3 {
-        let t = &a.theme;
-        let s = a.sample();
-        for y in r.y + 1..r.bottom() - 1 {
-            let color = if a.motion == crate::motion::Motion::Full
-                && s.energy() > 0.03
-                && (a.anim.phases.get("power").copied().unwrap_or(0.) as u16 + y).is_multiple_of(11)
-            {
-                t.accent
-            } else {
-                t.wire
-            };
-            text(b, r, split + 1, y - r.y, "┃", color);
-        }
-    }
-}
 pub fn tint(p: Part, t: &Theme) -> ratatui::style::Color {
     match p {
         Part::Cpu | Part::Soc => t.cpu,

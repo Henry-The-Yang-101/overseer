@@ -9,7 +9,9 @@ pub struct Config {
     pub units: Units,
     pub teardown: Teardown,
     pub timeline: Timeline,
-    pub processes: Processes,
+    pub systems: Systems,
+    #[serde(skip_serializing)]
+    pub processes: Option<Processes>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default)]
@@ -51,11 +53,39 @@ pub struct Processes {
     pub sort: String,
     pub cpu_mode: String,
 }
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Systems {
+    pub page: String,
+    pub sorts: std::collections::BTreeMap<String, String>,
+    pub cpu_mode: String,
+    pub show_loopback: bool,
+}
+impl Default for Systems {
+    fn default() -> Self {
+        Self {
+            page: "cpu".into(),
+            cpu_mode: "per-core".into(),
+            show_loopback: false,
+            sorts: [
+                ("cpu", "cpu"),
+                ("memory", "memory"),
+                ("energy", "power"),
+                ("disk", "io"),
+                ("network", "connections"),
+                ("gpu", "gpu"),
+            ]
+            .into_iter()
+            .map(|(k, v)| (k.into(), v.into()))
+            .collect(),
+        }
+    }
+}
 impl Default for Ui {
     fn default() -> Self {
         Self {
             theme: "holo".into(),
-            default_view: "board".into(),
+            default_view: "teardown".into(),
             motion: "full".into(),
             fps: 30,
             glyphs: "unicode".into(),
@@ -119,6 +149,16 @@ impl Config {
         } else {
             Self::default()
         };
+        if let Some(old) = c.processes.take() {
+            c.systems.cpu_mode = old.cpu_mode;
+            c.systems.sorts.insert("cpu".into(), old.sort);
+        }
+        if c.ui.default_view == "board" {
+            c.ui.default_view = "teardown".into();
+        }
+        if c.ui.default_view == "processes" {
+            c.ui.default_view = "systems".into();
+        }
         c.ui.fps = c.ui.fps.clamp(4, 60);
         anyhow::ensure!(
             ["binary", "si"].contains(&c.units.bytes.as_str()),

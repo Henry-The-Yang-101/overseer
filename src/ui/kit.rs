@@ -374,6 +374,7 @@ pub enum Hit {
     Part(crate::app::Part),
     Process((u32, u64)),
     Screen(crate::app::Screen),
+    Page(crate::app::Page),
     Rail,
     Command(usize),
 }

@@ -31,8 +31,10 @@ struct Cli {
     no_boot: bool,
     #[arg(long)]
     debug: bool,
-    #[arg(long,value_parser=["board","teardown","processes"])]
+    #[arg(long,value_parser=["teardown","systems"])]
     view: Option<String>,
+    #[arg(long, value_parser=["cpu","memory","energy","disk","network","gpu"], help="Open a Systems resource page")]
+    page: Option<String>,
     #[arg(long,value_parser=clap::builder::PossibleValuesParser::new(ui::theme::NAMES))]
     theme: Option<String>,
     #[arg(
@@ -59,6 +61,10 @@ fn main() -> anyhow::Result<()> {
     }
     if let Some(v) = c.view {
         cfg.ui.default_view = v;
+    }
+    if let Some(page) = c.page {
+        cfg.systems.page = page;
+        cfg.ui.default_view = "systems".into();
     }
     if c.ascii {
         cfg.ui.glyphs = "ascii".into();

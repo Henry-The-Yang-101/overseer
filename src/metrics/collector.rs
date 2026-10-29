@@ -30,6 +30,11 @@ fn collect(tx: &mpsc::SyncSender<Sample>) -> anyhow::Result<()> {
     let mut strings: HashMap<(u32, u64), Metadata> = HashMap::new();
     let mut processes = Arc::new(Vec::new());
     let mut process_at = 0.;
+    let mut previous_vm: Option<[u64; 5]> = None;
+    let mut previous_ticks = cpu_ticks();
+    let mut socket_rx = None;
+    let mut socket_data: Option<sockets::Snapshot> = None;
+    let mut socket_at = Instant::now() - Duration::from_secs(20);
     let mut last_process = Instant::now() - Duration::from_secs(20);
     let mut battery = Avail::Acquiring;
     let mut last_battery = Instant::now() - Duration::from_secs(20);
@@ -57,6 +62,12 @@ fn collect(tx: &mpsc::SyncSender<Sample>) -> anyhow::Result<()> {
                         .map(|t| Tier {
                             label: t.label.clone(),
                             mhz: t.freq_mhz,
+                            freqs: info
+                                .cpu_tiers
+                                .iter()
+                                .find(|i| i.label == t.label)
+                                .map(|i| i.freqs.clone())
+                                .unwrap_or_default(),
                             max_mhz: info
                                 .cpu_tiers
                                 .iter()
@@ -82,6 +93,8 @@ fn collect(tx: &mpsc::SyncSender<Sample>) -> anyhow::Result<()> {
                     s.tiers.sort_by_key(|t| std::cmp::Reverse(t.cores.len()));
                     s.gpu = Avail::Ok(m.gpu_active_ratio);
                     s.gpu_mhz = Avail::Ok(m.gpu_freq_mhz);
+                    s.gpu_scaled = Avail::Ok(m.gpu_scaled_ratio);
+                    s.gpu_freqs = info.gpu_freqs.clone();
                     s.power = [
                         m.cpu_power,
                         m.gpu_power,
@@ -158,6 +171,7 @@ fn collect(tx: &mpsc::SyncSender<Sample>) -> anyhow::Result<()> {
                 label: "CPU".into(),
                 mhz: 0,
                 max_mhz: 1,
+                freqs: vec![],
                 active: s.cpu,
                 scaled: s.cpu,
                 cores: sys
@@ -185,6 +199,34 @@ fn collect(tx: &mpsc::SyncSender<Sample>) -> anyhow::Result<()> {
         s.at = start.elapsed().as_secs_f64();
         let elapsed = previous.elapsed().as_secs_f64().max(0.001);
         previous = Instant::now();
+        let ticks = cpu_ticks();
+        if let (Some(old), Some(now)) = (previous_ticks, ticks) {
+            let d: [f32; 4] = std::array::from_fn(|i| now[i].wrapping_sub(old[i]) as f32);
+            let total: f32 = d.iter().sum();
+            if total > 0. {
+                s.cpu_split = Avail::Ok([(d[0] + d[3]) / total, d[1] / total, d[2] / total]);
+            }
+        }
+        previous_ticks = ticks;
+        if let Ok(load) = System::load_average() {
+            s.load = [load.one, load.five, load.fifteen];
+        }
+        if let Some(rx) = &socket_rx
+            && let Ok(data) = std::sync::mpsc::Receiver::try_recv(rx) {
+                socket_data = Some(data);
+                socket_rx = None;
+            }
+        if socket_rx.is_none()
+            && socket_at.elapsed() > Duration::from_secs(15)
+            && !processes.is_empty()
+        {
+            socket_rx = Some(sockets::request(processes.clone()));
+            socket_at = Instant::now();
+        }
+        s.connection_states = socket_data
+            .as_ref()
+            .map(|d| d.states.clone())
+            .unwrap_or(Avail::Acquiring);
         nets.refresh(true);
         disks.refresh(true);
         // One primary active physical interface; avoid counting loopback and VPN copies twice.
@@ -204,10 +246,51 @@ fn collect(tx: &mpsc::SyncSender<Sample>) -> anyhow::Result<()> {
                 packets_out: n.packets_transmitted() as f64 / elapsed,
                 errors: n.errors_on_received() + n.errors_on_transmitted(),
                 name: name.to_string_lossy().into_owned(),
+                total_read: n.total_received(),
+                total_write: n.total_transmitted(),
+                addresses: n
+                    .ip_networks()
+                    .iter()
+                    .map(|ip| ip.addr.to_string())
+                    .collect(),
             });
         } else {
             s.network = Avail::Unsupported("no active physical interface".into());
         }
+        s.interfaces = nets
+            .iter()
+            .map(|(name, n)| Flow {
+                name: name.to_string_lossy().into_owned(),
+                read: n.received() as f64 / elapsed,
+                write: n.transmitted() as f64 / elapsed,
+                packets_in: n.packets_received() as f64 / elapsed,
+                packets_out: n.packets_transmitted() as f64 / elapsed,
+                errors: n.errors_on_received() + n.errors_on_transmitted(),
+                total_read: n.total_received(),
+                total_write: n.total_transmitted(),
+                addresses: n
+                    .ip_networks()
+                    .iter()
+                    .map(|ip| ip.addr.to_string())
+                    .collect(),
+            })
+            .collect();
+        s.interfaces.sort_by(|a, b| {
+            (b.read + b.write)
+                .total_cmp(&(a.read + a.write))
+                .then(a.name.cmp(&b.name))
+        });
+        s.volumes = disks
+            .iter()
+            .map(|d| Volume {
+                name: clean(&d.name().to_string_lossy()),
+                mount: clean(&d.mount_point().to_string_lossy()),
+                used: d.total_space().saturating_sub(d.available_space()),
+                total: d.total_space(),
+                external: d.is_removable(),
+                read_only: d.is_read_only(),
+            })
+            .collect();
         // Use the root volume only; APFS volumes share physical counters/capacity.
         if let Some(d) = disks
             .iter()
@@ -218,6 +301,8 @@ fn collect(tx: &mpsc::SyncSender<Sample>) -> anyhow::Result<()> {
                 read: u.read_bytes as f64 / elapsed,
                 write: u.written_bytes as f64 / elapsed,
                 name: d.name().to_string_lossy().into(),
+                total_read: u.total_read_bytes,
+                total_write: u.total_written_bytes,
                 ..Flow::default()
             });
             s.disk_capacity = Avail::Ok((
@@ -246,13 +331,13 @@ fn collect(tx: &mpsc::SyncSender<Sample>) -> anyhow::Result<()> {
                 let meta = strings.entry(key).or_insert_with(|| {
                     (
                         Arc::from(clean(p.name().to_string_lossy().as_ref())),
-                        Arc::from(
-                            p.cmd()
+                        Arc::from(clean(
+                            &p.cmd()
                                 .iter()
                                 .map(|s| s.to_string_lossy())
                                 .collect::<Vec<_>>()
                                 .join(" "),
-                        ),
+                        )),
                         Arc::from(
                             p.user_id()
                                 .and_then(|uid| users.get_user_by_id(uid))
@@ -275,6 +360,16 @@ fn collect(tx: &mpsc::SyncSender<Sample>) -> anyhow::Result<()> {
                     read: u.read_bytes as f64 / dt,
                     write: u.written_bytes as f64 / dt,
                     runtime: p.run_time(),
+                    cpu_time: p.accumulated_cpu_time(),
+                    total_read: u.total_read_bytes,
+                    total_write: u.total_written_bytes,
+                    threads: process_threads(pid.as_u32()),
+                    connections: socket_data
+                        .as_ref()
+                        .and_then(|d| d.counts.get(&key))
+                        .copied()
+                        .map(Avail::Ok)
+                        .unwrap_or(Avail::Unsupported("no visible socket records".into())),
                     status: meta.3.clone(),
                 });
             }
@@ -296,6 +391,14 @@ fn collect(tx: &mpsc::SyncSender<Sample>) -> anyhow::Result<()> {
         s.battery = battery.clone();
         s.uptime = System::uptime().unwrap_or(0);
         read_vm(&mut s);
+        if let Some(now) = s.vm_totals.value() {
+            if let Some(old) = previous_vm {
+                s.vm_rates = Avail::Ok(std::array::from_fn(|i| {
+                    now[i].saturating_sub(old[i]) as f64 / elapsed
+                }));
+            }
+            previous_vm = Some(*now);
+        }
         s.thermal = thermal();
         s.collector_ms = began.elapsed().as_secs_f64() * 1000.;
         if tx.send(s).is_err() {
@@ -341,6 +444,18 @@ fn read_vm(s: &mut Sample) {
                     .and_then(|v| v.trim().trim_end_matches('.').parse::<u64>().ok())
                     .map(|n| n * page)
             };
+            s.compressed_original = count("Pages stored in compressor:")
+                .map(Avail::Ok)
+                .unwrap_or_default();
+            if let (Some(pi), Some(po), Some(si), Some(so), Some(faults)) = (
+                count("Pageins:"),
+                count("Pageouts:"),
+                count("Swapins:"),
+                count("Swapouts:"),
+                count("Translation faults:"),
+            ) {
+                s.vm_totals = Avail::Ok([pi, po, si, so, faults / page]);
+            }
             if let (Some(wired), Some(comp), Some(free)) = (
                 count("Pages wired down:"),
                 count("Pages occupied by compressor:"),
@@ -359,6 +474,14 @@ fn read_vm(s: &mut Sample) {
                 ]);
             }
         }
+        s.pressure_percent = std::process::Command::new("/usr/sbin/sysctl")
+            .args(["-n", "kern.memorystatus_level"])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .and_then(|v| v.trim().parse::<f32>().ok())
+            .map(|v| Avail::Estimated((100. - v).clamp(0., 100.)))
+            .unwrap_or(Avail::Unsupported("pressure percentage unavailable".into()));
         s.pressure = std::process::Command::new("/usr/sbin/sysctl")
             .args(["-n", "kern.memorystatus_vm_pressure_level"])
             .output()
@@ -489,4 +612,55 @@ fn clean(s: &str) -> String {
     s.chars()
         .map(|c| if c.is_control() { ' ' } else { c })
         .collect()
+}
+
+#[cfg(target_os = "macos")]
+#[allow(deprecated)]
+fn cpu_ticks() -> Option<[u32; 4]> {
+    unsafe extern "C" {
+        fn mach_port_deallocate(task: u32, name: u32) -> i32;
+    }
+    let mut info = libc::host_cpu_load_info { cpu_ticks: [0; 4] };
+    let mut count = libc::HOST_CPU_LOAD_INFO_COUNT;
+    // SAFETY: the exact Mach output struct and word count are supplied; the host port is released.
+    unsafe {
+        let host = libc::mach_host_self();
+        let result = libc::host_statistics(
+            host,
+            libc::HOST_CPU_LOAD_INFO,
+            (&mut info as *mut libc::host_cpu_load_info).cast(),
+            &mut count,
+        );
+        #[allow(deprecated)]
+        mach_port_deallocate(libc::mach_task_self(), host);
+        (result == 0).then_some(info.cpu_ticks)
+    }
+}
+#[cfg(not(target_os = "macos"))]
+fn cpu_ticks() -> Option<[u32; 4]> {
+    None
+}
+#[cfg(target_os = "macos")]
+fn process_threads(pid: u32) -> Avail<u32> {
+    // SAFETY: proc_pidinfo writes at most the size of this initialized C struct.
+    unsafe {
+        let mut info: libc::proc_taskinfo = std::mem::zeroed();
+        let size = std::mem::size_of_val(&info) as i32;
+        if libc::proc_pidinfo(
+            pid as i32,
+            libc::PROC_PIDTASKINFO,
+            0,
+            (&mut info as *mut libc::proc_taskinfo).cast(),
+            size,
+        ) == size
+        {
+            Avail::Ok(info.pti_threadnum.max(0) as u32)
+        } else {
+            Avail::Permission("task info restricted".into())
+        }
+    }
+}
+#[cfg(not(target_os = "macos"))]
+fn process_threads(_: u32) -> Avail<u32> {
+    Avail::Unsupported("thread count unavailable".into())
 }

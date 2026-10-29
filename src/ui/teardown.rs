@@ -1,4 +1,4 @@
-use super::{SizeClass, board, kit::*, theme::Theme};
+use super::{SizeClass, kit::*, theme::Theme, widgets};
 use crate::app::{App, Part};
 use ratatui::{
     buffer::Buffer,
@@ -317,7 +317,7 @@ fn physical(b: &mut Buffer, c: Rect, a: &mut App) {
         let color = if selected {
             t.accent
         } else if a.cfg.teardown.highlight_active && activity > 0.02 {
-            board::tint(p, &t)
+            widgets::tint(p, &t)
         } else {
             t.wire
         };
@@ -460,11 +460,11 @@ fn physical(b: &mut Buffer, c: Rect, a: &mut App) {
                 if selected {
                     t.accent
                 } else {
-                    board::tint(p, &t)
+                    widgets::tint(p, &t)
                 },
                 &t,
             );
-            line(b, inside, 0, board::readout(p, &s, a), t.text);
+            line(b, inside, 0, widgets::readout(p, &s, a), t.text);
             let hist = a.history_values(p);
             let max = hist.iter().copied().fold(1., f32::max);
             if inside.height >= 3 {
@@ -473,7 +473,7 @@ fn physical(b: &mut Buffer, c: Rect, a: &mut App) {
                     Rect::new(inside.x, inside.y + 1, inside.width, inside.height - 2),
                     &hist,
                     max,
-                    board::tint(p, &t),
+                    widgets::tint(p, &t),
                     &t,
                     ascii,
                 );
@@ -583,7 +583,7 @@ fn generic(b: &mut Buffer, r: Rect, a: &mut App) {
     let w = r.width / cols;
     let h = r.height / rows;
     for (i, p) in parts.into_iter().enumerate() {
-        board::panel(
+        widgets::panel(
             b,
             Rect::new(
                 r.x + i as u16 % cols * w,
@@ -631,10 +631,10 @@ fn navigator(b: &mut Buffer, r: Rect, a: &mut App) {
         r.height.saturating_sub(1),
     );
     let inside = frame(b, right, &p.name().to_uppercase(), "", true, &t);
-    line(b, inside, 0, board::readout(p, &s, a), t.text);
+    line(b, inside, 0, widgets::readout(p, &s, a), t.text);
     if inside.height > 3 {
         let inner = Rect::new(inside.x, inside.y + 2, inside.width, inside.height - 2);
-        board::content(b, inner, p, &s, a);
+        widgets::content(b, inner, p, &s, a);
     }
 }
 fn selected(b: &mut Buffer, r: Rect, a: &App) {
@@ -643,8 +643,8 @@ fn selected(b: &mut Buffer, r: Rect, a: &App) {
     let s = a.sample();
     let card = Rect::new(r.x, r.y, r.width, (r.height * 55 / 100).max(8));
     let inner = frame(b, card, "SELECTED", "Enter / z", true, t);
-    line(b, inner, 1, p.name().to_uppercase(), board::tint(p, t));
-    line(b, inner, 3, board::readout(p, &s, a), t.text);
+    line(b, inner, 1, p.name().to_uppercase(), widgets::tint(p, t));
+    line(b, inner, 3, widgets::readout(p, &s, a), t.text);
     let h = (inner.height / 4).max(1);
     let values = a.history_values(p);
     spark(
@@ -657,7 +657,7 @@ fn selected(b: &mut Buffer, r: Rect, a: &App) {
         ),
         &values,
         values.iter().copied().fold(1., f32::max),
-        board::tint(p, t),
+        widgets::tint(p, t),
         t,
         a.cfg.ui.glyphs == "ascii",
     );

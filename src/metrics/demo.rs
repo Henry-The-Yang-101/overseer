@@ -44,6 +44,7 @@ pub fn demo(scenario: &str, t: f64) -> Sample {
             label: (*label).into(),
             mhz: (972. + (*max as f32 - 972.) * active) as u32,
             max_mhz: *max,
+            freqs: vec![972, 1512, 2028, 2592, *max],
             active,
             scaled: active * 0.82,
             cores,
@@ -84,8 +85,12 @@ pub fn demo(scenario: &str, t: f64) -> Sample {
             cpu_count: tiers.iter().map(|t| t.cores.len()).sum(),
         }),
         cpu,
+        cpu_split: Avail::Ok([cpu * 0.78, cpu * 0.22, 1. - cpu]),
+        load: [cpu as f64 * 12., 3.18, 2.76],
         tiers,
         gpu: Avail::Ok(gpu),
+        gpu_scaled: Avail::Ok(gpu * 0.76),
+        gpu_freqs: vec![338, 720, 1020, 1240, 1400, 1580],
         gpu_mhz: Avail::Ok((338. + gpu * 1000.) as u32),
         power: [
             Avail::Ok(0.3 + cpu * 22.),
@@ -155,6 +160,9 @@ pub fn demo(scenario: &str, t: f64) -> Sample {
             packets_out: wave(5.) as f64 * 1100.,
             name: "en0".into(),
             errors: 0,
+            total_read: 18_200_000_000,
+            total_write: 2_100_000_000,
+            addresses: vec!["192.0.2.12".into()],
         }),
         battery: Avail::Ok(Battery {
             percent: 82.,
@@ -170,6 +178,27 @@ pub fn demo(scenario: &str, t: f64) -> Sample {
         collector_ms: 1000.,
         ..Sample::default()
     };
+    s.pressure_percent = Avail::Estimated(if scenario == "memory-pressure" {
+        92.
+    } else {
+        39.
+    });
+    s.compressed_original = Avail::Ok(mem[2] * 3);
+    s.vm_rates = Avail::Ok([125000., 4096., 0., 0., 384.]);
+    s.interfaces = vec![s.network.value().unwrap().clone()];
+    s.volumes = vec![Volume {
+        name: "Macintosh HD".into(),
+        mount: "/".into(),
+        used: 412_000_000_000,
+        total: 994_000_000_000,
+        external: false,
+        read_only: true,
+    }];
+    s.connection_states = Avail::Ok(vec![
+        ("ESTABLISHED".into(), 142),
+        ("LISTEN".into(), 21),
+        ("CLOSE_WAIT".into(), 2),
+    ]);
     s.processes = Arc::new(
         [
             "WindowServer",
@@ -212,8 +241,21 @@ pub fn demo(scenario: &str, t: f64) -> Sample {
                 wave(i as f64) * 160. / (i + 1) as f32
             },
             memory: (((20 - i) * 87) as u64) * 1024 * 1024,
-            read: 0.,
-            write: 0.,
+            read: if idle {
+                0.
+            } else {
+                wave(i as f64 + 3.) as f64 * 23_000_000. / (i + 1) as f64
+            },
+            write: if idle {
+                0.
+            } else {
+                wave(i as f64 + 8.) as f64 * 3_200_000. / (i + 1) as f64
+            },
+            total_read: 1_000_000_000 / (i + 1) as u64,
+            total_write: 200_000_000 / (i + 1) as u64,
+            cpu_time: (t * 1000. + i as f64 * 10000.) as u64,
+            threads: Avail::Ok(6 + i as u32),
+            connections: Avail::Ok(if i % 3 == 0 { (20 - i) as u32 } else { 0 }),
             runtime: 1200 + i as u64 * 42,
             status: Arc::from("Running"),
         })

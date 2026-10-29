@@ -1,0 +1,204 @@
+---
+source: tests/render.rs
+expression: frames
+---
+TEARDOWN
+ O V E R S E E R  M4 Pro                                              SYNTHETIC 
+                                                                                
+  1 Teardown   2 Systems                                                        
+ ╭ MACBOOK PRO 14 / M4 PRO ───────────────────────────────────── PHYSICAL [m] ╮ 
+ │ UNDERSIDE VIEW · hinge ↑ · HDMI/SD ← · MagSafe →                           │ 
+ │                                                                            │ 
+ │ COMPONENT NAVIGATOR                                                        │ 
+ │                                   ┏ SYSTEM ON CHIP ━━━━━━━━━━━━━━━━━━━━━━┓ │ 
+ │   Fan 0                           ┃  40.0%                               ┃ │ 
+ │ › System on chip                  ┃                                      ┃ │ 
+ │   Unified memory                  ┃ P CLUSTER  ×8   2.56 GHz   ACT  45.0 ┃ │ 
+ │   Fan 1                           ┃ P0[o_o]  9  P1[o_o] 12  P2[o_o] 37   ┃ │ 
+ │   Storage                         ┃ P3[>_>] 67  P4[@_@] 84  P5[@_@] 78   ┃ │ 
+ │   Power rails                     ┃ P6[>_>] 52  P7[o_o] 22               ┃ │ 
+ │   Battery pack                    ┃ E CLUSTER  ×4   1.46 GHz   ACT  30.0 ┃ │ 
+ │   Thermal system                  ┃ E0(o_o)  9  E1(o_o) 24  E2(>_>) 40   ┃ │ 
+ │   Network                         ┃ CPU  9.10 W   53°C   UP 75:58:48     ┃ │ 
+ │                                   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛ │ 
+ │                                                                            │ 
+ │ ── photo-matched   ┄┄ approximate   ┈┈ conceptual   Fan sides assumed      │ 
+ ╰────────────────────────────────────────────────────────────────────────────╯ 
+ 5m  ⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤◆ NOW    
+                                                                                
+ Tab select   g system page   Enter inspect   z zoom   m cells   2 Systems   ?  
+TELEMETRY CELLS
+ O V E R S E E R  M4 Pro                                              SYNTHETIC 
+                                                                                
+  1 Teardown   2 Systems                                                        
+ ╭ MACBOOK PRO 14 / M4 PRO ──────────────────────────────────── TELEMETRY [m] ╮ 
+ │ UNDERSIDE VIEW · hinge ↑ · HDMI/SD ← · MagSafe →                           │ 
+ │                                                                            │ 
+ │ COMPONENT NAVIGATOR                                                        │ 
+ │                                   ┏ SYSTEM ON CHIP ━━━━━━━━━━━━━━━━━━━━━━┓ │ 
+ │   Telemetry cell                  ┃  40.0%                               ┃ │ 
+ │   Telemetry cell                  ┃                                      ┃ │ 
+ │   Telemetry cell                  ┃ P CLUSTER  ×8   2.56 GHz   ACT  45.0 ┃ │ 
+ │   Telemetry cell                  ┃ P0[o_o]  9  P1[o_o] 12  P2[o_o] 37   ┃ │ 
+ │   Telemetry cell                  ┃ P3[>_>] 67  P4[@_@] 84  P5[@_@] 78   ┃ │ 
+ │   Telemetry cell                  ┃ P6[>_>] 52  P7[o_o] 22               ┃ │ 
+ │   Fan 0                           ┃ E CLUSTER  ×4   1.46 GHz   ACT  30.0 ┃ │ 
+ │ › System on chip                  ┃ E0(o_o)  9  E1(o_o) 24  E2(>_>) 40   ┃ │ 
+ │   Fan 1                           ┃ CPU  9.10 W   53°C   UP 75:58:48     ┃ │ 
+ │                                   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛ │ 
+ │                                                                            │ 
+ │ CELLS ARE DISPLAY SLOTS · NOT PER-CELL BATTERY DATA                        │ 
+ ╰────────────────────────────────────────────────────────────────────────────╯ 
+ 5m  ⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤◆ NOW    
+                                                                                
+ Tab select   g system page   Enter inspect   z zoom   m cells   2 Systems   ?  
+cpu
+ O V E R S E E R  M4 Pro                                              SYNTHETIC 
+                                                                                
+  1 Teardown   2 Systems                                                        
+ ‹  CPU  40.0%  ›                                                ● ○ ○ ○ ○ ○    
+                                                                                
+ ╭ CPU · EXECUTION FLOOR ─────────────────────────────────────────── z expand ╮ 
+ │ P0[>_>]  9  P1[>_>] 12  P2[>_>] 37  P3[>_>] 67  P4[@_@] 84  P5[>_>] 78     │ 
+ │ P6[>_>] 52  P7[>_>] 22                                                     │ 
+ │ E0(>_>)  9  E1(>_>) 24  E2(>_>) 40  E3(>_>) 47                             │ 
+ │                                                                            │ 
+ │ CPU  40.0%  53°C   LOAD 4.80   20 tasks                                    │ 
+ ╰────────────────────────────────────────────────────────────────────────────╯ 
+ ╭ TOP CPU TASKS ───────────────────────────────────────────────── 20 · CPU ↓ ╮ 
+ │ CPU time · 100% = one core · bars use whole-machine capacity               │ 
+ │  #  NAME                                   CPU%                  CPU TIME  │ 
+ │ 01  Code Helper                                38.1%    ▎─────── 1.4 GiB   │ 
+ │ 02  Safari                                     30.3%    ▏─────── 1.5 GiB   │ 
+ │ 03  overseer                                   29.5%    ▏─────── 1.4 GiB   │ 
+ │ 04  Terminal                                   14.3%     ─────── 870.0 MiB │ 
+ │ 05  Finder                                     14.0%     ─────── 957.0 MiB │ 
+ ╰────────────────────────────────────────────────────────────────────────────╯ 
+ 5m  ⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤◆ NOW    
+                                                                                
+ ←→ pages   ↑↓ tasks   Enter inspect   / filter   z expand   f follow   ? help  
+memory
+ O V E R S E E R  M4 Pro                                              SYNTHETIC 
+                                                                                
+  1 Teardown   2 Systems                                                        
+ ‹  MEMORY 14.0G  ›                                              ○ ● ○ ○ ○ ○    
+                                                                                
+ ╭ MEMORY · ADDRESS MATRIX ───────────────────────────────────────── z expand ╮ 
+ │ ▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ │ 
+ │ ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ │ 
+ │ ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ │ 
+ │ ▒▒▒▒▒▒▒▒▒▒▒▒▒····························································· │ 
+ │ PRESSURE NORMAL   SWAP 0.0 B                                               │ 
+ ╰────────────────────────────────────────────────────────────────────────────╯ 
+ ╭ TOP MEMORY TASKS ─────────────────────────────────────────── 20 · MEMORY ↓ ╮ 
+ │ Resident footprint · compressed / private memory unavailable               │ 
+ │  #  NAME                                   FOOTPRINT             CPU%    T │ 
+ │ 01  WindowServer                               1.7 GiB  ▌───────   3.4%    │ 
+ │ 02  rustc                                      1.6 GiB  ▌───────   9.6%    │ 
+ │ 03  Safari                                     1.5 GiB  ▌───────  30.3%    │ 
+ │ 04  Code Helper                                1.4 GiB  ▍───────  38.1%    │ 
+ │ 05  overseer                                   1.4 GiB  ▍───────  29.5%    │ 
+ ╰────────────────────────────────────────────────────────────────────────────╯ 
+ 5m  ⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤◆ NOW    
+                                                                                
+ ←→ pages   ↑↓ tasks   Enter inspect   / filter   z expand   f follow   ? help  
+energy
+ O V E R S E E R  M4 Pro                                              SYNTHETIC 
+                                                                                
+  1 Teardown   2 Systems                                                        
+ ‹  ENERGY 19.90 W  ›                                            ○ ○ ● ○ ○ ○    
+                                                                                
+ ╭ ENERGY · POWER FLOW ───────────────────────────────────────────── z expand ╮ 
+ │ AC ADAPTER  →  SYSTEM 19.90 W   Σ SoC 12.37 W                              │ 
+ │ CPU  9.10 W    GPU  3.10 W    ANE  0.17 W                                  │ 
+ │ CPU 53°C  GPU 44°C   NOMINAL                                               │ 
+ │                                                                            │ 
+ │                                                                            │ 
+ ╰────────────────────────────────────────────────────────────────────────────╯ 
+ ╭ TOP ENERGY TASKS ──────────────────────────────────────────── 20 · POWER ↓ ╮ 
+ │ CPU POWER ≈ · measured CPU watts × CPU-time share; excludes GPU / system   │ 
+ │  #  NAME                                   CPU POWER ≈           CPU%    G │ 
+ │ 01  Code Helper                              ≈≈ 0.72 W  █████▊──  38.1%    │ 
+ │ 02  Safari                                   ≈≈ 0.57 W  ████▌───  30.3%    │ 
+ │ 03  overseer                                 ≈≈ 0.56 W  ████▍───  29.5%    │ 
+ │ 04  Terminal                                 ≈≈ 0.27 W  ██▏─────  14.3%    │ 
+ │ 05  Finder                                   ≈≈ 0.27 W  ██▏─────  14.0%    │ 
+ ╰────────────────────────────────────────────────────────────────────────────╯ 
+ 5m  ⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤◆ NOW    
+                                                                                
+ ←→ pages   ↑↓ tasks   Enter inspect   / filter   z expand   f follow   ? help  
+disk
+ O V E R S E E R  M4 Pro                                              SYNTHETIC 
+                                                                                
+  1 Teardown   2 Systems                                                        
+ ‹  DISK 222.2 MiB/s  ›                                          ○ ○ ○ ● ○ ○    
+                                                                                
+ ╭ DISK · NAND ARRAY ─────────────────────────────────────────────── z expand ╮ 
+ │ Macintosh HD   READ 209.2 MiB/s   WRITE 13.0 MiB/s                         │ 
+ │ READ ▲               ⢀⣤⣴⣶⣶⣤⣄         ⢀⣤⣴⣶⣶⣤⣄         ⢀⣠⣴⣶⣶⣦⣄⡀         ⣠⣤   │ 
+ │             ⣿⣶⣄⣀⣀⣀⣀⣤⣾⣿⣿⣿⣿⣿⣿⣿⣿⣶⣤⣀⣀⣀⣀⣤⣾⣿⣿⣿⣿⣿⣿⣿⣿⣶⣤⣀⣀⣀⣀⣤⣶⣿⣿⣿⣿⣿⣿⣿⣿⣶⣤⣀⣀⣀⣀⣤⣶⣿⣿⣿   │ 
+ │ 5m / shared ⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉   │ 
+ │ WRITE▼                                                                     │ 
+ ╰────────────────────────────────────────────────────────────────────────────╯ 
+ ╭ TOP DISK TASKS ───────────────────────────────────────────────── 20 · IO ↓ ╮ 
+ │ READ + WRITE · bars relative to top task · sampled every 5s                │ 
+ │  #  NAME                                   READ + WRITE          READ/s    │ 
+ │ 01  WindowServer                            22.2 MiB/s  ████████ 20.9 MiB/ │ 
+ │ 02  rustc                                   11.4 MiB/s  ████ ─── 10.1 MiB/ │ 
+ │ 03  Safari                                   4.7 MiB/s  █▋────── 3.7 MiB/s │ 
+ │ 04  Music                                    3.0 MiB/s  █ ────── 2.7 MiB/s │ 
+ │ 05  mds_stores                               2.9 MiB/s  █ ────── 2.7 MiB/s │ 
+ ╰────────────────────────────────────────────────────────────────────────────╯ 
+ 5m  ⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤◆ NOW    
+                                                                                
+ ←→ pages   ↑↓ tasks   Enter inspect   / filter   z expand   f follow   ? help  
+network
+ O V E R S E E R  M4 Pro                                              SYNTHETIC 
+                                                                                
+  1 Teardown   2 Systems                                                        
+ ‹  NETWORK 1.1 MiB/s  ›                                         ○ ○ ○ ○ ● ○    
+                                                                                
+ ╭ NETWORK · SIGNAL TRACES ───────────────────────────────────────── z expand ╮ 
+ │ en0   RX 390.7 KiB/s   TX 784.6 KiB/s                                      │ 
+ │ DOWN ▲      ⣤⣶⣶⣶⣤⣀         ⣀⣤⣶⣶⣶⣤⣀         ⣀⣤⣶⣶⣶⣤⣀         ⢀⣤⣴⣶⣶⣤⣄         │ 
+ │             ⣿⣿⣿⣿⣿⣿⣿⣦⣄⣀⣀⣀⣠⣴⣾⣿⣿⣿⣿⣿⣿⣿⣿⣶⣄⣀⣀⣀⣀⣤⣾⣿⣿⣿⣿⣿⣿⣿⣿⣶⣤⣀⣀⣀⣀⣤⣾⣿⣿⣿⣿⣿⣿⣿⣿⣶⣤⣀⣀⣀   │ 
+ │ 5m / shared ⠉⠉⠉⠉⠉⠉⠛⠛⠛⠋⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠛⠛⠛⠛⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠛⠛⠛⠛⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠛⠛⠛⠛⠉⠉   │ 
+ │ UP   ▼                                                                     │ 
+ ╰────────────────────────────────────────────────────────────────────────────╯ 
+ ╭ TOP NETWORK TASKS · VISIBLE SOCKETS ──────────────────── 7 · CONNECTIONS ↓ ╮ 
+ │ Socket ownership · 15s scan · visible records only; per-task traffic N/A   │ 
+ │  #  NAME                                   SOCKETS               CPU%    M │ 
+ │ 01  WindowServer                                 20     ████████   3.4%    │ 
+ │ 02  Code Helper                                  17     ██████▊─  38.1%    │ 
+ │ 03  mds_stores                                   14     █████▌──   1.8%    │ 
+ │ 04  Finder                                       11     ████▍───  14.0%    │ 
+ │ 05  coreaudiod                                    8     ███▏────   2.1%    │ 
+ ╰────────────────────────────────────────────────────────────────────────────╯ 
+ 5m  ⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤◆ NOW    
+                                                                                
+ ←→ pages   ↑↓ tasks   Enter inspect   / filter   z expand   f follow   ? help  
+gpu
+ O V E R S E E R  M4 Pro                                              SYNTHETIC 
+                                                                                
+  1 Teardown   2 Systems                                                        
+ ‹  GPU  23.9%  ›                                                ○ ○ ○ ○ ○ ●    
+                                                                                
+ ╭ GPU · SHADER FABRIC ───────────────────────────────────────────── z expand ╮ 
+ │ ·············▓▓··········▓▓·▓▓▓······▓·▓▓···█····                          │ 
+ │ ·▓······▓▓··▓▓·▓·····▓▓▓········▓·····▓······█···                          │ 
+ │  576 MHz    3.10 W                                                         │ 
+ │ 16 cores · aggregate utilization                                           │ 
+ │ GPU  3.10 W  SRAM  0.12 W  44°C   ANE  0.17 W · aggregate utilization      │ 
+ ╰────────────────────────────────────────────────────────────────────────────╯ 
+ ╭ TOP GPU TASKS ────────────────────────────────────────────────── 0 · GPU ↓ ╮ 
+ │                                                                            │ 
+ │ ⊘ Per-process GPU time is not exposed by this collector.                   │ 
+ │ The GPU totals above are measured. No task usage is estimated.             │ 
+ │                                                                            │ 
+ │                                                                            │ 
+ │                                                                            │ 
+ │                                                                            │ 
+ ╰────────────────────────────────────────────────────────────────────────────╯ 
+ 5m  ⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤◆ NOW    
+                                                                                
+ ←→ pages   ↑↓ tasks   Enter inspect   / filter   z expand   f follow   ? help

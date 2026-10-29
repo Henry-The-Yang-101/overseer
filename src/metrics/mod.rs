@@ -1,6 +1,7 @@
 mod collector;
 mod demo;
 pub mod details;
+mod sockets;
 pub use collector::{send_signal, spawn_collector};
 pub use demo::{SCENARIOS, demo};
 use serde::Serialize;
@@ -71,6 +72,7 @@ pub struct Tier {
     pub label: String,
     pub mhz: u32,
     pub max_mhz: u32,
+    pub freqs: Vec<u32>,
     pub active: f32,
     pub scaled: f32,
     pub cores: Vec<Core>,
@@ -99,8 +101,20 @@ pub struct Flow {
     pub packets_out: f64,
     pub errors: u64,
     pub name: String,
+    pub total_read: u64,
+    pub total_write: u64,
+    pub addresses: Vec<String>,
 }
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Default, Serialize)]
+pub struct Volume {
+    pub name: String,
+    pub mount: String,
+    pub used: u64,
+    pub total: u64,
+    pub external: bool,
+    pub read_only: bool,
+}
+#[derive(Clone, Debug, Default, Serialize)]
 pub struct Proc {
     pub pid: u32,
     pub start: u64,
@@ -113,6 +127,11 @@ pub struct Proc {
     pub read: f64,
     pub write: f64,
     pub runtime: u64,
+    pub cpu_time: u64,
+    pub total_read: u64,
+    pub total_write: u64,
+    pub threads: Avail<u32>,
+    pub connections: Avail<u32>,
     pub status: Arc<str>,
 }
 impl Proc {
@@ -126,9 +145,13 @@ pub struct Sample {
     pub energy_wh: f64,
     pub machine: Arc<Machine>,
     pub cpu: f32,
+    pub cpu_split: Avail<[f32; 3]>,
+    pub load: [f64; 3],
     pub tiers: Vec<Tier>,
     pub gpu: Avail<f32>,
     pub gpu_mhz: Avail<u32>,
+    pub gpu_scaled: Avail<f32>,
+    pub gpu_freqs: Vec<u32>,
     pub power: [Avail<f32>; 5],
     pub system_power: Avail<f32>,
     pub cpu_temp: Avail<f32>,
@@ -139,9 +162,16 @@ pub struct Sample {
     pub memory: Avail<[u64; 5]>,
     pub pressure: Avail<String>,
     pub swap: u64,
+    pub pressure_percent: Avail<f32>,
+    pub compressed_original: Avail<u64>,
+    pub vm_totals: Avail<[u64; 5]>,
+    pub vm_rates: Avail<[f64; 5]>,
     pub disk: Avail<Flow>,
     pub disk_capacity: Avail<(u64, u64)>,
     pub network: Avail<Flow>,
+    pub interfaces: Vec<Flow>,
+    pub volumes: Vec<Volume>,
+    pub connection_states: Avail<Vec<(String, u32)>>,
     pub battery: Avail<Battery>,
     pub processes: Arc<Vec<Proc>>,
     pub process_at: f64,
