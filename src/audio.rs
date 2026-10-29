@@ -9,6 +9,15 @@ pub struct Frame {
     #[serde(default)]
     pub channels: Vec<Vec<f32>>,
 }
+impl Frame {
+    pub fn level(&self, channel: usize) -> f32 {
+        let Some(samples) = self.channels.get(channel).filter(|s| !s.is_empty()) else {
+            return 0.;
+        };
+        let rms = (samples.iter().map(|v| v * v).sum::<f32>() / samples.len() as f32).sqrt();
+        (rms * 4.).clamp(0., 1.)
+    }
+}
 impl Default for Frame {
     fn default() -> Self {
         Self {

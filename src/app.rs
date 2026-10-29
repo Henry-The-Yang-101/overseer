@@ -845,6 +845,16 @@ impl App {
     pub fn tick(&mut self, dt: Duration) {
         self.audio
             .update(self.cfg.teardown.audio_enabled && self.demo.is_none());
+        let audio = crate::ui::audio::frame(self);
+        for (channel, spring) in self.anim.speakers.iter_mut().enumerate() {
+            if self.motion == Motion::Full && self.cursor.is_none() {
+                let target = audio.level(channel);
+                let smooth = if target > spring.pos { 0.05 } else { 0.12 };
+                spring.step(target, dt.as_secs_f32().min(0.25), smooth);
+            } else {
+                spring.snap(0.);
+            }
+        }
         if let Some(rx) = &self.detail_rx
             && let Ok(data) = rx.try_recv()
         {

@@ -41,6 +41,48 @@ fn representative_layouts() {
     }
 }
 #[test]
+fn speaker_grilles_follow_channels_and_respect_motion_settings() {
+    use overseer::{audio::Frame, motion::Motion};
+    fn speakers(a: &mut App) -> Vec<(ratatui::layout::Rect, String)> {
+        let mut term = Terminal::new(TestBackend::new(200, 55)).unwrap();
+        term.draw(|f| ui::draw(f, a, Duration::ZERO)).unwrap();
+        [Part::SpeakerLeft, Part::SpeakerRight]
+            .into_iter()
+            .map(|part| {
+                let r = a.parts.iter().find(|(p, _)| *p == part).unwrap().1;
+                let cells = (r.y..r.bottom())
+                    .flat_map(|y| (r.x..r.right()).map(move |x| (x, y)))
+                    .map(|pos| term.backend().buffer()[pos].symbol())
+                    .collect();
+                (r, cells)
+            })
+            .collect()
+    }
+    let mut a = app("balanced");
+    a.motion = Motion::Full;
+    let quiet = speakers(&mut a);
+    assert!(quiet[0].1.contains("╭─╮"));
+    assert!(!quiet[0].1.contains('▪'));
+    let audio = Frame {
+        status: String::new(),
+        channels: vec![vec![0.25; 64], vec![0.; 64]],
+    };
+    assert_eq!(
+        (audio.level(0), audio.level(1), audio.level(2)),
+        (1., 0., 0.)
+    );
+    a.anim.speakers[0].snap(audio.level(0));
+    let loud = speakers(&mut a);
+    assert_eq!(quiet[0].0, loud[0].0); // Hit targets stay still while the grille moves.
+    assert!(loud[0].1.contains("╭───╮"));
+    assert_ne!(quiet[0].1, loud[0].1);
+    assert_eq!(quiet[1], loud[1]);
+    for motion in [Motion::Off, Motion::Reduced] {
+        a.motion = motion;
+        assert_eq!(speakers(&mut a), quiet);
+    }
+}
+#[test]
 fn unavailable_sensors_and_small_resizes_stay_usable() {
     for scenario in [
         "missing-sensors",

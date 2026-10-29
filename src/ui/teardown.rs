@@ -798,15 +798,21 @@ fn physical(b: &mut Buffer, c: Rect, available: Rect, a: &mut App) {
         (NRect::new(0.945, 0.62, 0.035, 0.30), "SPK"),
     ] {
         let mut r = to_cells(n, c, mirror);
-        if r.width < 3 {
-            if alignment(r, c) == Alignment::Right {
-                r.x -= 3 - r.width;
-            }
-            r.width = 3;
+        let left = alignment(r, c) == Alignment::Left;
+        // Keep the largest vibration frame inside the space beside the batteries.
+        if left {
+            let edge = layout.cells.iter().map(|cell| cell.x).min().unwrap();
+            r.x = r.x.min(edge.saturating_sub(5)).max(c.x + 1);
+            r.width = (edge - r.x).min(7);
+        } else {
+            let edge = layout.cells.iter().map(|cell| cell.right()).max().unwrap();
+            let right = r.right().max(edge + 5).min(c.right() - 1);
+            r.width = (right - edge).min(7);
+            r.x = right - r.width;
         }
         let space = c.bottom().saturating_sub(layout.battery_top + 2);
-        r.height = (space / 3).max(2);
-        let graph_height = (r.height * 3).min(space);
+        r.height = ((space / 3).max(5) + 2).min(space.saturating_sub(1));
+        let graph_height = space;
         let graph_y = layout.battery_top + 1;
         r.y = graph_y + (graph_height - r.height) / 2;
         let p = if n.x > 0.5 {
@@ -816,14 +822,35 @@ fn physical(b: &mut Buffer, c: Rect, available: Rect, a: &mut App) {
         };
         a.parts.push((p, r));
         a.hitmap.add(r, 4, Hit::Part(p));
+        let level = if a.motion == crate::motion::Motion::Full && a.cursor.is_none() {
+            a.anim.speakers[usize::from(p == Part::SpeakerRight)]
+                .pos
+                .clamp(0., 1.)
+        } else {
+            0.
+        };
+        let width = 5.min(r.width) + (level * r.width.saturating_sub(5) as f32).round() as u16;
+        let height = 5.min(r.height) + (level * r.height.saturating_sub(5) as f32).round() as u16;
+        let spare = r.width - width;
+        let pill = Rect::new(
+            r.x + if left { spare / 2 } else { spare.div_ceil(2) },
+            r.y + (r.height - height) / 2,
+            width,
+            height,
+        );
         Block::bordered()
             .border_type(BorderType::Rounded)
             .border_style(Style::new().fg(t.wire))
-            .render(r, b);
-        for y in 1..r.height.saturating_sub(1) {
-            text(b, r, r.width / 2, y, "▪", t.muted);
+            .render(pill, b);
+        if pill.width >= 5 && pill.height >= 5 {
+            Block::bordered()
+                .border_type(BorderType::Rounded)
+                .border_style(Style::new().fg(t.muted))
+                .render(
+                    Rect::new(pill.x + 1, pill.y + 1, pill.width - 2, pill.height - 2),
+                    b,
+                );
         }
-        let left = alignment(r, c) == Alignment::Left;
         let graph = if left {
             Rect::new(
                 available.x,
@@ -840,11 +867,11 @@ fn physical(b: &mut Buffer, c: Rect, available: Rect, a: &mut App) {
             )
         };
         super::audio::bars(b, graph, p, a, left);
-        side_text(
+        text(
             b,
-            Rect::new(r.x, r.bottom(), r.width, 1),
-            c,
-            0,
+            available,
+            r.x - available.x + (r.width - 3) / 2,
+            r.bottom() - available.y,
             label,
             t.muted,
         );

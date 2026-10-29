@@ -121,6 +121,7 @@ pub struct Anim {
     pub energy: Spring,
     pub cpu: Spring,
     pub gpu: Spring,
+    pub speakers: [Spring; 2],
     pub phases: HashMap<String, f32>,
     pub moods: HashMap<String, MoodTracker>,
 }

@@ -23,10 +23,17 @@ pub fn frame(a: &App) -> Frame {
         };
     }
     if a.demo.is_some() {
+        let time = if a.motion == crate::motion::Motion::Full {
+            a.started.elapsed().as_secs_f32()
+        } else {
+            a.sample().at as f32
+        };
         let channels = (0..2)
             .map(|c| {
+                let envelope =
+                    0.02 + 0.30 * ((time * 3. + c as f32 * 0.8).sin() * 0.5 + 0.5).powi(2);
                 (0..64)
-                    .map(|i| ((i as f32 * 0.31 + c as f32 + a.sample().at as f32).sin()) * 0.18)
+                    .map(|i| (i as f32 * 0.31 + c as f32 + time).sin() * envelope)
                     .collect()
             })
             .collect();
