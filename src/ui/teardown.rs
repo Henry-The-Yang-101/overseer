@@ -794,9 +794,46 @@ fn physical(b: &mut Buffer, c: Rect, available: Rect, a: &mut App) {
                 &t,
                 alignment(r, c),
             );
-            side_text(b, inside, c, 0, "▄▄", t.muted);
-            if inside.height > 3 {
-                side_text(b, inside, c, inside.height / 2, "BATTERY", t.wire);
+            if let Some(percent) = s
+                .battery
+                .value()
+                .map(|b| b.percent)
+                .filter(|p| p.is_finite())
+            {
+                // Six equal shares of pack charge, independent of silhouette size.
+                let charge =
+                    (percent.clamp(0., 100.) / 100. * CELLS.len() as f32 - i as f32).clamp(0., 1.);
+                let fill = charge * inside.height as f32 * 8.;
+                let color = blend(t.battery, t.panel, 0.5);
+                for from_bottom in 0..inside.height {
+                    let eighths = (fill - from_bottom as f32 * 8.).round().clamp(0., 8.) as u32;
+                    if eighths == 0 {
+                        continue;
+                    }
+                    let glyph = if ascii {
+                        '#'
+                    } else {
+                        char::from_u32(0x2580 + eighths).unwrap()
+                    };
+                    let y = inside.height - 1 - from_bottom;
+                    if eighths == 8 {
+                        b.set_style(row(inside, y, 1), Style::new().bg(color));
+                    }
+                    line(
+                        b,
+                        inside,
+                        y,
+                        glyph.to_string().repeat(inside.width as usize),
+                        color,
+                    );
+                }
+            } else {
+                let label = if s.battery.value().is_some() {
+                    "N/A"
+                } else {
+                    s.battery.label()
+                };
+                line(b, inside, inside.height / 2, label, t.muted);
             }
             a.hitmap.add(r, 2, Hit::Part(Part::Battery));
         }

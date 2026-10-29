@@ -87,6 +87,77 @@ fn representative_layouts() {
     }
 }
 #[test]
+fn pack_charge_fills_cells_in_order_from_bottom_to_top() {
+    use overseer::metrics::Avail;
+    use std::sync::Arc;
+    for (w, h) in [(120, 36), (200, 55)] {
+        for orientation in ["front", "back"] {
+            let mut a = app("balanced");
+            a.cfg.teardown.orientation = orientation.into();
+            let mut term = Terminal::new(TestBackend::new(w, h)).unwrap();
+            for (percent, expected) in [
+                (0., [0.; 6]),
+                (25., [1., 0.5, 0., 0., 0., 0.]),
+                (50., [1., 1., 1., 0., 0., 0.]),
+                (82., [1., 1., 1., 1., 0.92, 0.]),
+                (100., [1.; 6]),
+                (0., [0.; 6]), // Discharging clears previous fills on the same terminal.
+            ] {
+                if let Avail::Ok(battery) =
+                    &mut Arc::make_mut(a.history.back_mut().unwrap()).battery
+                {
+                    battery.percent = percent;
+                }
+                term.draw(|f| ui::draw(f, &mut a, Duration::ZERO)).unwrap();
+                let cells: Vec<_> = a
+                    .hitmap
+                    .0
+                    .iter()
+                    .filter(|(_, priority, hit)| *priority == 2 && *hit == Hit::Part(Part::Battery))
+                    .map(|(r, _, _)| ui::kit::inner(*r, 1, 1))
+                    .collect();
+                assert_eq!(cells.len(), 6);
+                for (r, expected) in cells.into_iter().zip(expected) {
+                    let mut rows = Vec::new();
+                    for y in r.y..r.bottom() {
+                        let symbol = term.backend().buffer()[(r.x, y)].symbol();
+                        let units = match symbol.chars().next().unwrap() {
+                            ' ' => 0,
+                            ch @ '▁'..='█' => ch as u32 - 0x2580,
+                            _ => panic!("Unexpected content in cell: {symbol}"),
+                        };
+                        for x in r.x..r.right() {
+                            let cell = &term.backend().buffer()[(x, y)];
+                            assert_eq!(cell.symbol(), symbol);
+                            if units == 8 {
+                                assert_eq!(cell.bg, cell.fg, "Full rows should have a solid fill");
+                            }
+                        }
+                        rows.push(units);
+                    }
+                    assert!(rows.windows(2).all(|pair| pair[0] <= pair[1]));
+                    let fraction = rows.iter().sum::<u32>() as f32 / (r.height * 8) as f32;
+                    assert!((fraction - expected).abs() <= 1. / (r.height * 8) as f32 + 0.0001);
+                }
+            }
+            Arc::make_mut(a.history.back_mut().unwrap()).battery =
+                Avail::Failed("Unavailable".into());
+            term.draw(|f| ui::draw(f, &mut a, Duration::ZERO)).unwrap();
+            for (r, priority, hit) in &a.hitmap.0 {
+                if *priority == 2 && *hit == Hit::Part(Part::Battery) {
+                    let inside = ui::kit::inner(*r, 1, 1);
+                    assert!(
+                        term.backend().buffer()[(inside.x, inside.y + inside.height / 2)]
+                            .symbol()
+                            .chars()
+                            .any(|c| c.is_ascii_alphabetic())
+                    );
+                }
+            }
+        }
+    }
+}
+#[test]
 fn speaker_grilles_follow_channels_and_respect_motion_settings() {
     use overseer::{audio::Frame, motion::Motion};
     use ratatui::{buffer::Buffer, layout::Rect};
