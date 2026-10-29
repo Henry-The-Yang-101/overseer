@@ -36,6 +36,7 @@ pub struct Units {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Teardown {
+    pub audio_enabled: bool,
     pub orientation: String,
     pub labels: bool,
     pub highlight_active: bool,
@@ -109,6 +110,7 @@ impl Default for Teardown {
     fn default() -> Self {
         Self {
             orientation: "front".into(),
+            audio_enabled: true,
             labels: true,
             highlight_active: true,
             cells: ["cpu", "gpu", "memory", "power", "thermal", "battery"]

@@ -3,3 +3,5 @@ pub mod config;
 pub mod metrics;
 pub mod motion;
 pub mod ui;
+
+pub mod audio;

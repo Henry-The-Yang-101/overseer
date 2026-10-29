@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleIdentifier</key><string>local.overseer.audio</string>
+<key>CFBundleName</key><string>Overseer Audio</string>
+<key>NSAudioCaptureUsageDescription</key><string>Display live stereo output waveforms in Overseer. Audio stays in memory and is never recorded to disk or transmitted.</string>
+</dict></plist>
