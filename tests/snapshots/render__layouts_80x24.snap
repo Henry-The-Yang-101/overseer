@@ -20,7 +20,7 @@ TEARDOWN
  │   Battery pack                    ┃ E CLUSTER  ×4   1.46 GHz   ACT  30.0 ┃ │
  │   Thermal system                  ┃ E0(o_o)  9  E1(o_o) 24  E2(>_>) 40   ┃ │
  │   Network                         ┃ CPU  9.10 W   53°C   UP 75:58:48     ┃ │
- │                                   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛ │
+ │   Left speaker                    ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛ │
  │                                                                            │
  │ Layout approximate · wiring symbolic · fan sides assumed                   │
  ╰────────────────────────────────────────────────────────────────────────────╯
@@ -45,7 +45,7 @@ TELEMETRY CELLS
  │   Fan 0                           ┃ E CLUSTER  ×4   1.46 GHz   ACT  30.0 ┃ │
  │ › System on chip                  ┃ E0(o_o)  9  E1(o_o) 24  E2(>_>) 40   ┃ │
  │   Fan 1                           ┃ CPU  9.10 W   53°C   UP 75:58:48     ┃ │
- │                                   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛ │
+ │   Left speaker                    ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛ │
  │                                                                            │
  │ CELLS ARE DISPLAY SLOTS · NOT PER-CELL BATTERY DATA                        │
  ╰────────────────────────────────────────────────────────────────────────────╯

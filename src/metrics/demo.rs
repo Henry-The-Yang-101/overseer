@@ -187,6 +187,11 @@ pub fn demo(scenario: &str, t: f64) -> Sample {
                 let connected = matches!(kind, ports::PortKind::UsbC(3));
                 ports::Port {
                     kind,
+                    devices: if kind == ports::PortKind::UsbC(3) {
+                        vec!["Studio Display".into(), "USB hub".into()]
+                    } else {
+                        vec![]
+                    },
                     connected: Avail::Ok(connected),
                     detail: if kind == ports::PortKind::UsbC(3) {
                         "USB 2 · DisplayPort".into()

@@ -22,6 +22,15 @@ fn key(a: &mut App, k: KeyCode) {
 fn navigation_restores_page_state_and_gives_drawer_arrow_ownership() {
     let mut a = app();
     assert_eq!(a.screen, Screen::Teardown);
+    assert!(a.cfg.teardown.audio_enabled);
+    a.act(Action::InspectPart(Part::SpeakerLeft));
+    key(&mut a, KeyCode::Enter);
+    assert!(!a.cfg.teardown.audio_enabled);
+    assert!(overseer::ui::audio::frame(&a).channels.is_empty());
+    key(&mut a, KeyCode::Char('e'));
+    assert!(a.cfg.teardown.audio_enabled);
+    assert_eq!(overseer::ui::audio::frame(&a).channels.len(), 2);
+    key(&mut a, KeyCode::Esc);
     assert_eq!(a.cfg.teardown.orientation, "front");
     key(&mut a, KeyCode::Char('p'));
     assert!(matches!(a.layers.last(), Some(Layer::Ports)));

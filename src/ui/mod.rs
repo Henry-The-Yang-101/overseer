@@ -1,3 +1,4 @@
+pub mod audio;
 pub mod kit;
 pub mod overlays;
 pub mod ports;
@@ -396,6 +397,9 @@ fn hints(b: &mut ratatui::buffer::Buffer, r: Rect, a: &App, size: SizeClass) {
                 } else {
                     "y confirm SIGTERM   Esc cancel"
                 }
+            }
+            Layer::Inspector(crate::app::Part::SpeakerLeft | crate::app::Part::SpeakerRight) => {
+                "Enter / e toggle capture   Esc close"
             }
             Layer::Inspector(p)
                 if matches!(a.resolve(*p), crate::app::Part::Cpu | crate::app::Part::Soc) =>

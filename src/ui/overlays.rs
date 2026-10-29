@@ -487,6 +487,10 @@ pub fn boot(b: &mut Buffer, r: Rect, a: &App) {
 pub fn detail(b: &mut Buffer, r: Rect, a: &mut App, part: Part, zoom: bool) {
     let t = a.theme.clone();
     let p = a.resolve(part);
+    if matches!(p, Part::SpeakerLeft | Part::SpeakerRight) {
+        super::audio::inspector(b, r, p, a);
+        return;
+    }
     let s = a.sample();
     let cores: Vec<_> = s
         .tiers

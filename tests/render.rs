@@ -70,6 +70,9 @@ fn unavailable_sensors_and_small_resizes_stay_usable() {
                 assert!(ports.lines().last().unwrap().contains("Esc close ports"));
             }
             a.act(Action::Back);
+            a.act(Action::InspectPart(Part::SpeakerLeft));
+            render(&mut a, w, h);
+            a.act(Action::Back);
         }
     }
     let mut a = app("balanced");

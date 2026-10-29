@@ -78,6 +78,11 @@ fn contents(b: &mut Buffer, r: Rect, a: &App, expanded: bool) {
             break;
         }
         let (dot, color, status) = indicator(&s, port.kind, t);
+        let detail = if port.devices.is_empty() {
+            port.detail.clone()
+        } else {
+            port.devices.join(" · ")
+        };
         line(b, r, y, format!("{dot}  {}", port.kind.label()), color);
         text(b, r, r.width.saturating_sub(9), y, status, color);
         if double {
@@ -86,7 +91,7 @@ fn contents(b: &mut Buffer, r: Rect, a: &App, expanded: bool) {
                 r,
                 3,
                 y + 1,
-                truncate(&port.detail, r.width.saturating_sub(3) as usize),
+                truncate(&detail, r.width.saturating_sub(3) as usize),
                 t.muted,
             );
         } else if expanded && r.width >= 58 {
@@ -95,7 +100,7 @@ fn contents(b: &mut Buffer, r: Rect, a: &App, expanded: bool) {
                 r,
                 15,
                 y,
-                truncate(&port.detail, r.width.saturating_sub(26) as usize),
+                truncate(&detail, r.width.saturating_sub(26) as usize),
                 t.muted,
             );
         }

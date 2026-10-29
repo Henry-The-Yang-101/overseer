@@ -124,6 +124,8 @@ pub enum Part {
     Fan0,
     Fan1,
     Soc,
+    SpeakerLeft,
+    SpeakerRight,
     Cell(u8),
 }
 impl Part {
@@ -141,6 +143,8 @@ impl Part {
             Self::Fan0 => "Fan 0",
             Self::Fan1 => "Fan 1",
             Self::Soc => "System on chip",
+            Self::SpeakerLeft => "Left speaker",
+            Self::SpeakerRight => "Right speaker",
             Self::Cell(_) => "Telemetry cell",
         }
     }
@@ -159,6 +163,9 @@ impl Part {
     }
     pub fn note(self) -> &'static str {
         match self {
+            Self::SpeakerLeft | Self::SpeakerRight => {
+                "Stereo system output, including headphones and external outputs. Waveforms are not a microphone or a measurement of individual speaker drivers. Nothing is saved. Toggle capture for both channels in this inspector."
+            }
             Self::Cpu | Self::Soc => {
                 "Instruction lanes are symbolic: density follows active residency, speed follows clock frequency. Process-to-core mapping is not measurable."
             }
@@ -216,6 +223,8 @@ pub const TEAR_PARTS: &[Part] = &[
     Part::Battery,
     Part::Thermal,
     Part::Network,
+    Part::SpeakerLeft,
+    Part::SpeakerRight,
 ];
 #[derive(Clone, Copy, Debug)]
 pub enum Dir {
@@ -334,7 +343,13 @@ pub fn commands() -> Vec<Command> {
             action: Action::InspectPart(*p),
         });
     }
-    for p in [Part::Fan0, Part::Fan1, Part::Soc] {
+    for p in [
+        Part::Fan0,
+        Part::Fan1,
+        Part::Soc,
+        Part::SpeakerLeft,
+        Part::SpeakerRight,
+    ] {
         c.push(Command {
             name: format!("Inspect {}", p.name()),
             key: "Enter",
@@ -458,6 +473,7 @@ pub struct ProcessRow {
 }
 type TaskHistory = HashMap<(u32, u64), VecDeque<(f64, [f32; 6])>>;
 pub struct App {
+    pub audio: crate::audio::Capture,
     pub cfg: Config,
     pub screen: Screen,
     pub page: Page,
@@ -571,6 +587,7 @@ impl App {
             empty: Arc::new(Sample::default()),
             cursor: None,
             frozen: None,
+            audio: crate::audio::Capture::default(),
             inspect_core: 0,
             playing: false,
             speed: 0,
@@ -826,6 +843,8 @@ impl App {
         });
     }
     pub fn tick(&mut self, dt: Duration) {
+        self.audio
+            .update(self.cfg.teardown.audio_enabled && self.demo.is_none());
         if let Some(rx) = &self.detail_rx
             && let Ok(data) = rx.try_recv()
         {
@@ -1005,7 +1024,13 @@ impl App {
         } else if self.cells {
             (0..6)
                 .map(Part::Cell)
-                .chain([Part::Fan0, Part::Soc, Part::Fan1])
+                .chain([
+                    Part::Fan0,
+                    Part::Soc,
+                    Part::Fan1,
+                    Part::SpeakerLeft,
+                    Part::SpeakerRight,
+                ])
                 .collect()
         } else {
             TEAR_PARTS.to_vec()
@@ -1547,6 +1572,13 @@ impl App {
                     return;
                 }
                 Layer::Inspector(p) => {
+                    if matches!(p, Part::SpeakerLeft | Part::SpeakerRight)
+                        && matches!(k.code, KeyCode::Char('e') | KeyCode::Enter)
+                    {
+                        self.cfg.teardown.audio_enabled = !self.cfg.teardown.audio_enabled;
+                        self.audio
+                            .update(self.cfg.teardown.audio_enabled && self.demo.is_none());
+                    }
                     if matches!(p, Part::Cpu | Part::Soc) {
                         match k.code {
                             KeyCode::Left
@@ -1585,6 +1617,14 @@ impl App {
                 KeyCode::Down => self.move_row(1),
                 _ => {}
             }
+            return;
+        }
+        if matches!(self.zoom, Some(Part::SpeakerLeft | Part::SpeakerRight))
+            && matches!(k.code, KeyCode::Char('e') | KeyCode::Enter)
+        {
+            self.cfg.teardown.audio_enabled = !self.cfg.teardown.audio_enabled;
+            self.audio
+                .update(self.cfg.teardown.audio_enabled && self.demo.is_none());
             return;
         }
         if let Some(a) = map_key(k, self.screen) {
@@ -1851,6 +1891,7 @@ pub fn metric(p: Part, s: &Sample) -> f32 {
             .and_then(|f| f.get(if p == Part::Fan0 { 0 } else { 1 }))
             .map_or(0., |f| f.rpm as f32),
         Part::Cell(_) => s.cpu,
+        Part::SpeakerLeft | Part::SpeakerRight => 0.,
     }
 }
 pub fn neighbor(from: Rect, d: Dir, parts: &[(Part, Rect)], aspect: f32) -> Option<Part> {
@@ -1893,7 +1934,7 @@ pub fn metric_available(p: Part, s: &Sample) -> bool {
             .fans
             .value()
             .is_some_and(|fs| fs.len() > if p == Part::Fan0 { 0 } else { 1 }),
-        Part::Cell(_) => false,
+        Part::Cell(_) | Part::SpeakerLeft | Part::SpeakerRight => false,
     }
 }
 

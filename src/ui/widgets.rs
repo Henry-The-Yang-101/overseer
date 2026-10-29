@@ -63,6 +63,7 @@ pub fn readout(p: Part, s: &Sample, a: &App) -> String {
             .value()
             .map_or(s.network.label().into(), |f| f.name.clone()),
         Part::Cell(_) => String::new(),
+        Part::SpeakerLeft | Part::SpeakerRight => super::audio::frame(a).status,
     }
 }
 pub fn panel(b: &mut Buffer, r: Rect, p: Part, a: &mut App) {
@@ -223,6 +224,7 @@ pub fn content(b: &mut Buffer, r: Rect, p: Part, s: &Sample, a: &App) {
             }
         }
         Part::Battery => battery(b, r, s, a),
+        Part::SpeakerLeft | Part::SpeakerRight => super::audio::waveform(b, r, p, a, false),
         Part::Cell(_) => {}
     }
 }

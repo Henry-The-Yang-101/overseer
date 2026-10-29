@@ -53,13 +53,13 @@ pub const COMPONENTS: &[Component] = &[
     Component {
         part: Part::Fan0,
         label: "FAN 0",
-        rect: NRect::new(0.09, 0.13, 0.19, 0.32),
+        rect: NRect::new(0.065, 0.12, 0.225, 0.34),
         provenance: Provenance::Photo,
     },
     Component {
         part: Part::Fan1,
         label: "FAN 1",
-        rect: NRect::new(0.72, 0.13, 0.19, 0.32),
+        rect: NRect::new(0.710, 0.12, 0.225, 0.34),
         provenance: Provenance::Photo,
     },
     Component {
@@ -177,7 +177,7 @@ impl Layout {
         for i in [1, 2, 4, 5] {
             components[i].height = components[i]
                 .height
-                .min(lower_top.saturating_sub(components[i].y + 1));
+                .min(lower_top.saturating_sub(components[i].y + u16::from(i == 4 || i == 5)));
         }
         let data_y = components[3]
             .bottom()
@@ -361,7 +361,7 @@ pub fn draw(b: &mut Buffer, r: Rect, a: &mut App, size: SizeClass) {
     } else if !verified {
         generic(b, available, a);
     } else {
-        physical(b, chassis, a);
+        physical(b, chassis, available, a);
     }
     let disclaimer = if a.cells {
         "CELLS ARE DISPLAY SLOTS · NOT PER-CELL BATTERY DATA"
@@ -382,7 +382,7 @@ pub fn draw(b: &mut Buffer, r: Rect, a: &mut App, size: SizeClass) {
         selected(b, rail, a);
     }
 }
-fn physical(b: &mut Buffer, c: Rect, a: &mut App) {
+fn physical(b: &mut Buffer, c: Rect, available: Rect, a: &mut App) {
     let t = a.theme.clone();
     let s = a.sample();
     let mirror = a.cfg.teardown.orientation != "back";
@@ -399,43 +399,40 @@ fn physical(b: &mut Buffer, c: Rect, a: &mut App) {
         .unwrap_or(30.)
         .max(s.gpu_temp.value().copied().unwrap_or(30.));
     let heat_color = t.heat(heat);
-    for n in [
-        NRect::new(0.11, 0.035, 0.17, 0.055),
-        NRect::new(0.72, 0.035, 0.17, 0.055),
-    ] {
-        let r = to_cells(n, c, mirror);
-        for y in 0..r.height {
-            line(b, r, y, "║".repeat(r.width as usize), heat_color);
+    let chip = layout.part(Part::Soc);
+    let center = c.x + c.width / 2;
+    let bridge_y = chip.y.saturating_sub(1);
+    for fan in [layout.part(Part::Fan0), layout.part(Part::Fan1)] {
+        let fx = center_x(fan, c);
+        let fin_top = c.y + 1;
+        let fin_h = fan.y.saturating_sub(fin_top).max(1);
+        let fin = Rect::new(fan.x + 1, fin_top, fan.width.saturating_sub(2), fin_h);
+        for y in 0..fin.height {
+            line(b, fin, y, "║".repeat(fin.width as usize), heat_color);
+        }
+        // Fins terminate directly at the fan frame, with a solid neck into the heat pipe.
+        for x in fx.saturating_sub(1)..=fx + 1 {
+            for y in fin_top..=bridge_y {
+                text(b, c, x - c.x, y - c.y, "┃", heat_color);
+            }
+        }
+        for x in fx.min(center)..=fx.max(center) {
+            for y in bridge_y.saturating_sub(1)..=bridge_y {
+                text(b, c, x - c.x, y - c.y, "═", heat_color);
+            }
         }
     }
-    let pipe = to_cells(NRect::new(0.22, 0.06, 0.56, 0.10), c, mirror);
-    let points = [
-        (0.22, 0.07),
-        (0.37, 0.07),
-        (0.43, 0.13),
-        (0.50, 0.15),
-        (0.57, 0.13),
-        (0.63, 0.07),
-        (0.78, 0.07),
-    ];
-    for pair in points.windows(2) {
-        let point = |(x, y): (f32, f32)| {
-            (
-                grid_x(if mirror { 1. - x } else { x }, c.width) as f32,
-                y * c.height as f32,
-            )
-        };
-        let (p, q) = (point(pair[0]), point(pair[1]));
-        let steps = (q.0 - p.0).abs().max((q.1 - p.1).abs()).ceil() as usize;
-        for i in 0..=steps {
-            let f = i as f32 / steps.max(1) as f32;
-            let x = (p.0 + (q.0 - p.0) * f).round() as u16;
-            let y = (p.1 + (q.1 - p.1) * f).round() as u16;
-            text(b, c, x, y, "═", heat_color);
-        }
-    }
+    let fan0 = layout.part(Part::Fan0);
+    let fan1 = layout.part(Part::Fan1);
+    let pipe_left = fan0.x.min(fan1.x);
+    let pipe = Rect::new(
+        pipe_left,
+        bridge_y.saturating_sub(1),
+        fan0.right().max(fan1.right()) - pipe_left,
+        2,
+    );
     a.parts.push((Part::Thermal, pipe));
-    a.hitmap.add(pipe, 4, Hit::Part(Part::Thermal));
+    a.hitmap.add(pipe, 1, Hit::Part(Part::Thermal));
     wiring(b, c, a, mirror, &layout);
     for (spec, r) in COMPONENTS.iter().zip(layout.components) {
         let p = spec.part;
@@ -758,13 +755,21 @@ fn physical(b: &mut Buffer, c: Rect, a: &mut App) {
         }
         r.y = layout.battery_top + 1;
         r.height = c.bottom().saturating_sub(r.y + 1);
-        for y in 0..r.height {
-            line(b, r, y, "░".repeat(r.width as usize), t.wire);
+        let p = if n.x > 0.5 {
+            Part::SpeakerLeft
+        } else {
+            Part::SpeakerRight
+        };
+        a.parts.push((p, r));
+        a.hitmap.add(r, 4, Hit::Part(p));
+        super::audio::waveform(b, row(r, 0, r.height.saturating_sub(1)), p, a, true);
+        side_text(b, r, c, r.height.saturating_sub(1), label, t.muted);
+        if a.selection == Some(p) {
+            reticle(b, r, t.bright);
         }
-        line(b, r, r.height / 2, " ".repeat(r.width as usize), t.muted);
-        side_text(b, r, c, r.height / 2, label, t.muted);
     }
     edge_ports(b, c, a, mirror);
+    device_labels(b, c, available, a, mirror);
 }
 fn compact_rate(value: f64, a: &App, network: bool) -> String {
     let bits = network && a.cfg.units.net == "bits";
@@ -957,6 +962,79 @@ fn edge_ports(b: &mut Buffer, c: Rect, a: &mut App, mirror: bool) {
         );
     }
 }
+fn device_labels(b: &mut Buffer, c: Rect, area: Rect, a: &mut App, mirror: bool) {
+    let s = a.sample();
+    for left in [true, false] {
+        let width = if left {
+            c.x.saturating_sub(area.x + 2)
+        } else {
+            area.right().saturating_sub(c.right() + 2)
+        };
+        if width < 8 {
+            continue;
+        }
+        let x = if left { area.x } else { c.right() + 2 };
+        let mut next_y = area.y + 1;
+        for (kind, side, y, _) in PORTS {
+            if (side != mirror) != left || ports::indicator(&s, kind, &a.theme).2 != "CONNECTED" {
+                continue;
+            }
+            let Some(port) = ports::find(&s, kind) else {
+                continue;
+            };
+            let y = (c.y + (y * c.height as f32).round() as u16).max(next_y);
+            if y >= area.bottom() {
+                break;
+            }
+            let r = Rect::new(x, y, width, area.bottom() - y);
+            let names = if port.devices.is_empty() {
+                "Device name unavailable".into()
+            } else {
+                port.devices.join(" · ")
+            };
+            let title = format!("{} {}", if left { "→" } else { "←" }, kind.label());
+            line(b, r, 0, title, a.theme.ok);
+            let mut rows = vec![String::new()];
+            for word in names.split_whitespace() {
+                let last = rows.last_mut().unwrap();
+                if !last.is_empty() && last.width() + word.width() + 1 > width as usize {
+                    rows.push(String::new());
+                }
+                let last = rows.last_mut().unwrap();
+                if !last.is_empty() {
+                    last.push(' ');
+                }
+                last.push_str(word);
+            }
+            let count = (rows.len() as u16).min(5).min(r.height.saturating_sub(2)) + 1;
+            for (i, value) in rows
+                .iter()
+                .take(count.saturating_sub(1) as usize)
+                .enumerate()
+            {
+                line(
+                    b,
+                    r,
+                    i as u16 + 1,
+                    truncate(value, width as usize),
+                    a.theme.text,
+                );
+            }
+            if rows.len() >= count as usize {
+                line(
+                    b,
+                    r,
+                    count.saturating_sub(1),
+                    "… p for details",
+                    a.theme.muted,
+                );
+            }
+            a.hitmap
+                .add(Rect::new(r.x, r.y, r.width, count), 5, Hit::Ports);
+            next_y = y + count + 1;
+        }
+    }
+}
 fn wiring(b: &mut Buffer, c: Rect, a: &App, mirror: bool, layout: &Layout) {
     let t = &a.theme;
     let s = a.sample();
@@ -1046,7 +1124,7 @@ fn wiring(b: &mut Buffer, c: Rect, a: &App, mirror: bool, layout: &Layout) {
     for (i, (kind, left, y, label)) in PORTS.iter().enumerate() {
         let left = *left != mirror;
         let y = c.y + (y * c.height as f32).round() as u16;
-        let lane = grid_x(0.065, c.width).max(5);
+        let lane = grid_x(0.03, c.width).max(2);
         let edge = if left {
             c.x + label.len() as u16 + 1
         } else {

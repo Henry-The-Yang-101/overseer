@@ -38,6 +38,7 @@ pub struct Port {
     pub kind: PortKind,
     pub connected: Avail<bool>,
     pub detail: String,
+    pub devices: Vec<String>,
 }
 impl Port {
     pub fn status(&self) -> &'static str {
@@ -64,6 +65,9 @@ fn collect() -> Ports {
         Err(e) => return Avail::Failed(e),
     };
     let mut ports = parse(&registry);
+    if let Ok(usb) = query("AppleUSBHostPort") {
+        attach_usb(&usb, None, &mut ports);
+    }
     let audio = query("AppleCS42L84Audio")
         .ok()
         .and_then(|v| headphone_detect(&v))
@@ -75,6 +79,7 @@ fn collect() -> Ports {
     if !ports.is_empty() || audio.is_some() {
         ports.push(Port {
             kind: PortKind::Audio,
+            devices: vec![],
             connected: audio.map(Avail::Ok).unwrap_or(Avail::Unsupported(
                 "headphone jack sensor not exposed".into(),
             )),
@@ -112,7 +117,7 @@ fn query(class: &str) -> Result<plist::Value, String> {
         time::{Duration, Instant},
     };
     let mut child = Command::new("/usr/sbin/ioreg")
-        .args(["-a", "-r", "-c", class])
+        .args(["-a", "-l", "-r", "-c", class])
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
         .spawn()
@@ -226,12 +231,65 @@ fn parse(v: &plist::Value) -> Vec<Port> {
         if !ports.iter().any(|p: &Port| p.kind == kind) {
             ports.push(Port {
                 kind,
+                devices: if connected == Avail::Ok(true) {
+                    device_names(&plist::Value::Dictionary(n.clone()))
+                } else {
+                    vec![]
+                },
                 connected,
                 detail,
             });
         }
     });
     ports
+}
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+fn device_names(v: &plist::Value) -> Vec<String> {
+    let mut names = vec![];
+    nodes(v, &mut |n| {
+        for key in ["ProductName", "USB Product Name", "Product Name"] {
+            if let Some(name) = n.get(key).and_then(plist::Value::as_string) {
+                let name: String = name.chars().filter(|c| !c.is_control()).take(160).collect();
+                if !name.trim().is_empty() && !names.contains(&name) {
+                    names.push(name);
+                }
+            }
+        }
+    });
+    names
+}
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+fn attach_usb(v: &plist::Value, inherited: Option<u8>, ports: &mut [Port]) {
+    if let Some(list) = v.as_array() {
+        for child in list {
+            attach_usb(child, inherited, ports);
+        }
+    }
+    if let Some(n) = v.as_dictionary() {
+        let id = n
+            .get("usb-c-port-number")
+            .and_then(|v| {
+                v.as_unsigned_integer()
+                    .map(|n| n as u8)
+                    .or_else(|| v.as_data().and_then(|d| d.first().copied()))
+            })
+            .or(inherited);
+        if let Some(id) = id
+            && let Some(port) = ports
+                .iter_mut()
+                .find(|p| p.kind == PortKind::UsbC(id) && p.connected == Avail::Ok(true))
+        {
+            for name in device_names(v) {
+                if !port.devices.contains(&name) {
+                    port.devices.push(name);
+                }
+            }
+            return;
+        }
+        if let Some(children) = n.get("IORegistryEntryChildren") {
+            attach_usb(children, id, ports);
+        }
+    }
 }
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
 fn headphone_detect(v: &plist::Value) -> Option<bool> {
@@ -250,7 +308,7 @@ mod tests {
     #[test]
     fn missing_flags_stay_unknown_and_usb_identity_is_preserved() {
         let xml=br#"<?xml version="1.0"?><plist version="1.0"><array>
-        <dict><key>PortTypeDescription</key><string>USB-C</string><key>PortNumber</key><integer>3</integer><key>ConnectionActive</key><true/><key>TransportsActive</key><array><string>CC</string><string>DisplayPort</string></array></dict>
+        <dict><key>PortTypeDescription</key><string>USB-C</string><key>PortNumber</key><integer>3</integer><key>ConnectionActive</key><true/><key>TransportsActive</key><array><string>CC</string><string>DisplayPort</string></array><key>IORegistryEntryChildren</key><array><dict><key>ProductName</key><string>Test display</string></dict></array></dict>
         <dict><key>PortTypeDescription</key><string>HDMI</string><key>ConnectionActive</key><false/></dict>
         <dict><key>PortTypeDescription</key><string>MagSafe 3</string><key>ConnectionCount</key><integer>42</integer></dict>
         </array></plist>"#;
@@ -259,6 +317,7 @@ mod tests {
         assert_eq!(ports[0].kind, PortKind::UsbC(3));
         assert_eq!(ports[0].connected, Avail::Ok(true));
         assert_eq!(ports[0].detail, "DisplayPort");
+        assert_eq!(ports[0].devices, vec!["Test display"]);
         assert_eq!(ports[1].status(), "EMPTY");
         assert_eq!(ports[2].status(), "UNKNOWN");
     }
