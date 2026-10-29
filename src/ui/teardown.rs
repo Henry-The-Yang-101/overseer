@@ -166,6 +166,20 @@ impl Layout {
     fn new(c: Rect, mirror: bool) -> Self {
         let mut components: [Rect; 9] =
             std::array::from_fn(|i| to_cells(COMPONENTS[i].rect, c, mirror));
+        // Reserve a clear trunk and a short lead after even the longest port label.
+        for i in [1, 2] {
+            let r = &mut components[i];
+            let left = r.x < c.x + c.width / 2;
+            let inset = if left {
+                (c.x + 7).saturating_sub(r.x)
+            } else {
+                r.right().saturating_sub(c.right() - 7)
+            };
+            if left {
+                r.x += inset;
+            }
+            r.width = r.width.saturating_sub(inset);
+        }
         components[0].y = c.y + 1;
         components[0].height = components[0].height.max(3);
         components[3].y = components[3].y.max(components[0].bottom() + 1);
@@ -753,8 +767,11 @@ fn physical(b: &mut Buffer, c: Rect, available: Rect, a: &mut App) {
             }
             r.width = 3;
         }
-        r.y = layout.battery_top + 1;
-        r.height = c.bottom().saturating_sub(r.y + 1);
+        let space = c.bottom().saturating_sub(layout.battery_top + 2);
+        r.height = (space / 3).max(2);
+        let graph_height = (r.height * 3).min(space);
+        let graph_y = layout.battery_top + 1;
+        r.y = graph_y + (graph_height - r.height) / 2;
         let p = if n.x > 0.5 {
             Part::SpeakerLeft
         } else {
@@ -762,8 +779,38 @@ fn physical(b: &mut Buffer, c: Rect, available: Rect, a: &mut App) {
         };
         a.parts.push((p, r));
         a.hitmap.add(r, 4, Hit::Part(p));
-        super::audio::waveform(b, row(r, 0, r.height.saturating_sub(1)), p, a, true);
-        side_text(b, r, c, r.height.saturating_sub(1), label, t.muted);
+        Block::bordered()
+            .border_type(BorderType::Rounded)
+            .border_style(Style::new().fg(t.wire))
+            .render(r, b);
+        for y in 1..r.height.saturating_sub(1) {
+            text(b, r, r.width / 2, y, "▪", t.muted);
+        }
+        let left = alignment(r, c) == Alignment::Left;
+        let graph = if left {
+            Rect::new(
+                available.x,
+                graph_y,
+                c.x.saturating_sub(available.x + 1),
+                graph_height,
+            )
+        } else {
+            Rect::new(
+                c.right() + 1,
+                graph_y,
+                available.right().saturating_sub(c.right() + 1),
+                graph_height,
+            )
+        };
+        super::audio::bars(b, graph, p, a, left);
+        side_text(
+            b,
+            Rect::new(r.x, r.bottom(), r.width, 1),
+            c,
+            0,
+            label,
+            t.muted,
+        );
         if a.selection == Some(p) {
             reticle(b, r, t.bright);
         }
@@ -1124,7 +1171,7 @@ fn wiring(b: &mut Buffer, c: Rect, a: &App, mirror: bool, layout: &Layout) {
     for (i, (kind, left, y, label)) in PORTS.iter().enumerate() {
         let left = *left != mirror;
         let y = c.y + (y * c.height as f32).round() as u16;
-        let lane = grid_x(0.03, c.width).max(2);
+        let lane = grid_x(0.03, c.width).max(5) + 1;
         let edge = if left {
             c.x + label.len() as u16 + 1
         } else {

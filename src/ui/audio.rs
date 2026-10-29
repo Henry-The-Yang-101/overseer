@@ -126,3 +126,38 @@ pub fn inspector(b: &mut Buffer, r: Rect, p: Part, a: &App) {
         t.muted,
     );
 }
+
+/// Mirrored amplitude bars: each row summarizes a short slice of system output.
+pub fn bars(b: &mut Buffer, r: Rect, p: Part, a: &App, left: bool) {
+    if r.is_empty() {
+        return;
+    }
+    let frame = frame(a);
+    let Some(samples) = frame.channels.get(usize::from(p == Part::SpeakerRight)) else {
+        return;
+    };
+    for y in 0..r.height {
+        let start = y as usize * samples.len() / r.height as usize;
+        let end = (((y + 1) as usize * samples.len() / r.height as usize).max(start + 1))
+            .min(samples.len());
+        let level =
+            (samples[start..end].iter().map(|v| v * v).sum::<f32>() / (end - start) as f32).sqrt();
+        let width = (level * 4. * r.width as f32)
+            .round()
+            .clamp(0., r.width as f32) as u16;
+        for x in 0..width {
+            text(
+                b,
+                r,
+                if left { r.width - 1 - x } else { x },
+                y,
+                if a.cfg.ui.glyphs == "ascii" {
+                    "="
+                } else {
+                    "▬"
+                },
+                a.theme.accent,
+            );
+        }
+    }
+}
