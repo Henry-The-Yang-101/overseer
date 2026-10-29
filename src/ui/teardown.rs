@@ -229,6 +229,14 @@ fn alignment(r: Rect, chassis: Rect) -> Alignment {
         Alignment::Left
     }
 }
+fn center_x(r: Rect, chassis: Rect) -> u16 {
+    // Even-width side modules attach on the inward center cell of each mirrored pair.
+    r.x + if alignment(r, chassis) == Alignment::Right {
+        r.width.saturating_sub(1) / 2
+    } else {
+        r.width / 2
+    }
+}
 fn side_text(b: &mut Buffer, r: Rect, chassis: Rect, y: u16, value: impl AsRef<str>, color: Color) {
     let value = truncate(value.as_ref(), r.width as usize);
     let spare = r.width.saturating_sub(value.width() as u16);
@@ -1010,7 +1018,7 @@ fn wiring(b: &mut Buffer, c: Rect, a: &App, mirror: bool, layout: &Layout) {
         layout.cells[3],
         layout.cells[4],
     ] {
-        let x = r.x + r.width / 2;
+        let x = center_x(r, c);
         trace(
             b,
             c,
@@ -1025,7 +1033,7 @@ fn wiring(b: &mut Buffer, c: Rect, a: &App, mirror: bool, layout: &Layout) {
         );
     }
     let pmu = layout.part(Part::Power);
-    let pmu_x = pmu.x + pmu.width / 2;
+    let pmu_x = center_x(pmu, c);
     trace(
         b,
         c,
@@ -1033,6 +1041,8 @@ fn wiring(b: &mut Buffer, c: Rect, a: &App, mirror: bool, layout: &Layout) {
         wire,
         moving.then_some((phase, signal)),
     );
+    let power_input = crate::metrics::ports::power_input(&s);
+    let mut power_path = None;
     for (i, (kind, left, y, label)) in PORTS.iter().enumerate() {
         let left = *left != mirror;
         let y = c.y + (y * c.height as f32).round() as u16;
@@ -1063,22 +1073,25 @@ fn wiring(b: &mut Buffer, c: Rect, a: &App, mirror: bool, layout: &Layout) {
             blend(wire, t.panel, 0.15),
             (moving && connected).then_some((phase + i as f32 * 0.17, signal)),
         );
-        if crate::metrics::ports::power_input(&s).value() == Some(kind) {
-            let path = [
+        if power_input.value() == Some(kind) {
+            power_path = Some([
                 (edge, y),
                 (lane, y),
                 (lane, layout.power_y),
                 (center, layout.power_y),
                 (center, bms.y),
-            ];
-            trace(
-                b,
-                c,
-                &path,
-                blend(t.battery, t.panel, 0.70),
-                moving.then_some((phase, blend(t.battery, t.panel, 0.35))),
-            );
+            ]);
         }
+    }
+    // Paint the active input last so another port sharing the trunk cannot hide it.
+    if let Some(path) = power_path {
+        trace(
+            b,
+            c,
+            &path,
+            blend(t.battery, t.panel, 0.70),
+            moving.then_some((phase, blend(t.battery, t.panel, 0.35))),
+        );
     }
 }
 fn trace(
@@ -1120,7 +1133,29 @@ fn trace(
                 3
             }] = true;
         }
+        let existing = match b[(x, y)].symbol() {
+            "│" => [true, false, true, false],
+            "─" => [false, true, false, true],
+            "╭" => [false, true, true, false],
+            "╮" => [false, false, true, true],
+            "╰" => [true, true, false, false],
+            "╯" => [true, false, false, true],
+            "├" => [true, true, true, false],
+            "┤" => [true, false, true, true],
+            "┬" => [false, true, true, true],
+            "┴" => [true, true, false, true],
+            "┼" => [true; 4],
+            _ => [false; 4],
+        };
+        for i in 0..4 {
+            dirs[i] |= existing[i];
+        }
         let glyph = match dirs {
+            [true, true, true, true] => "┼",
+            [true, true, true, false] => "├",
+            [true, false, true, true] => "┤",
+            [false, true, true, true] => "┬",
+            [true, true, false, true] => "┴",
             [false, true, true, false] => "╭",
             [false, false, true, true] => "╮",
             [true, true, false, false] => "╰",

@@ -31,4 +31,6 @@ cargo clippy --all-targets -- -D warnings
 ./run.sh --demo --scenario missing-sensors --snapshot artifacts/fallback.ansi
 ```
 
+A real speaker waveform is feasible using [Core Audio taps](https://developer.apple.com/documentation/coreaudio/capturing-system-audio-with-core-audio-taps) on macOS 14.2+. This would need an opt-in capture path, `NSAudioCaptureUsageDescription`, and macOS system-audio recording permission. A device-specific stereo tap could feed small left/right waveform buffers without saving audio. Speaker grilles currently remain decorative; audio capture is not implemented.
+
 Exports use the actual Ratatui buffer (`.svg`, `.ansi`, or `.txt`). Nine focused tests cover navigation, replay, accounting, signal safety, port availability, and rendering. Three snapshot files cover Teardown, telemetry cells, and the six Systems pages at 200×55, 120×36, and 80×24. `--sample` prints one real normalized snapshot as JSON for diagnostics; it includes process names and commands.
