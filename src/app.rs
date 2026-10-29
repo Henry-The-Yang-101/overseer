@@ -228,6 +228,7 @@ pub enum Dir {
 pub enum Action {
     Quit,
     Help,
+    Ports,
     Palette,
     GoTo(Screen),
     ToggleView,
@@ -286,6 +287,7 @@ pub fn commands() -> Vec<Command> {
         ("Show / hide loopback interfaces", "", Action::Loopback),
         ("Search processes", "/", Action::Search),
         ("Show keyboard controls", "?", Action::Help),
+        ("Show connected physical ports", "p", Action::Ports),
         ("Pause / play history", "Space", Action::PlayPause),
         ("Return to live", "End", Action::Live),
         ("Next history spike", "}", Action::Spike(1)),
@@ -381,6 +383,7 @@ pub fn map_key(k: KeyEvent, s: Screen) -> Option<Action> {
         Char('c') if k.modifiers.contains(KeyModifiers::CONTROL) => Action::Quit,
         Char('q') => Action::Quit,
         Char('?') => Action::Help,
+        Char('p') => Action::Ports,
         Char(':') => Action::Palette,
         Char('/') => Action::Search,
         Char('1') => Action::GoTo(Screen::Teardown),
@@ -433,6 +436,7 @@ pub fn map_key(k: KeyEvent, s: Screen) -> Option<Action> {
 #[derive(Clone, Debug)]
 pub enum Layer {
     Help,
+    Ports,
     Palette { query: String, index: usize },
     Inspector(Part),
     Process { process: Proc, tab: usize },
@@ -1116,6 +1120,7 @@ impl App {
             Action::Quit => self.quit = true,
             Action::Back => self.back(),
             Action::Help => self.layers.push(Layer::Help),
+            Action::Ports => self.layers.push(Layer::Ports),
             Action::Palette => self.layers.push(Layer::Palette {
                 query: String::new(),
                 index: 0,
@@ -1373,10 +1378,10 @@ impl App {
                 self.cfg.teardown.highlight_active = !self.cfg.teardown.highlight_active
             }
             Action::Mirror => {
-                self.cfg.teardown.orientation = if self.cfg.teardown.orientation == "xray" {
-                    "underside"
+                self.cfg.teardown.orientation = if self.cfg.teardown.orientation == "front" {
+                    "back"
                 } else {
-                    "xray"
+                    "front"
                 }
                 .into()
             }
@@ -1491,6 +1496,12 @@ impl App {
                             }
                         }
                         _ => {}
+                    }
+                    return;
+                }
+                Layer::Ports => {
+                    if matches!(k.code, KeyCode::Esc | KeyCode::Char('p') | KeyCode::Enter) {
+                        self.layers.pop();
                     }
                     return;
                 }
@@ -1609,6 +1620,7 @@ impl App {
                         Hit::Screen(s) => self.act(Action::GoTo(s)),
                         Hit::Page(p) => self.change_page(p),
                         Hit::Rail => self.scrub(m.column),
+                        Hit::Ports => self.act(Action::Ports),
                         _ => {}
                     }
                 }

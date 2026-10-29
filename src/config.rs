@@ -108,7 +108,7 @@ impl Default for Units {
 impl Default for Teardown {
     fn default() -> Self {
         Self {
-            orientation: "underside".into(),
+            orientation: "front".into(),
             labels: true,
             highlight_active: true,
             cells: ["cpu", "gpu", "memory", "power", "thermal", "battery"]
@@ -158,6 +158,9 @@ impl Config {
         }
         if c.ui.default_view == "processes" {
             c.ui.default_view = "systems".into();
+        }
+        if !["front", "back"].contains(&c.teardown.orientation.as_str()) {
+            c.teardown.orientation = "front".into();
         }
         c.ui.fps = c.ui.fps.clamp(4, 60);
         anyhow::ensure!(

@@ -19,6 +19,16 @@ fn key(a: &mut App, k: KeyCode) {
 fn navigation_restores_page_state_and_gives_drawer_arrow_ownership() {
     let mut a = app();
     assert_eq!(a.screen, Screen::Teardown);
+    assert_eq!(a.cfg.teardown.orientation, "front");
+    key(&mut a, KeyCode::Char('p'));
+    assert!(matches!(a.layers.last(), Some(Layer::Ports)));
+    key(&mut a, KeyCode::Right);
+    assert_eq!(a.screen, Screen::Teardown);
+    key(&mut a, KeyCode::Esc);
+    key(&mut a, KeyCode::Char('o'));
+    assert_eq!(a.cfg.teardown.orientation, "back");
+    key(&mut a, KeyCode::Char('o'));
+    assert_eq!(a.cfg.teardown.orientation, "front");
     key(&mut a, KeyCode::Char('2'));
     assert_eq!(a.screen, Screen::Systems);
     assert!(a.selected_process.is_none());
@@ -114,6 +124,16 @@ fn paused_replay_pins_telemetry_task_values_and_energy() {
     );
     a.act(Action::Live);
     assert_eq!(a.sample().at, 199.);
+    let s = metrics::demo("idle", 1.);
+    let mut anim = overseer::motion::Anim::default();
+    anim.tick(&s, 0.1, overseer::motion::Motion::Full, true, 30.);
+    let phases = anim.phases.clone();
+    assert!(phases["ambient"] > 0.);
+    anim.tick(&s, 0.1, overseer::motion::Motion::Full, false, 30.);
+    assert_eq!(
+        anim.phases, phases,
+        "paused telemetry must freeze animation"
+    );
 }
 #[test]
 fn signals_require_explicit_confirmation_and_are_disabled_in_demo_and_replay() {
@@ -147,7 +167,23 @@ fn accounting_never_fabricates_sensor_values_or_exceeds_totals() {
         metrics::normalize_system_power(0.),
         Avail::Failed(_)
     ));
-    let s = metrics::demo("balanced", 1.);
+    let mut s = metrics::demo("balanced", 1.);
+    use metrics::ports::{PortKind, power_input};
+    if let Avail::Ok(b) = &mut s.battery {
+        b.ac = true;
+    }
+    assert_eq!(power_input(&s), Avail::Estimated(PortKind::UsbC(3)));
+    if let Avail::Ok(p) = &mut s.ports {
+        std::sync::Arc::make_mut(p)
+            .iter_mut()
+            .find(|p| p.kind == PortKind::MagSafe)
+            .unwrap()
+            .connected = Avail::Ok(true);
+    }
+    assert!(
+        power_input(&s).value().is_none(),
+        "ambiguous inputs must not be highlighted"
+    );
     let sum = s
         .processes
         .iter()

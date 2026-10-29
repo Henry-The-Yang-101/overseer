@@ -1,11 +1,20 @@
-use super::{SizeClass, kit::*, theme::Theme, widgets};
-use crate::app::{App, Part};
+use super::{
+    SizeClass,
+    kit::*,
+    ports,
+    theme::{Theme, blend},
+    widgets,
+};
+use crate::{
+    app::{App, Part},
+    metrics::ports::PortKind,
+};
 use ratatui::{
     buffer::Buffer,
     layout::Rect,
     style::Style,
     symbols::border,
-    widgets::{Block, BorderType, Widget},
+    widgets::{Block, BorderType, Clear, Widget},
 };
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Provenance {
@@ -36,65 +45,65 @@ pub const COMPONENTS: &[Component] = &[
     Component {
         part: Part::Network,
         label: "ANTENNA",
-        rect: NRect::new(0.34, 0., 0.32, 0.05),
+        rect: NRect::new(0.37, 0.02, 0.26, 0.07),
         provenance: Provenance::Photo,
     },
     Component {
         part: Part::Fan0,
         label: "FAN 0",
-        rect: NRect::new(0.08, 0.09, 0.26, 0.37),
+        rect: NRect::new(0.09, 0.13, 0.19, 0.32),
         provenance: Provenance::Photo,
     },
     Component {
         part: Part::Fan1,
         label: "FAN 1",
-        rect: NRect::new(0.66, 0.09, 0.26, 0.37),
+        rect: NRect::new(0.72, 0.13, 0.19, 0.32),
         provenance: Provenance::Photo,
     },
     Component {
         part: Part::Soc,
         label: "SoC",
-        rect: NRect::new(0.44, 0.12, 0.12, 0.18),
+        rect: NRect::new(0.42, 0.16, 0.16, 0.26),
         provenance: Provenance::Photo,
     },
     Component {
         part: Part::Memory,
-        label: "MEM ≈",
-        rect: NRect::new(0.35, 0.16, 0.09, 0.18),
+        label: "RAM",
+        rect: NRect::new(0.30, 0.20, 0.09, 0.21),
         provenance: Provenance::Conceptual,
     },
     Component {
         part: Part::Memory,
-        label: "MEM ≈",
-        rect: NRect::new(0.56, 0.16, 0.09, 0.18),
+        label: "RAM",
+        rect: NRect::new(0.61, 0.20, 0.09, 0.21),
         provenance: Provenance::Conceptual,
     },
     Component {
         part: Part::Power,
-        label: "PMU ≈",
-        rect: NRect::new(0.37, 0.37, 0.08, 0.07),
+        label: "PMU",
+        rect: NRect::new(0.30, 0.44, 0.11, 0.12),
         provenance: Provenance::Conceptual,
     },
     Component {
         part: Part::Disk,
-        label: "SSD ≈",
-        rect: NRect::new(0.56, 0.37, 0.08, 0.07),
+        label: "SSD",
+        rect: NRect::new(0.59, 0.44, 0.11, 0.12),
         provenance: Provenance::Approximate,
     },
     Component {
         part: Part::Battery,
         label: "BMS",
-        rect: NRect::new(0.47, 0.50, 0.06, 0.36),
+        rect: NRect::new(0.46, 0.63, 0.08, 0.30),
         provenance: Provenance::Photo,
     },
 ];
 pub const CELLS: [NRect; 6] = [
-    NRect::new(0.06, 0.50, 0.19, 0.19),
-    NRect::new(0.06, 0.71, 0.19, 0.19),
-    NRect::new(0.27, 0.50, 0.20, 0.33),
-    NRect::new(0.53, 0.50, 0.20, 0.33),
-    NRect::new(0.75, 0.50, 0.19, 0.19),
-    NRect::new(0.75, 0.71, 0.19, 0.19),
+    NRect::new(0.09, 0.60, 0.18, 0.15),
+    NRect::new(0.09, 0.78, 0.18, 0.16),
+    NRect::new(0.29, 0.60, 0.16, 0.34),
+    NRect::new(0.55, 0.60, 0.16, 0.34),
+    NRect::new(0.73, 0.60, 0.18, 0.15),
+    NRect::new(0.73, 0.78, 0.18, 0.16),
 ];
 pub fn fit_chassis(stage: Rect, aspect: f32, cell_aspect: f32) -> Rect {
     let aspect = aspect.max(0.1) * cell_aspect.max(0.1);
@@ -167,8 +176,13 @@ fn outline(
         .border_set(set)
         .border_style(Style::new().fg(color))
         .style(Style::new().bg(t.panel))
-        .title_top(format!(" {label} "));
+        .title_top(if r.width as usize >= label.len() + 4 {
+            format!(" {label} ")
+        } else {
+            truncate(label, r.width.saturating_sub(2) as usize)
+        });
     let inside = block.inner(r);
+    Clear.render(r, b);
     block.render(r, b);
     inside
 }
@@ -201,10 +215,10 @@ pub fn draw(b: &mut Buffer, r: Rect, a: &mut App, size: SizeClass) {
         false,
         &t,
     );
-    let orientation = if a.cfg.teardown.orientation == "xray" {
-        "X-RAY VIEW · hinge ↑ · MagSafe ← · HDMI/SD →"
+    let orientation = if a.cfg.teardown.orientation != "back" {
+        "FRONT ORIENTATION · hinge ↑ · MagSafe ← · HDMI/SD →"
     } else {
-        "UNDERSIDE VIEW · hinge ↑ · HDMI/SD ← · MagSafe →"
+        "BACK ORIENTATION · hinge ↑ · HDMI/SD ← · MagSafe →"
     };
     line(
         b,
@@ -217,6 +231,8 @@ pub fn draw(b: &mut Buffer, r: Rect, a: &mut App, size: SizeClass) {
         },
         t.muted,
     );
+    line(b, inside, 1, ports::summary(&sample), t.muted);
+    a.hitmap.add(row(inside, 1, 1), 3, Hit::Ports);
     let available = Rect::new(
         inside.x,
         inside.y + 2,
@@ -234,7 +250,7 @@ pub fn draw(b: &mut Buffer, r: Rect, a: &mut App, size: SizeClass) {
     let disclaimer = if a.cells {
         "CELLS ARE DISPLAY SLOTS · NOT PER-CELL BATTERY DATA"
     } else if verified {
-        "── photo-matched   ┄┄ approximate   ┈┈ conceptual   Fan sides assumed"
+        "Layout approximate · wiring symbolic · fan sides assumed"
     } else {
         "GENERIC SCHEMATIC · NOT THE PHYSICAL LAYOUT OF THIS MACHINE"
     };
@@ -253,18 +269,17 @@ pub fn draw(b: &mut Buffer, r: Rect, a: &mut App, size: SizeClass) {
 fn physical(b: &mut Buffer, c: Rect, a: &mut App) {
     let t = a.theme.clone();
     let s = a.sample();
-    let mirror = a.cfg.teardown.orientation == "xray";
+    let mirror = a.cfg.teardown.orientation != "back";
     let ascii = a.cfg.ui.glyphs == "ascii";
-    let large = c.width >= 100 && c.height >= 34;
     Block::bordered()
         .border_type(BorderType::Rounded)
         .border_style(Style::new().fg(t.wire))
         .render(c, b);
-    let board_y = (c.height as f32 * 0.47).round() as u16;
+    let board_y = (c.height as f32 * 0.57).round() as u16;
     for x in 1..c.width.saturating_sub(1) {
         text(b, c, x, board_y, "─", t.wire);
     }
-    text(b, c, c.width / 2 - 5, board_y, " LOGIC BOARD ", t.muted);
+
     let heat = s
         .cpu_temp
         .value()
@@ -273,8 +288,8 @@ fn physical(b: &mut Buffer, c: Rect, a: &mut App) {
         .max(s.gpu_temp.value().copied().unwrap_or(30.));
     let heat_color = t.heat(heat);
     for n in [
-        NRect::new(0.12, 0.02, 0.20, 0.07),
-        NRect::new(0.68, 0.02, 0.20, 0.07),
+        NRect::new(0.11, 0.035, 0.17, 0.055),
+        NRect::new(0.72, 0.035, 0.17, 0.055),
     ] {
         let r = to_cells(n, c, mirror);
         for y in 0..r.height {
@@ -309,6 +324,7 @@ fn physical(b: &mut Buffer, c: Rect, a: &mut App) {
     }
     a.parts.push((Part::Thermal, pipe));
     a.hitmap.add(pipe, 4, Hit::Part(Part::Thermal));
+    wiring(b, c, a, mirror);
     for spec in COMPONENTS {
         let p = spec.part;
         let r = to_cells(spec.rect, c, mirror);
@@ -358,11 +374,7 @@ fn physical(b: &mut Buffer, c: Rect, a: &mut App) {
                         b,
                         inside,
                         inside.height.saturating_sub(1),
-                        format!(
-                            "{} rpm{}",
-                            fan.rpm,
-                            if large { " · side assumed" } else { "" }
-                        ),
+                        format!("{} rpm", fan.rpm),
                         t.text,
                     );
                 } else {
@@ -376,6 +388,28 @@ fn physical(b: &mut Buffer, c: Rect, a: &mut App) {
                     line(b, inside, 2, format!("G {:3.0}%", g * 100.), t.gpu);
                 }
                 line(b, inside, 3, temp(&s.cpu_temp, &a.cfg.units), heat_color);
+                let phase = if a.motion == crate::motion::Motion::Full {
+                    a.anim.phases.get("ambient").copied().unwrap_or(0.)
+                } else {
+                    0.
+                };
+                for y in (5..inside.height).step_by(2) {
+                    for x in (1..inside.width.saturating_sub(1)).step_by(3) {
+                        let lit = ((x + y * 3) as f32 * 0.07 - phase).rem_euclid(1.) < 0.1;
+                        text(
+                            b,
+                            inside,
+                            x,
+                            y,
+                            "·",
+                            if lit {
+                                blend(t.cpu, t.panel, 0.65)
+                            } else {
+                                t.substrate
+                            },
+                        );
+                    }
+                }
             }
             Part::Memory => {
                 let v = s.memory_ratio();
@@ -386,18 +420,42 @@ fn physical(b: &mut Buffer, c: Rect, a: &mut App) {
                     b,
                     inside,
                     inside.height.saturating_sub(1),
-                    format!("{:.1}G", s.memory_used as f64 / 1024f64.powi(3)),
+                    if inside.width >= 5 {
+                        format!("{:.1}G", s.memory_used as f64 / 1024f64.powi(3))
+                    } else {
+                        format!("{:.0}G", s.memory_used as f64 / 1024f64.powi(3))
+                    },
                     t.text,
                 );
             }
-            Part::Power => line(b, inside, 0, watts(&s.total_power()), t.accent),
+            Part::Power => line(
+                b,
+                inside,
+                0,
+                if inside.width < 7 {
+                    s.total_power().value().map_or("N/A".into(), |w| {
+                        if inside.width >= 5 {
+                            format!("{w:.1}W")
+                        } else {
+                            format!("{w:.0}W")
+                        }
+                    })
+                } else {
+                    watts(&s.total_power())
+                },
+                t.accent,
+            ),
             Part::Disk => line(
                 b,
                 inside,
                 0,
-                s.disk
-                    .value()
-                    .map_or("N/A".into(), |f| format!("R {:.0}M", f.read / 1e6)),
+                s.disk.value().map_or("N/A".into(), |f| {
+                    if inside.width >= 6 {
+                        format!("R {:.0}M", f.read / 1e6)
+                    } else {
+                        format!("{:.0}M", f.read / 1e6)
+                    }
+                }),
                 t.disk,
             ),
             Part::Battery => {
@@ -521,8 +579,8 @@ fn physical(b: &mut Buffer, c: Rect, a: &mut App) {
         }
     }
     for (n, label) in [
-        (NRect::new(0.005, 0.56, 0.045, 0.32), "SPK"),
-        (NRect::new(0.95, 0.56, 0.045, 0.32), "SPK"),
+        (NRect::new(0.02, 0.62, 0.035, 0.30), "SPK"),
+        (NRect::new(0.945, 0.62, 0.035, 0.30), "SPK"),
     ] {
         let r = to_cells(n, c, mirror);
         for y in 0..r.height {
@@ -530,35 +588,7 @@ fn physical(b: &mut Buffer, c: Rect, a: &mut App) {
         }
         line(b, r, r.height / 2, label, t.muted);
     }
-    let recess = to_cells(NRect::new(0.30, 0.86, 0.40, 0.10), c, mirror);
-    outline(
-        b,
-        recess,
-        "TRACKPAD RECESS",
-        Provenance::Approximate,
-        t.wire,
-        &t,
-    );
-    for (left, labels) in [
-        (true, ["HDMI", "SDXC", "TB5"]),
-        (false, ["MAG", "TB5", "3.5"]),
-    ] {
-        for (i, label) in labels.iter().enumerate() {
-            let x = if left != mirror {
-                1
-            } else {
-                c.width.saturating_sub(5)
-            };
-            text(
-                b,
-                c,
-                x,
-                (c.height as f32 * (0.17 + i as f32 * 0.10)) as u16,
-                label,
-                t.muted,
-            );
-        }
-    }
+    edge_ports(b, c, a, mirror);
 }
 fn generic(b: &mut Buffer, r: Rect, a: &mut App) {
     let t = a.theme.clone();
@@ -637,11 +667,11 @@ fn navigator(b: &mut Buffer, r: Rect, a: &mut App) {
         widgets::content(b, inner, p, &s, a);
     }
 }
-fn selected(b: &mut Buffer, r: Rect, a: &App) {
+fn selected(b: &mut Buffer, r: Rect, a: &mut App) {
     let t = &a.theme;
     let p = a.resolve(a.selection.unwrap_or(Part::Soc));
     let s = a.sample();
-    let card = Rect::new(r.x, r.y, r.width, (r.height * 55 / 100).max(8));
+    let card = Rect::new(r.x, r.y, r.width, (r.height * 43 / 100).max(8));
     let inner = frame(b, card, "SELECTED", "Enter / z", true, t);
     line(b, inner, 1, p.name().to_uppercase(), widgets::tint(p, t));
     line(b, inner, 3, widgets::readout(p, &s, a), t.text);
@@ -672,26 +702,8 @@ fn selected(b: &mut Buffer, r: Rect, a: &App) {
         .style(Style::new().fg(t.muted))
         .render(text_rect, b);
     let legend = Rect::new(r.x, card.bottom(), r.width, r.height - card.height);
-    let inner = frame(b, legend, "READING THE MACHINE", "", false, t);
-    for (i, line0) in [
-        "──  Photo-matched outline",
-        "┄┄  Approximate position",
-        "┈┈  Conceptual overlay",
-        "",
-        "Rotor speed follows RPM",
-        "Pipe color follows temperature",
-        "Trace density follows power",
-        "",
-        "m   toggle telemetry cells",
-        "o   mirror orientation",
-        "L   toggle labels",
-        "H   highlight activity",
-    ]
-    .iter()
-    .enumerate()
-    {
-        line(b, inner, i as u16, line0, t.muted);
-    }
+    ports::card(b, legend, a);
+    a.hitmap.add(legend, 3, Hit::Ports);
 }
 fn reticle(b: &mut Buffer, r: Rect, c: ratatui::style::Color) {
     if r.width < 2 || r.height < 2 {
@@ -704,5 +716,200 @@ fn reticle(b: &mut Buffer, r: Rect, c: ratatui::style::Color) {
         (r.width - 1, r.height - 1, "┛"),
     ] {
         text(b, r, x, y, s, c);
+    }
+}
+
+// Coordinates retain the underside basis; the default front orientation mirrors every layer.
+const PORTS: [(PortKind, bool, f32, &str); 7] = [
+    (PortKind::MagSafe, false, 0.15, "MAG"),
+    (PortKind::UsbC(1), false, 0.25, "TB1"),
+    (PortKind::UsbC(2), false, 0.35, "TB2"),
+    (PortKind::Audio, false, 0.45, "3.5"),
+    (PortKind::Hdmi, true, 0.18, "HDMI"),
+    (PortKind::UsbC(3), true, 0.30, "TB3"),
+    (PortKind::SdCard, true, 0.42, "SD"),
+];
+fn edge_ports(b: &mut Buffer, c: Rect, a: &mut App, mirror: bool) {
+    let s = a.sample();
+    let t = &a.theme;
+    for (kind, left, y, label) in PORTS {
+        let left = left != mirror;
+        let (dot, color, _) = ports::indicator(&s, kind, t);
+        let y = (y * c.height as f32).round() as u16;
+        let x = if left { 0 } else { c.width.saturating_sub(1) };
+        text(b, c, x, y, dot, color);
+        let x = if left {
+            1
+        } else {
+            c.width.saturating_sub(label.len() as u16 + 1)
+        };
+        text(b, c, x, y, label, color);
+        a.hitmap.add(
+            Rect::new(
+                c.x + if left { 0 } else { x },
+                c.y + y,
+                label.len() as u16 + 1,
+                1,
+            ),
+            6,
+            Hit::Ports,
+        );
+    }
+}
+fn wiring(b: &mut Buffer, c: Rect, a: &App, mirror: bool) {
+    let t = &a.theme;
+    let s = a.sample();
+    let phase = if a.motion == crate::motion::Motion::Full {
+        a.anim.phases.get("ambient").copied().unwrap_or(0.)
+    } else {
+        0.
+    };
+    let moving = a.motion == crate::motion::Motion::Full;
+    let wire = blend(t.wire, t.panel, 0.25);
+    let signal = blend(t.accent, t.panel, 0.68);
+    // These traces communicate relationships, not the actual PCB routing or bus traffic.
+    for (i, path) in [
+        &[(0.39, 0.27), (0.42, 0.27)][..],
+        &[(0.39, 0.34), (0.42, 0.34)][..],
+        &[(0.58, 0.27), (0.61, 0.27)][..],
+        &[(0.58, 0.34), (0.61, 0.34)][..],
+        &[(0.50, 0.09), (0.50, 0.16)][..],
+        &[(0.355, 0.45), (0.355, 0.43), (0.46, 0.43), (0.46, 0.40)][..],
+        &[(0.645, 0.45), (0.645, 0.43), (0.54, 0.43), (0.54, 0.40)][..],
+        &[(0.355, 0.54), (0.355, 0.57), (0.50, 0.57), (0.50, 0.63)][..],
+        &[(0.18, 0.60), (0.18, 0.57), (0.82, 0.57), (0.82, 0.60)][..],
+        &[(0.38, 0.60), (0.38, 0.57)][..],
+        &[(0.62, 0.60), (0.62, 0.57)][..],
+    ]
+    .iter()
+    .enumerate()
+    {
+        trace(
+            b,
+            c,
+            mirror,
+            path,
+            wire,
+            moving.then_some((phase + i as f32 * 0.13, signal)),
+        );
+    }
+    for (i, (kind, left, y, _)) in PORTS.iter().enumerate() {
+        let (edge, lane, inner, soc) = if *left {
+            (0.015, 0.065, 0.285, 0.44)
+        } else {
+            (0.985, 0.935, 0.715, 0.56)
+        };
+        let path = [
+            (edge, *y),
+            (lane, *y),
+            (lane, 0.49),
+            (inner, 0.49),
+            (inner, 0.43),
+            (soc, 0.43),
+            (soc, 0.40),
+        ];
+        let connected = ports::indicator(&s, *kind, t).2 == "CONNECTED";
+        trace(
+            b,
+            c,
+            mirror,
+            &path,
+            blend(wire, t.panel, 0.15),
+            (moving && connected).then_some((phase + i as f32 * 0.17, signal)),
+        );
+    }
+    if let Some(input) = crate::metrics::ports::power_input(&s).value()
+        && let Some((_, left, y, _)) = PORTS.iter().find(|p| p.0 == *input)
+    {
+        let (edge, lane) = if *left {
+            (0.015, 0.075)
+        } else {
+            (0.985, 0.925)
+        };
+        let path = [
+            (edge, *y),
+            (lane, *y),
+            (lane, 0.55),
+            (0.50, 0.55),
+            (0.50, 0.63),
+        ];
+        trace(
+            b,
+            c,
+            mirror,
+            &path,
+            blend(t.battery, t.panel, 0.70),
+            moving.then_some((phase, blend(t.battery, t.panel, 0.35))),
+        );
+    }
+}
+fn trace(
+    b: &mut Buffer,
+    c: Rect,
+    mirror: bool,
+    path: &[(f32, f32)],
+    color: ratatui::style::Color,
+    pulse: Option<(f32, ratatui::style::Color)>,
+) {
+    let points: Vec<_> = path
+        .iter()
+        .map(|&(x, y)| {
+            (
+                ((if mirror { 1. - x } else { x }) * c.width as f32)
+                    .round()
+                    .clamp(0., c.width.saturating_sub(1) as f32) as u16,
+                (y * c.height as f32)
+                    .round()
+                    .clamp(0., c.height.saturating_sub(1) as f32) as u16,
+            )
+        })
+        .collect();
+    let mut cells = Vec::new();
+    for pair in points.windows(2) {
+        let (mut x, mut y) = pair[0];
+        let (tx, ty) = pair[1];
+        cells.push((x, y));
+        while (x, y) != (tx, ty) {
+            if x != tx {
+                x = (x as i32 + if x < tx { 1 } else { -1 }) as u16;
+            } else {
+                y = (y as i32 + if y < ty { 1 } else { -1 }) as u16;
+            }
+            cells.push((x, y));
+        }
+    }
+    cells.dedup();
+    for (i, &(x, y)) in cells.iter().enumerate() {
+        let mut dirs = [false; 4]; // up, right, down, left
+        for j in [i.checked_sub(1), (i + 1 < cells.len()).then_some(i + 1)]
+            .into_iter()
+            .flatten()
+        {
+            let (nx, ny) = cells[j];
+            dirs[if ny < y {
+                0
+            } else if nx > x {
+                1
+            } else if ny > y {
+                2
+            } else {
+                3
+            }] = true;
+        }
+        let glyph = match dirs {
+            [false, true, true, false] => "╭",
+            [false, false, true, true] => "╮",
+            [true, true, false, false] => "╰",
+            [true, false, false, true] => "╯",
+            [true, _, _, _] | [_, _, true, _] => "│",
+            _ => "─",
+        };
+        text(b, c, x, y, glyph, color);
+    }
+    if let Some((phase, color)) = pulse
+        && !cells.is_empty()
+    {
+        let i = (phase.fract() * cells.len() as f32) as usize % cells.len();
+        text(b, c, cells[i].0, cells[i].1, "·", color);
     }
 }

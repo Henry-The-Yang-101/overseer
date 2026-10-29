@@ -1,12 +1,13 @@
 pub mod kit;
 pub mod overlays;
+pub mod ports;
 pub mod processes;
 pub mod systems;
 pub mod teardown;
 pub mod theme;
 pub mod widgets;
 use crate::{
-    app::{App, Screen},
+    app::{App, Layer, Screen},
     motion::Motion,
 };
 use kit::*;
@@ -108,6 +109,7 @@ pub fn draw(f: &mut Frame, a: &mut App, dt: std::time::Duration) {
         }
     }
     timeline(b, rail, a);
+    status_line(b, row(rail, rail.height - 1, 1), a);
     hints(b, dock, a, size);
     overlays::draw(b, stage, a);
     if let Some((old, since)) = &a.theme_from
@@ -352,10 +354,57 @@ fn timeline(b: &mut ratatui::buffer::Buffer, r: Rect, a: &mut App) {
         text(b, r, r.width / 2, 1, "CPU / GPU · click to scrub", t.muted);
     }
 }
+// Passive messages have a reserved row: they never paint over content or keyboard hints.
+fn status_line(b: &mut ratatui::buffer::Buffer, r: Rect, a: &App) {
+    if !a.layers.is_empty() || a.boot {
+        return;
+    }
+    let t = &a.theme;
+    let message = if let Some(info) = a.toasts.iter().rev().find(|t| t.key == "info") {
+        info.text.clone()
+    } else if let Some((Hit::Part(p), since)) = &a.hover
+        && since.elapsed().as_millis() > 250
+    {
+        format!(
+            "{} · {} · Enter inspect / z zoom",
+            p.name(),
+            widgets::readout(*p, &a.sample(), a)
+        )
+    } else if !a.cfg.ui.onboarding_seen && a.started.elapsed().as_secs() < 12 {
+        let i = (a.started.elapsed().as_secs() / 4).min(2) as usize;
+        [
+            "WELCOME · Tab selects · Enter inspects · Esc goes back",
+            "2 opens Systems · ← → switches resource pages",
+            "p shows connected ports · ? controls · : commands",
+        ][i]
+            .into()
+    } else {
+        return;
+    };
+    line(b, r, 0, truncate(&message, r.width as usize), t.muted);
+}
 fn hints(b: &mut ratatui::buffer::Buffer, r: Rect, a: &App, size: SizeClass) {
     let t = &a.theme;
-    let h = if !a.layers.is_empty() {
-        "←→ inspector tabs   ↑↓ task   PgUp/PgDn scroll   Esc close"
+    let h = if let Some(layer) = a.layers.last() {
+        match layer {
+            Layer::Ports => "p / Esc close ports",
+            Layer::Help => "Esc close controls",
+            Layer::Palette { .. } => "↑↓ choose   Enter run   Esc close",
+            Layer::Signal { force, .. } => {
+                if *force {
+                    "Y confirm SIGKILL   Esc cancel"
+                } else {
+                    "y confirm SIGTERM   Esc cancel"
+                }
+            }
+            Layer::Inspector(p)
+                if matches!(a.resolve(*p), crate::app::Part::Cpu | crate::app::Part::Soc) =>
+            {
+                "←→ choose core   Esc close"
+            }
+            Layer::Inspector(_) => "Esc close inspector",
+            Layer::Process { .. } => "←→ inspector tabs   ↑↓ task   PgUp/PgDn scroll   Esc close",
+        }
     } else if a.searching {
         "Type to filter   ↑↓ choose   Enter done   Esc clear"
     } else if a.cursor.is_some() {
@@ -364,8 +413,10 @@ fn hints(b: &mut ratatui::buffer::Buffer, r: Rect, a: &App, size: SizeClass) {
         "← → sibling   Enter details   Esc back"
     } else if a.screen == Screen::Systems {
         "←→ pages   ↑↓ tasks   Enter inspect   / filter   z expand   f follow   ? help"
+    } else if a.screen == Screen::Teardown && size == SizeClass::Compact {
+        "Tab select   Enter inspect   p ports   m cells   2 Systems   ? help"
     } else if a.screen == Screen::Teardown {
-        "Tab select   g system page   Enter inspect   z zoom   m cells   2 Systems   ? help"
+        "Tab select   g system page   Enter inspect   z zoom   m cells   p ports   2 Systems   ? help"
     } else if size == SizeClass::Compact {
         "Tab select   Enter inspect   v teardown   Space pause   ? help"
     } else {
@@ -383,7 +434,12 @@ fn hints(b: &mut ratatui::buffer::Buffer, r: Rect, a: &App, size: SizeClass) {
             spans.push(Span::raw(part));
         }
     }
-    Paragraph::new(Line::from(spans)).render(r, b);
+    let hint_area = if a.debug && r.width > 130 {
+        Rect::new(r.x, r.y, r.width.saturating_sub(20), r.height)
+    } else {
+        r
+    };
+    Paragraph::new(Line::from(spans)).render(hint_area, b);
     if a.debug && r.width > 130 {
         let s = format!("{:2.0}fps {:.2}ms", a.fps, a.render_ms);
         text(b, r, r.width - s.len() as u16, 0, s, t.muted);

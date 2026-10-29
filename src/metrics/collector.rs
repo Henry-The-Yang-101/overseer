@@ -411,12 +411,19 @@ fn collect(tx: &mpsc::SyncSender<Sample>) -> anyhow::Result<()> {
             last_battery = Instant::now();
         }
         s.battery = battery.clone();
-        if let Some(rx) = &port_rx
-            && let Ok(state) = rx.try_recv()
-        {
-            port_state = state;
-            ports_at = s.at;
-            port_rx = None;
+        if let Some(rx) = &port_rx {
+            match rx.try_recv() {
+                Ok(state) => {
+                    port_state = state;
+                    ports_at = s.at;
+                    port_rx = None;
+                }
+                Err(mpsc::TryRecvError::Disconnected) => {
+                    port_state = Avail::Failed("port reader stopped".into());
+                    port_rx = None;
+                }
+                Err(mpsc::TryRecvError::Empty) => {}
+            }
         }
         if port_rx.is_none() && last_ports.elapsed() >= Duration::from_secs(3) {
             port_rx = Some(ports::request());

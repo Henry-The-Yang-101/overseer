@@ -7,8 +7,8 @@ TEARDOWN
 
   1 Teardown   2 Systems
  ╭ MACBOOK PRO 14 / M4 PRO ───────────────────────────────────── PHYSICAL [m] ╮
- │ UNDERSIDE VIEW · hinge ↑ · HDMI/SD ← · MagSafe →                           │
- │                                                                            │
+ │ FRONT ORIENTATION · hinge ↑ · MagSafe ← · HDMI/SD →                        │
+ │ PORTS · 1 connected   [p]                                                  │
  │ COMPONENT NAVIGATOR                                                        │
  │                                   ┏ SYSTEM ON CHIP ━━━━━━━━━━━━━━━━━━━━━━┓ │
  │   Fan 0                           ┃  40.0%                               ┃ │
@@ -22,18 +22,18 @@ TEARDOWN
  │   Network                         ┃ CPU  9.10 W   53°C   UP 75:58:48     ┃ │
  │                                   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛ │
  │                                                                            │
- │ ── photo-matched   ┄┄ approximate   ┈┈ conceptual   Fan sides assumed      │
+ │ Layout approximate · wiring symbolic · fan sides assumed                   │
  ╰────────────────────────────────────────────────────────────────────────────╯
  5m  ⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤◆ NOW
 
- Tab select   g system page   Enter inspect   z zoom   m cells   2 Systems   ?
+ Tab select   Enter inspect   p ports   m cells   2 Systems   ? help
 TELEMETRY CELLS
  O V E R S E E R  M4 Pro                                              SYNTHETIC
 
   1 Teardown   2 Systems
  ╭ MACBOOK PRO 14 / M4 PRO ──────────────────────────────────── TELEMETRY [m] ╮
- │ UNDERSIDE VIEW · hinge ↑ · HDMI/SD ← · MagSafe →                           │
- │                                                                            │
+ │ FRONT ORIENTATION · hinge ↑ · MagSafe ← · HDMI/SD →                        │
+ │ PORTS · 1 connected   [p]                                                  │
  │ COMPONENT NAVIGATOR                                                        │
  │                                   ┏ SYSTEM ON CHIP ━━━━━━━━━━━━━━━━━━━━━━┓ │
  │   Telemetry cell                  ┃  40.0%                               ┃ │
@@ -51,7 +51,7 @@ TELEMETRY CELLS
  ╰────────────────────────────────────────────────────────────────────────────╯
  5m  ⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤◆ NOW
 
- Tab select   g system page   Enter inspect   z zoom   m cells   2 Systems   ?
+ Tab select   Enter inspect   p ports   m cells   2 Systems   ? help
 cpu
  O V E R S E E R  M4 Pro                                              SYNTHETIC
 

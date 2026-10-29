@@ -29,6 +29,7 @@ pub fn draw(b: &mut Buffer, r: Rect, a: &mut App) {
         }
         match layer {
             Layer::Help => help(b, centered(r, 108, 28), a),
+            Layer::Ports => super::ports::modal(b, centered(r, 72, 25), a),
             Layer::Palette { query, index } => {
                 let rect = centered(r, 76, 18);
                 Clear.render(rect, b);
@@ -339,26 +340,10 @@ pub fn draw(b: &mut Buffer, r: Rect, a: &mut App) {
                 );
             }
         }
-    } else if !a.cfg.ui.onboarding_seen && a.started.elapsed().as_secs() < 12 && !a.boot {
-        let i = (a.started.elapsed().as_secs() / 4).min(2) as usize;
-        let tip = [
-            "Tab cycles parts · Enter inspects · Esc goes back",
-            "2 opens Systems · ← → switches resource pages",
-            "? shows controls · : finds any command",
-        ][i];
-        let rr = Rect::new(
-            r.x + 1,
-            r.bottom().saturating_sub(3),
-            r.width.saturating_sub(2),
-            3,
-        );
-        Clear.render(rr, b);
-        let rr = frame(b, rr, "WELCOME TO OVERSEER", "", false, &t);
-        line(b, rr, 0, tip, t.accent);
     }
     if a.layers.is_empty() {
         let mut y = r.y;
-        for toast in a.toasts.iter().take(3) {
+        for toast in a.toasts.iter().filter(|t| t.key != "info").take(3) {
             let width = (toast.text.len() as u16 + 5).clamp(32, 72).min(r.width);
             let rect = Rect::new(r.right() - width, y, width, 4.min(r.height));
             Clear.render(rect, b);
@@ -380,25 +365,6 @@ pub fn draw(b: &mut Buffer, r: Rect, a: &mut App) {
             if y + 4 > r.bottom() {
                 break;
             }
-        }
-        if r.width >= 150
-            && let Some((Hit::Part(p), since)) = &a.hover
-            && since.elapsed().as_millis() > 250
-        {
-            let rect = Rect::new(
-                r.x + 2,
-                r.bottom().saturating_sub(4),
-                65.min(r.width - 4),
-                3,
-            );
-            let rr = frame(b, rect, "COMPONENT", "", false, &t);
-            line(
-                b,
-                rr,
-                0,
-                format!("{} · {}", p.name(), widgets::readout(*p, &a.sample(), a)),
-                t.text,
-            );
         }
     }
 }
@@ -422,7 +388,7 @@ fn help(b: &mut Buffer, r: Rect, a: &App) {
         "DRAWER    ← → tabs · ↑ ↓ tasks · PgUp/PgDn scroll · Esc closes",
         "TEARDOWN  Tab selects · arrows navigate · g opens resource page",
         "          Enter inspects · z zooms · m telemetry cells · L labels",
-        "          H highlights activity · o mirrors orientation",
+        "          H highlights · o mirrors · p connected ports",
         "",
         "HISTORY   Space pause / play · , . step · < > step ten",
         "          { } spikes · [ ] window · + - speed · End returns live",

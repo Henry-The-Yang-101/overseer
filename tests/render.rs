@@ -1,10 +1,10 @@
 use overseer::{
-    app::{Action, App, Page, Screen},
+    app::{Action, App, Page, Part, Screen},
     config::Config,
-    ui,
+    ui::{self, kit::Hit},
 };
 use ratatui::{Terminal, backend::TestBackend};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 fn app(scenario: &str) -> App {
     let mut c = Config::default();
     c.ui.onboarding_seen = true;
@@ -63,6 +63,31 @@ fn unavailable_sensors_and_small_resizes_stay_usable() {
             render(&mut a, w, h);
             a.act(Action::Back);
             a.act(Action::GoTo(Screen::Teardown));
+            a.act(Action::Ports);
+            let ports = render(&mut a, w, h);
+            if w >= 60 && h >= 18 {
+                assert!(ports.contains("PHYSICAL PORTS"));
+                assert!(ports.lines().last().unwrap().contains("Esc close ports"));
+            }
+            a.act(Action::Back);
         }
     }
+    let mut a = app("balanced");
+    let before = render(&mut a, 120, 36);
+    a.hover = Some((
+        Hit::Part(Part::Memory),
+        Instant::now() - Duration::from_secs(1),
+    ));
+    let hover = render(&mut a, 120, 36);
+    a.info("Motion · reduced".into());
+    let notice = render(&mut a, 120, 36);
+    for after in [&hover, &notice] {
+        assert_eq!(
+            before.lines().take(34).collect::<Vec<_>>(),
+            after.lines().take(34).collect::<Vec<_>>()
+        );
+        assert_eq!(before.lines().last(), after.lines().last());
+    }
+    assert!(hover.lines().nth(34).unwrap().contains("Enter inspect"));
+    assert!(notice.lines().nth(34).unwrap().contains("Motion · reduced"));
 }

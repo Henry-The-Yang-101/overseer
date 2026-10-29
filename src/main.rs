@@ -98,6 +98,7 @@ fn main() -> anyhow::Result<()> {
                 ("System power", s.system_power.reason().into()),
                 ("Fans", s.fans.reason().into()),
                 ("Battery", s.battery.reason().into()),
+                ("Physical ports", s.ports.reason().into()),
                 ("Memory pressure", s.pressure.reason().into()),
             ] {
                 println!("{k:20} {v}");
