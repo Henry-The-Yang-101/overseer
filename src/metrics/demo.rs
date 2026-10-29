@@ -142,6 +142,8 @@ pub fn demo(scenario: &str, t: f64) -> Sample {
                 wave(8.) as f64 * 32_000_000.
             },
             name: "Macintosh HD".into(),
+            total_read: 182_000_000_000,
+            total_write: 42_000_000_000,
             ..Flow::default()
         }),
         disk_capacity: Avail::Ok((412_000_000_000, 994_000_000_000)),
@@ -241,6 +243,8 @@ pub fn demo(scenario: &str, t: f64) -> Sample {
                 wave(i as f64) * 160. / (i + 1) as f32
             },
             memory: (((20 - i) * 87) as u64) * 1024 * 1024,
+            footprint: Avail::Ok((((20 - i) * 81) as u64) * 1024 * 1024),
+            wakeups: Avail::Ok(wave(i as f64) * 28.),
             read: if idle {
                 0.
             } else {

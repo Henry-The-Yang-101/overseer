@@ -292,7 +292,7 @@ pub fn spark(b: &mut Buffer, r: Rect, data: &[f32], max: f32, c: Color, t: &Them
     if r.is_empty() {
         return;
     }
-    let data = max_pool(data, r.width as usize * 2);
+    let data = stretch(data, r.width as usize * 2);
     let mut g = BrailleGrid::new(r.width, r.height);
     let offset = r.width as usize * 2 - data.len();
     let h = r.height as i32 * 4;

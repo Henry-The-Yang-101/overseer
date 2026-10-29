@@ -30,6 +30,7 @@ fn collect(tx: &mpsc::SyncSender<Sample>) -> anyhow::Result<()> {
     let mut strings: HashMap<(u32, u64), Metadata> = HashMap::new();
     let mut processes = Arc::new(Vec::new());
     let mut process_at = 0.;
+    let mut wakeups: HashMap<(u32, u64), u64> = HashMap::new();
     let mut previous_vm: Option<[u64; 5]> = None;
     let mut previous_ticks = cpu_ticks();
     let mut socket_rx = None;
@@ -212,10 +213,11 @@ fn collect(tx: &mpsc::SyncSender<Sample>) -> anyhow::Result<()> {
             s.load = [load.one, load.five, load.fifteen];
         }
         if let Some(rx) = &socket_rx
-            && let Ok(data) = std::sync::mpsc::Receiver::try_recv(rx) {
-                socket_data = Some(data);
-                socket_rx = None;
-            }
+            && let Ok(data) = std::sync::mpsc::Receiver::try_recv(rx)
+        {
+            socket_data = Some(data);
+            socket_rx = None;
+        }
         if socket_rx.is_none()
             && socket_at.elapsed() > Duration::from_secs(15)
             && !processes.is_empty()
@@ -348,6 +350,19 @@ fn collect(tx: &mpsc::SyncSender<Sample>) -> anyhow::Result<()> {
                     )
                 });
                 let u = p.disk_usage();
+                let usage = process_usage(pid.as_u32());
+                let (footprint, wakes) = if let Some((footprint, count)) = usage {
+                    let rate = wakeups
+                        .insert(key, count)
+                        .map(|old| Avail::Ok(count.saturating_sub(old) as f32 / dt as f32))
+                        .unwrap_or(Avail::Acquiring);
+                    (Avail::Ok(footprint), rate)
+                } else {
+                    (
+                        Avail::Permission("footprint restricted".into()),
+                        Avail::Permission("wakeups restricted".into()),
+                    )
+                };
                 out.push(Proc {
                     pid: pid.as_u32(),
                     start: p.start_time(),
@@ -357,6 +372,8 @@ fn collect(tx: &mpsc::SyncSender<Sample>) -> anyhow::Result<()> {
                     user: meta.2.clone(),
                     cpu: p.cpu_usage(),
                     memory: p.memory(),
+                    footprint,
+                    wakeups: wakes,
                     read: u.read_bytes as f64 / dt,
                     write: u.written_bytes as f64 / dt,
                     runtime: p.run_time(),
@@ -377,6 +394,7 @@ fn collect(tx: &mpsc::SyncSender<Sample>) -> anyhow::Result<()> {
                 sys.process(sysinfo::Pid::from_u32(*pid))
                     .is_some_and(|p| p.start_time() == *start)
             });
+            wakeups.retain(|key, _| strings.contains_key(key));
             out.sort_by_key(|p| p.pid);
             processes = Arc::new(out);
             process_at = s.at;
@@ -439,7 +457,11 @@ fn read_vm(s: &mut Sample) {
                 .unwrap_or(16384);
             let count = |key: &str| {
                 text.lines()
-                    .find(|l| l.starts_with(key))
+                    .find(|l| {
+                        l.split(':')
+                            .next()
+                            .is_some_and(|name| name.trim_matches('"') == key.trim_end_matches(':'))
+                    })
                     .and_then(|l| l.split(':').nth(1))
                     .and_then(|v| v.trim().trim_end_matches('.').parse::<u64>().ok())
                     .map(|n| n * page)
@@ -495,6 +517,10 @@ fn read_vm(s: &mut Sample) {
             })
             .map(|s| Avail::Ok(s.into()))
             .unwrap_or(Avail::Unsupported("memory pressure unavailable".into()));
+    }
+    if matches!(s.vm_totals, Avail::Acquiring) {
+        s.vm_totals = Avail::Unsupported("VM counters unavailable".into());
+        s.vm_rates = Avail::Unsupported("VM counters unavailable".into());
     }
     if matches!(s.memory, Avail::Acquiring) {
         s.memory = Avail::Unsupported("VM categories unavailable".into());
@@ -663,4 +689,22 @@ fn process_threads(pid: u32) -> Avail<u32> {
 #[cfg(not(target_os = "macos"))]
 fn process_threads(_: u32) -> Avail<u32> {
     Avail::Unsupported("thread count unavailable".into())
+}
+
+#[cfg(target_os = "macos")]
+fn process_usage(pid: u32) -> Option<(u64, u64)> {
+    // SAFETY: RUSAGE_INFO_V2 matches the initialized struct and writable buffer size.
+    unsafe {
+        let mut info: libc::rusage_info_v2 = std::mem::zeroed();
+        let result = libc::proc_pid_rusage(
+            pid as i32,
+            libc::RUSAGE_INFO_V2,
+            (&mut info as *mut libc::rusage_info_v2).cast(),
+        );
+        (result == 0).then_some((info.ri_phys_footprint, info.ri_interrupt_wkups))
+    }
+}
+#[cfg(not(target_os = "macos"))]
+fn process_usage(_: u32) -> Option<(u64, u64)> {
+    None
 }

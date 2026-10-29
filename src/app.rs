@@ -452,6 +452,7 @@ pub struct ProcessRow {
     pub exited: bool,
     pub new: bool,
 }
+type TaskHistory = HashMap<(u32, u64), VecDeque<(f64, [f32; 6])>>;
 pub struct App {
     pub cfg: Config,
     pub screen: Screen,
@@ -517,6 +518,8 @@ pub struct App {
     pub detail_data: Option<metrics::details::ProcessDetails>,
     pub detail_request: Option<((u32, u64), usize)>,
     pub detail_scroll: usize,
+    pub task_history: TaskHistory,
+    task_history_at: f64,
     archive_processes: Arc<Vec<Proc>>,
     archive_process_at: f64,
 }
@@ -617,6 +620,8 @@ impl App {
             detail_data: None,
             detail_request: None,
             detail_scroll: 0,
+            task_history: HashMap::new(),
+            task_history_at: -5.,
             archive_processes: Arc::new(vec![]),
             archive_process_at: -15.,
         };
@@ -723,6 +728,7 @@ impl App {
                 self.toast("follow", "Followed process exited".into(), false);
             }
         }
+        self.record_task_history(&s);
         s.energy_wh = self.energy_wh;
         self.anim.ingest(&s);
         self.last_received = Instant::now();
@@ -887,6 +893,88 @@ impl App {
             self.refresh_rows(false);
         }
     }
+    fn record_task_history(&mut self, s: &Sample) {
+        if s.process_at - self.task_history_at < 5. {
+            return;
+        }
+        self.task_history_at = s.process_at;
+        let max_io = s
+            .processes
+            .iter()
+            .map(|p| p.read + p.write)
+            .fold(1., f64::max);
+        let max_net = s
+            .processes
+            .iter()
+            .filter_map(|p| p.connections.value())
+            .copied()
+            .max()
+            .unwrap_or(1)
+            .max(1) as f32;
+        let score = |p: &Proc| {
+            (p.cpu / (s.core_count() as f32 * 100.))
+                .max(p.memory as f32 / s.machine.memory.max(1) as f32)
+                .max(((p.read + p.write) / max_io) as f32)
+                .max(p.connections.value().copied().unwrap_or(0) as f32 / max_net)
+        };
+        let mut candidates: Vec<_> = s.processes.iter().collect();
+        candidates.sort_by(|a, b| score(b).total_cmp(&score(a)).then(a.pid.cmp(&b.pid)));
+        candidates.truncate(64);
+        if let Some(f) = self
+            .follow
+            .as_ref()
+            .and_then(|f| s.processes.iter().find(|p| p.key() == f.key()))
+            && !candidates.iter().any(|p| p.key() == f.key())
+        {
+            candidates.push(f);
+        }
+        for p in candidates {
+            let values = std::array::from_fn(|i| crate::ui::processes::primary(p, Page::ALL[i], s));
+            let points = self.task_history.entry(p.key()).or_default();
+            points.push_back((s.process_at, values));
+            while points.len() > 24 {
+                points.pop_front();
+            }
+        }
+        self.task_history
+            .retain(|_, points| points.back().is_some_and(|p| s.at - p.0 <= 60.));
+    }
+    pub fn task_values(&self, p: &Proc, page: Page) -> Vec<f32> {
+        let s = self.sample();
+        if let Some(points) = self.task_history.get(&p.key()) {
+            let points: Vec<_> = points
+                .iter()
+                .filter(|(at, _)| *at <= s.at && *at >= s.at - 120.)
+                .map(|(_, v)| v[page.index()])
+                .collect();
+            if points.len() > 1 {
+                return points;
+            }
+        }
+        let mut last = -1.;
+        self.history
+            .iter()
+            .filter(|h| h.at <= s.at && h.at >= s.at - 120.)
+            .filter(|h| {
+                let changed = h.process_at != last;
+                last = h.process_at;
+                changed
+            })
+            .filter_map(|h| {
+                h.processes
+                    .iter()
+                    .find(|v| v.key() == p.key())
+                    .map(|p| crate::ui::processes::primary(p, page, h))
+            })
+            .collect()
+    }
+    pub fn preview_proc(&self) -> Option<Proc> {
+        if self.screen == Screen::Systems {
+            self.selected_proc().or_else(|| self.displayed_follow())
+        } else {
+            self.displayed_follow()
+        }
+    }
     pub fn displayed_follow(&self) -> Option<Proc> {
         let f = self.follow.as_ref()?;
         self.sample()
@@ -1034,7 +1122,6 @@ impl App {
             }),
             Action::GoTo(s) => {
                 self.screen = s;
-                self.cfg.ui.default_view = s.name().into();
                 self.zoom = None;
                 self.selection = Some(if s == Screen::Teardown {
                     Part::Soc
@@ -1087,8 +1174,16 @@ impl App {
             Action::Move(d) => {
                 if self.screen == Screen::Systems {
                     match d {
-                        Dir::Up => self.move_row(-1),
-                        Dir::Down => self.move_row(1),
+                        Dir::Up => {
+                            if !self.expanded {
+                                self.move_row(-1);
+                            }
+                        }
+                        Dir::Down => {
+                            if !self.expanded {
+                                self.move_row(1);
+                            }
+                        }
                         Dir::Left => self.change_page(self.page.step(-1)),
                         Dir::Right => self.change_page(self.page.step(1)),
                     }
@@ -1104,6 +1199,10 @@ impl App {
             }
             Action::Inspect => {
                 if self.screen == Screen::Systems {
+                    if self.expanded {
+                        self.layers.push(Layer::Inspector(self.page.part()));
+                        return;
+                    }
                     if let Some(p) = self.selected_proc() {
                         self.layers.push(Layer::Process { process: p, tab: 0 });
                     }
@@ -1141,7 +1240,12 @@ impl App {
                 self.refresh_rows(true);
             }
             Action::Sort => {
-                let options = [self.page.default_sort(), 0, 1, 3, 2];
+                let mut options = vec![];
+                for sort in [self.page.default_sort(), 0, 1, 4, 3, 2] {
+                    if !options.contains(&sort) {
+                        options.push(sort);
+                    }
+                }
                 let i = options.iter().position(|s| *s == self.sort).unwrap_or(0);
                 self.sort = options[(i + 1) % options.len()];
                 self.cfg.systems.sorts.insert(
@@ -1291,6 +1395,8 @@ impl App {
                 self.history.clear();
                 self.spike_marks.clear();
                 self.archive_processes = Arc::new(vec![]);
+                self.task_history.clear();
+                self.task_history_at = -5.;
                 self.archive_process_at = -15.;
                 self.last_row_at = -1.;
                 self.cursor = None;
@@ -1413,9 +1519,9 @@ impl App {
                             self.move_row(n);
                             if let Some(p) = self.selected_proc()
                                 && let Some(Layer::Process { process, .. }) = self.layers.last_mut()
-                                {
-                                    *process = p;
-                                }
+                            {
+                                *process = p;
+                            }
                             self.detail_scroll = 0;
                         }
                         KeyCode::PageDown => self.detail_scroll += 8,
@@ -1579,10 +1685,10 @@ impl App {
         all.sort_by(|a, b| {
             let cmp = match sort {
                 0 => b.cpu.total_cmp(&a.cpu),
-                1 => b.memory.cmp(&a.memory),
+                1 => b.footprint.value().cmp(&a.footprint.value()),
                 2 => a.pid.cmp(&b.pid),
                 3 => a.name.cmp(&b.name),
-                4 => b.runtime.cmp(&a.runtime),
+                4 => b.cpu_time.cmp(&a.cpu_time),
                 5 => b.cpu.total_cmp(&a.cpu),
                 6 => (b.read + b.write).total_cmp(&(a.read + a.write)),
                 7 => b.connections.value().cmp(&a.connections.value()),

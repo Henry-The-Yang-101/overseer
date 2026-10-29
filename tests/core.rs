@@ -49,6 +49,12 @@ fn navigation_restores_page_state_and_gives_drawer_arrow_ownership() {
     assert_eq!(a.page, Page::Gpu);
     key(&mut a, KeyCode::Right);
     assert_eq!(a.page, Page::Cpu);
+    let selected = a.selected_process;
+    key(&mut a, KeyCode::Char('s'));
+    assert_eq!(a.sort, 1);
+    key(&mut a, KeyCode::Char('s'));
+    assert_eq!(a.sort, 4);
+    assert_eq!(a.selected_process, selected);
     a.act(Action::GoTo(Screen::Teardown));
     a.select(Part::Memory);
     key(&mut a, KeyCode::Char('g'));

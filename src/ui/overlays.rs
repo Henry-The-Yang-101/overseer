@@ -334,7 +334,7 @@ pub fn draw(b: &mut Buffer, r: Rect, a: &mut App) {
                     b,
                     rr,
                     rr.height - 1,
-                    "← → tabs   ↑↓ scroll   Esc close",
+                    "←→ tabs   ↑↓ task   PgUp/Dn scroll   Esc close",
                     t.muted,
                 );
             }

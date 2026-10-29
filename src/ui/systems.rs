@@ -45,7 +45,12 @@ pub fn draw(b: &mut Buffer, r: Rect, a: &mut App, size: SizeClass) {
     } else {
         "z expand"
     };
-    let inner = frame(b, main, &title, subtitle, false, &t);
+    let mut inner = frame(b, main, &title, subtitle, false, &t);
+    if size == SizeClass::Regular && inner.height > 7 {
+        let stats = Rect::new(inner.x, inner.bottom() - 2, inner.width, 2);
+        inner.height -= 2;
+        inline_stats(b, stats, a, &s);
+    }
     match a.page {
         Page::Cpu => cpu(b, inner, a, &s),
         Page::Memory => memory(b, inner, a, &s),
@@ -84,25 +89,27 @@ pub fn draw(b: &mut Buffer, r: Rect, a: &mut App, size: SizeClass) {
         a.task_rect = Rect::default();
     }
     if let Some(p) = a.selected_proc().or_else(|| a.displayed_follow())
-        && main.width > 95 && inner.height > 4 {
-            let label = format!(
-                "{} {}",
-                if a.follow.as_ref().is_some_and(|f| f.key() == p.key()) {
-                    "◎"
-                } else {
-                    "›"
-                },
-                p.name
-            );
-            text(
-                b,
-                main,
-                main.width.saturating_sub(29),
-                main.height.saturating_sub(1),
-                truncate(&label, 25),
-                color,
-            );
-        }
+        && main.width > 95
+        && inner.height > 4
+    {
+        let label = format!(
+            "{} {}",
+            if a.follow.as_ref().is_some_and(|f| f.key() == p.key()) {
+                "◎"
+            } else {
+                "›"
+            },
+            p.name
+        );
+        text(
+            b,
+            main,
+            main.width.saturating_sub(29),
+            main.height.saturating_sub(1),
+            truncate(&label, 25),
+            color,
+        );
+    }
 }
 fn headline(p: Page, s: &Sample, a: &App) -> String {
     match p {
@@ -216,6 +223,8 @@ fn cpu(b: &mut Buffer, r: Rect, a: &App, s: &Sample) {
                 }
                 let mood = if c.active < 0.02 {
                     crate::motion::Mood::Asleep
+                } else if c.active < 0.4 {
+                    crate::motion::Mood::Idle
                 } else if c.active > 0.8 {
                     crate::motion::Mood::High
                 } else {
@@ -294,6 +303,9 @@ fn cpu(b: &mut Buffer, r: Rect, a: &App, s: &Sample) {
 }
 fn dvfs(b: &mut Buffer, r: Rect, label: &str, freqs: &[u32], current: u32, a: &App) {
     text(b, r, 0, 0, label, a.theme.muted);
+    let mut freqs: Vec<_> = freqs.iter().copied().filter(|v| *v > 0).collect();
+    freqs.sort_unstable();
+    freqs.dedup();
     if freqs.is_empty() {
         text(b, r, 9, 0, "frequency table unavailable", a.theme.muted);
         return;
@@ -307,7 +319,7 @@ fn dvfs(b: &mut Buffer, r: Rect, label: &str, freqs: &[u32], current: u32, a: &A
     for i in 0..rail {
         text(b, r, 10 + i, 0, "─", a.theme.wire);
     }
-    for f in freqs {
+    for f in &freqs {
         let x = ((*f as f32 - min) / (max - min).max(1.) * (rail - 1) as f32).round() as u16;
         text(b, r, 10 + x, 0, "╷", a.theme.muted);
     }
@@ -439,6 +451,7 @@ fn energy(b: &mut Buffer, r: Rect, a: &App, s: &Sample) {
     let branch_w = r.width.saturating_sub(branch_x + 21);
     line(b, r, 1, source, t.battery);
     if system {
+        text(b, r, 0, 2, "┃", t.battery);
         text(b, r, 0, 3, "└━━━━ SYSTEM ━━━━━┳", t.accent);
         text(b, r, 6, 4, watts(&s.system_power), t.bright);
         for y in 4..=8.min(r.height - 1) {
@@ -494,6 +507,21 @@ fn energy(b: &mut Buffer, r: Rect, a: &App, s: &Sample) {
                 a.cfg.ui.glyphs == "ascii",
             );
         }
+    }
+    if r.height > 12
+        && let Some(p) = a.preview_proc()
+    {
+        line(
+            b,
+            r,
+            11,
+            format!(
+                "› {} · CPU allocation {} · estimated from CPU time",
+                p.name,
+                watts(&super::processes::power_estimate(&p, s))
+            ),
+            t.accent,
+        );
     }
     if r.height > 10 {
         line(
@@ -628,6 +656,17 @@ fn flow(b: &mut Buffer, r: Rect, a: &App, s: &Sample) {
             );
         }
     } else {
+        line(
+            b,
+            r,
+            0,
+            format!(
+                "READ {}  →   WRITE {}  ←",
+                rate(f.read, &a.cfg.units, false),
+                rate(f.write, &a.cfg.units, false)
+            ),
+            color,
+        );
         let planes = (r.width / 20).clamp(2, 5);
         for i in 0..planes {
             let rr = Rect::new(r.x + i * 18, r.y + 1, 16, 4);
@@ -643,6 +682,33 @@ fn flow(b: &mut Buffer, r: Rect, a: &App, s: &Sample) {
             t.muted,
         );
     }
+    let prior: Vec<_> = a
+        .history
+        .iter()
+        .filter(|h| h.at <= s.at && h.at >= s.at - 300.)
+        .filter_map(|h| {
+            if network {
+                h.network.value()
+            } else {
+                h.disk.value()
+            }
+        })
+        .collect();
+    let read_peak = prior.iter().map(|f| f.read).fold(0., f64::max);
+    let write_peak = prior.iter().map(|f| f.write).fold(0., f64::max);
+    line(
+        b,
+        r,
+        6,
+        format!(
+            "PEAK {} {}  /  {} {}",
+            if network { "↓" } else { "READ" },
+            rate(read_peak, &a.cfg.units, network),
+            if network { "↑" } else { "WRITE" },
+            rate(write_peak, &a.cfg.units, network)
+        ),
+        t.muted,
+    );
     let ch = r.height.saturating_sub(8);
     if ch >= 3 {
         butterfly(b, Rect::new(r.x, r.y + 7, r.width, ch), a, s, network);
@@ -688,6 +754,7 @@ fn butterfly(b: &mut Buffer, r: Rect, a: &App, s: &Sample, network: bool) {
     let chart = Rect::new(r.x + 12, r.y, r.width.saturating_sub(14), r.height);
     let mut g = BrailleGrid::new(chart.width, chart.height);
     let mid = (chart.height as f32 * 4. - 1.) / 2.;
+    g.line((0., mid), ((chart.width * 2) as f32 - 1., mid), t.wire);
     for x in 0..chart.width as usize * 2 {
         let i = x * data.len() / (chart.width as usize * 2).max(1);
         let f = data[i];
@@ -717,7 +784,7 @@ fn butterfly(b: &mut Buffer, r: Rect, a: &App, s: &Sample, network: bool) {
     }
 }
 fn gpu(b: &mut Buffer, r: Rect, a: &App, s: &Sample) {
-    let reserve = if r.height > 8 { 3 } else { 1 };
+    let reserve = if r.height > 8 { 5 } else { 1 };
     widgets::content(
         b,
         Rect::new(r.x, r.y, r.width, r.height.saturating_sub(reserve)),
@@ -725,6 +792,24 @@ fn gpu(b: &mut Buffer, r: Rect, a: &App, s: &Sample) {
         s,
         a,
     );
+    if r.height > 8 {
+        let data: Vec<_> = a
+            .history
+            .iter()
+            .filter(|h| h.at <= s.at && h.at >= s.at - 300.)
+            .filter_map(|h| h.gpu.value().copied())
+            .collect();
+        text(b, r, 0, r.height - 4, "UTIL 5m", a.theme.muted);
+        spark(
+            b,
+            Rect::new(r.x + 9, r.y + r.height - 4, r.width.saturating_sub(9), 1),
+            &data,
+            1.,
+            a.theme.gpu,
+            &a.theme,
+            a.cfg.ui.glyphs == "ascii",
+        );
+    }
     if r.height > 8 {
         dvfs(
             b,
@@ -849,7 +934,7 @@ fn side_card(b: &mut Buffer, r: Rect, a: &App, s: &Sample) {
             (
                 format!(
                     "PRESSURE {}",
-                    avail(&s.pressure_percent, |v| format!("≈ {v:.0}%"))
+                    avail(&s.pressure_percent, |v| format!("{v:.0}%"))
                 ),
                 t.memory,
             ),
@@ -920,7 +1005,7 @@ fn side_card(b: &mut Buffer, r: Rect, a: &App, s: &Sample) {
                     ),
                     (format!("PACK POWER {}", watts(&bat.watts)), t.text),
                     (
-                        format!("HEALTH {}", avail(&bat.health, |v| format!("≈ {v:.0}%"))),
+                        format!("HEALTH {}", avail(&bat.health, |v| format!("{v:.0}%"))),
                         t.muted,
                     ),
                     (
@@ -928,7 +1013,7 @@ fn side_card(b: &mut Buffer, r: Rect, a: &App, s: &Sample) {
                         t.muted,
                     ),
                     (
-                        format!("TIME {}", avail(&bat.minutes, |v| format!("≈ {v} min"))),
+                        format!("TIME {}", avail(&bat.minutes, |v| format!("{v} min"))),
                         t.muted,
                     ),
                 ]);
@@ -1051,4 +1136,109 @@ fn dual_ring(b: &mut Buffer, r: Rect, active: f32, scaled: f32, color: Color, a:
             Style::new().add_modifier(Modifier::BOLD),
         );
     }
+}
+
+fn inline_stats(b: &mut Buffer, r: Rect, a: &App, s: &Sample) {
+    let (first, second) = match a.page {
+        Page::Cpu => (
+            format!(
+                "{} TASKS · {} threads visible · UP {}",
+                s.processes.len(),
+                s.processes
+                    .iter()
+                    .filter_map(|p| p.threads.value())
+                    .sum::<u32>(),
+                duration(s.uptime as f64)
+            ),
+            "Outer = active residency · inner = frequency-scaled utilization".into(),
+        ),
+        Page::Memory => (
+            format!(
+                "PRESSURE {} · {}   SWAP {}",
+                avail(&s.pressure, |v| v.clone()),
+                avail(&s.pressure_percent, |v| format!("{v:.0}%")),
+                bytes(s.swap, &a.cfg.units)
+            ),
+            format!(
+                "SWAP IN {}  OUT {} · DRAM bandwidth N/A",
+                avail(&s.vm_rates, |v| rate(v[2], &a.cfg.units, false)),
+                avail(&s.vm_rates, |v| rate(v[3], &a.cfg.units, false))
+            ),
+        ),
+        Page::Energy => (
+            format!(
+                "CPU {}  GPU {}   {}   {}",
+                temp(&s.cpu_temp, &a.cfg.units),
+                temp(&s.gpu_temp, &a.cfg.units),
+                avail(&s.thermal, |v| v.clone()),
+                avail(&s.fans, |f| f
+                    .iter()
+                    .map(|v| format!("{} {}rpm", v.name, v.rpm))
+                    .collect::<Vec<_>>()
+                    .join(" · "))
+            ),
+            format!(
+                "BATTERY {}   DRAM {} · SRAM {}",
+                avail(&s.battery, |v| format!(
+                    "{:.0}% · health {} · {} cycles",
+                    v.percent,
+                    avail(&v.health, |v| format!("{v:.0}%")),
+                    avail(&v.cycles, |v| v.to_string())
+                )),
+                watts(&s.power[3]),
+                watts(&s.power[4])
+            ),
+        ),
+        Page::Disk => (
+            s.volumes
+                .first()
+                .map_or("Volume information unavailable".into(), |v| {
+                    format!(
+                        "{} {} · {} / {}",
+                        v.name,
+                        v.mount,
+                        bytes(v.used, &a.cfg.units),
+                        bytes(v.total, &a.cfg.units)
+                    )
+                }),
+            format!(
+                "{} mounted volumes · APFS capacity is shared · IOPS / SSD temperature N/A",
+                s.volumes.len()
+            ),
+        ),
+        Page::Network => (
+            format!(
+                "{} · ↓ {:.0} / ↑ {:.0} packets/s",
+                s.network.value().map_or("N/A", |v| v.name.as_str()),
+                s.network.value().map_or(0., |v| v.packets_in),
+                s.network.value().map_or(0., |v| v.packets_out)
+            ),
+            format!(
+                "VISIBLE TCP {} · Wi-Fi RSSI / link rate N/A",
+                avail(&s.connection_states, |v| v
+                    .iter()
+                    .take(3)
+                    .map(|(s, n)| format!("{s} {n}"))
+                    .collect::<Vec<_>>()
+                    .join(" / "))
+            ),
+        ),
+        Page::Gpu => (
+            format!(
+                "ACTIVE {}  SCALED {}   {} GPU cores",
+                avail(&s.gpu, |v| percent(*v)),
+                avail(&s.gpu_scaled, |v| percent(*v)),
+                s.machine.gpu_cores
+            ),
+            format!(
+                "GPU {}   SRAM {}   ANE {}   {}",
+                watts(&s.power[1]),
+                watts(&s.power[4]),
+                watts(&s.power[2]),
+                temp(&s.gpu_temp, &a.cfg.units)
+            ),
+        ),
+    };
+    line(b, r, 0, first, a.theme.text);
+    line(b, r, 1, second, a.theme.muted);
 }

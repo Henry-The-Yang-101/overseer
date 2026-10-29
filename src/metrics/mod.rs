@@ -124,6 +124,8 @@ pub struct Proc {
     pub user: Arc<str>,
     pub cpu: f32,
     pub memory: u64,
+    pub footprint: Avail<u64>,
+    pub wakeups: Avail<f32>,
     pub read: f64,
     pub write: f64,
     pub runtime: u64,

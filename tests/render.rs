@@ -19,6 +19,8 @@ fn render(a: &mut App, w: u16, h: u16) -> String {
             (0..w)
                 .map(|x| term.backend().buffer()[(x, y)].symbol())
                 .collect::<String>()
+                .trim_end()
+                .to_owned()
         })
         .collect::<Vec<_>>()
         .join("\n")

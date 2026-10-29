@@ -375,7 +375,7 @@ fn cpu(b: &mut Buffer, r: Rect, s: &Sample, a: &App) {
         duration(s.uptime as f64)
     );
     line(b, r, r.height - 1, footer, t.muted);
-    if let Some(p) = &a.displayed_follow()
+    if let Some(p) = &a.preview_proc()
         && r.height > 2
     {
         line(
@@ -536,10 +536,13 @@ fn memory(b: &mut Buffer, r: Rect, s: &Sample, a: &App) {
     let n = r.width as usize * h as usize;
     let counts = crate::metrics::allocate_cells(*m, n);
     let followed = a
-        .displayed_follow()
+        .preview_proc()
         .as_ref()
         .map_or(0, |p| {
-            ((p.memory as f64 / s.machine.memory.max(1) as f64) * n as f64).round() as usize
+            ((p.footprint.value().copied().unwrap_or(p.memory) as f64
+                / s.machine.memory.max(1) as f64)
+                * n as f64)
+                .round() as usize
         })
         .min(counts[1]);
     let glyphs = ['▣', '■', '⣿', '▒', '·'];
