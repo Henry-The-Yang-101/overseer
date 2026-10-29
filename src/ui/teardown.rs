@@ -1228,10 +1228,11 @@ fn wiring(b: &mut Buffer, c: Rect, a: &App, mirror: bool, layout: &Layout) {
         let left = *left != mirror;
         let y = c.y + (y * c.height as f32).round() as u16;
         let lane = grid_x(0.03, c.width).max(5) + 1;
+        // End beneath the label so even a flush lead retains its horizontal bend.
         let edge = if left {
-            c.x + label.len() as u16 + 2
+            c.x + label.len() as u16 + 1
         } else {
-            c.right() - label.len() as u16 - 3
+            c.right() - label.len() as u16 - 2
         };
         let lane = if left {
             c.x + lane

@@ -58,6 +58,11 @@ fn representative_layouts() {
             for orientation in ["front", "back"] {
                 a.cfg.teardown.orientation = orientation.into();
                 let view = render(&mut a, w, h);
+                assert!(view.contains(if orientation == "front" {
+                    "╭HDMI ○"
+                } else {
+                    "○ HDMI╮"
+                }));
                 let fans = view.lines().find(|line| line.contains("FAN 0")).unwrap();
                 assert!(fans.find("FAN 0").unwrap() < fans.find("FAN 1").unwrap());
                 let rect = |part| a.parts.iter().find(|(p, _)| *p == part).unwrap().1;
