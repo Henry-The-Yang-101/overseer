@@ -829,8 +829,21 @@ fn physical(b: &mut Buffer, c: Rect, available: Rect, a: &mut App) {
         } else {
             0.
         };
-        let width = 5.min(r.width) + (level * r.width.saturating_sub(5) as f32).round() as u16;
-        let height = 5.min(r.height) + (level * r.height.saturating_sub(5) as f32).round() as u16;
+        // Contract as well as expand, including when a compact layout has no growth room.
+        // Give audible output enough travel to cross a whole-cell boundary; RMS alone
+        // otherwise settles between sizes and makes sustained audio appear motionless.
+        let vibration = if level > 0.005 {
+            (0.65 + 0.35 * level.sqrt()) * (a.anim.speaker_phase * std::f32::consts::TAU).sin()
+        } else {
+            0.
+        };
+        let dimension = |max: u16| {
+            (5.min(max) as f32 + vibration * max.saturating_sub(5).max(1) as f32)
+                .round()
+                .clamp(4.min(max) as f32, max as f32) as u16
+        };
+        let width = dimension(r.width);
+        let height = dimension(r.height);
         let spare = r.width - width;
         let pill = Rect::new(
             r.x + if left { spare / 2 } else { spare.div_ceil(2) },
@@ -842,7 +855,7 @@ fn physical(b: &mut Buffer, c: Rect, available: Rect, a: &mut App) {
             .border_type(BorderType::Rounded)
             .border_style(Style::new().fg(t.wire))
             .render(pill, b);
-        if pill.width >= 5 && pill.height >= 5 {
+        if pill.width >= 4 && pill.height >= 4 {
             Block::bordered()
                 .border_type(BorderType::Rounded)
                 .border_style(Style::new().fg(t.muted))
