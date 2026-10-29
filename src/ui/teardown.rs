@@ -11,11 +11,13 @@ use crate::{
 };
 use ratatui::{
     buffer::Buffer,
-    layout::Rect,
-    style::Style,
+    layout::{Alignment, Rect},
+    style::{Color, Style},
     symbols::border,
+    text::Line,
     widgets::{Block, BorderType, Clear, Widget},
 };
+use unicode_width::UnicodeWidthStr;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Provenance {
     Photo,
@@ -44,8 +46,8 @@ pub struct Component {
 pub const COMPONENTS: &[Component] = &[
     Component {
         part: Part::Network,
-        label: "ANTENNA",
-        rect: NRect::new(0.37, 0.02, 0.26, 0.07),
+        label: "NETWORK",
+        rect: NRect::new(0.35, 0.02, 0.30, 0.10),
         provenance: Provenance::Photo,
     },
     Component {
@@ -62,32 +64,32 @@ pub const COMPONENTS: &[Component] = &[
     },
     Component {
         part: Part::Soc,
-        label: "SoC",
-        rect: NRect::new(0.42, 0.16, 0.16, 0.26),
+        label: "M4 Pro",
+        rect: NRect::new(0.42, 0.20, 0.16, 0.28),
         provenance: Provenance::Photo,
     },
     Component {
         part: Part::Memory,
         label: "RAM",
-        rect: NRect::new(0.30, 0.20, 0.09, 0.21),
+        rect: NRect::new(0.30, 0.22, 0.09, 0.21),
         provenance: Provenance::Conceptual,
     },
     Component {
         part: Part::Memory,
         label: "RAM",
-        rect: NRect::new(0.61, 0.20, 0.09, 0.21),
+        rect: NRect::new(0.61, 0.22, 0.09, 0.21),
         provenance: Provenance::Conceptual,
     },
     Component {
         part: Part::Power,
         label: "PMU",
-        rect: NRect::new(0.30, 0.44, 0.11, 0.12),
+        rect: NRect::new(0.27, 0.44, 0.14, 0.12),
         provenance: Provenance::Conceptual,
     },
     Component {
         part: Part::Disk,
         label: "SSD",
-        rect: NRect::new(0.59, 0.44, 0.11, 0.12),
+        rect: NRect::new(0.59, 0.44, 0.14, 0.12),
         provenance: Provenance::Approximate,
     },
     Component {
@@ -110,7 +112,10 @@ pub fn fit_chassis(stage: Rect, aspect: f32, cell_aspect: f32) -> Rect {
     let h = (stage.width as f32 / aspect)
         .min(stage.height as f32)
         .floor() as u16;
-    let w = (h as f32 * aspect).floor().min(stage.width as f32) as u16;
+    let mut w = (h as f32 * aspect).floor().min(stage.width as f32) as u16;
+    if w > 0 && w.is_multiple_of(2) {
+        w -= 1;
+    }
     Rect::new(
         stage.x + (stage.width - w) / 2,
         stage.y + (stage.height - h) / 2,
@@ -118,22 +123,121 @@ pub fn fit_chassis(stage: Rect, aspect: f32, cell_aspect: f32) -> Rect {
         h,
     )
 }
+// Round one canonical half, then reflect integer cells. Paired rectangles cannot drift.
 pub fn to_cells(n: NRect, c: Rect, mirror: bool) -> Rect {
-    let x = if mirror { 1. - n.x - n.w } else { n.x };
-    let l = (x * c.width as f32).round().clamp(0., c.width as f32) as u16;
-    let r = ((x + n.w) * c.width as f32)
-        .round()
-        .clamp(0., c.width as f32) as u16;
+    let center = n.x + n.w / 2.;
+    let middle = (center - 0.5).abs() < 0.0001;
+    let mut w = (n.w * c.width as f32).round() as u16;
+    if middle && w.is_multiple_of(2) {
+        w += 1;
+    }
+    w = w.min(c.width);
+    let canonical_x = if center > 0.5 { 1. - n.x - n.w } else { n.x };
+    let left = grid_x(canonical_x, c.width).min(c.width.saturating_sub(w));
+    let x = if middle {
+        (c.width - w) / 2
+    } else if (center > 0.5) != mirror {
+        c.width - left - w
+    } else {
+        left
+    };
     let top = (n.y * c.height as f32).round().clamp(0., c.height as f32) as u16;
     let bottom = ((n.y + n.h) * c.height as f32)
         .round()
         .clamp(0., c.height as f32) as u16;
-    Rect::new(
-        c.x + l,
-        c.y + top,
-        r.saturating_sub(l),
-        bottom.saturating_sub(top),
-    )
+    Rect::new(c.x + x, c.y + top, w, bottom.saturating_sub(top))
+}
+fn grid_x(x: f32, width: u16) -> u16 {
+    let span = width.saturating_sub(1);
+    let left = x.min(1. - x).clamp(0., 0.5);
+    // Profile coordinates are decimal fractions; remove float noise before half-cell rounding.
+    let left = (left * 10_000.).round() / 10_000.;
+    let col = (left * span as f32).round() as u16;
+    if x > 0.5 { span - col } else { col }
+}
+struct Layout {
+    components: [Rect; 9],
+    cells: [Rect; 6],
+    data_y: u16,
+    power_y: u16,
+    battery_top: u16,
+}
+impl Layout {
+    fn new(c: Rect, mirror: bool) -> Self {
+        let mut components: [Rect; 9] =
+            std::array::from_fn(|i| to_cells(COMPONENTS[i].rect, c, mirror));
+        components[0].y = c.y + 1;
+        components[0].height = components[0].height.max(3);
+        components[3].y = components[3].y.max(components[0].bottom() + 1);
+        for i in [6, 7] {
+            components[i].height = components[i].height.max(4);
+        }
+        // Leave a row of air between the fans/RAM and the lower board modules.
+        let lower_top = components[6].y;
+        for i in [1, 2, 4, 5] {
+            components[i].height = components[i]
+                .height
+                .min(lower_top.saturating_sub(components[i].y + 1));
+        }
+        let data_y = components[3]
+            .bottom()
+            .max(components[6].bottom())
+            .max(components[7].bottom());
+        // At the shortest physical layout, share a trunk so the six battery outlines
+        // still have useful interiors. Wider layouts give power its own lane.
+        let power_y = data_y + u16::from(c.height >= 28);
+        let battery_top = power_y + 1;
+        let battery_h = c.bottom().saturating_sub(battery_top + 1);
+        components[8].y = battery_top + 1;
+        components[8].height = battery_h.saturating_sub(1);
+        let cells = std::array::from_fn(|i| {
+            let mut r = to_cells(CELLS[i], c, mirror);
+            let upper_h = battery_h.saturating_sub(1) / 2;
+            r.y = if i == 1 || i == 5 {
+                battery_top + upper_h + 1
+            } else {
+                battery_top
+            };
+            r.height = if i == 2 || i == 3 {
+                battery_h
+            } else if i == 1 || i == 5 {
+                battery_h.saturating_sub(upper_h + 1)
+            } else {
+                upper_h
+            };
+            r
+        });
+        Self {
+            components,
+            cells,
+            data_y,
+            power_y,
+            battery_top,
+        }
+    }
+    fn part(&self, p: Part) -> Rect {
+        self.components[COMPONENTS.iter().position(|s| s.part == p).unwrap()]
+    }
+}
+fn alignment(r: Rect, chassis: Rect) -> Alignment {
+    let center = chassis.x + chassis.width / 2;
+    if r.x <= center && r.right() > center {
+        Alignment::Center
+    } else if r.x > center {
+        Alignment::Right
+    } else {
+        Alignment::Left
+    }
+}
+fn side_text(b: &mut Buffer, r: Rect, chassis: Rect, y: u16, value: impl AsRef<str>, color: Color) {
+    let value = truncate(value.as_ref(), r.width as usize);
+    let spare = r.width.saturating_sub(value.width() as u16);
+    let x = match alignment(r, chassis) {
+        Alignment::Center => spare / 2,
+        Alignment::Right => spare,
+        _ => 0,
+    };
+    text(b, r, x, y, value, color);
 }
 const DASHED: border::Set = border::Set {
     top_left: "┌",
@@ -162,6 +266,7 @@ fn outline(
     p: Provenance,
     color: ratatui::style::Color,
     t: &Theme,
+    align: Alignment,
 ) -> Rect {
     if r.width < 3 || r.height < 2 {
         line(b, r, 0, label, color);
@@ -176,11 +281,14 @@ fn outline(
         .border_set(set)
         .border_style(Style::new().fg(color))
         .style(Style::new().bg(t.panel))
-        .title_top(if r.width as usize >= label.len() + 4 {
-            format!(" {label} ")
-        } else {
-            truncate(label, r.width.saturating_sub(2) as usize)
-        });
+        .title_top(
+            Line::from(if r.width as usize >= label.len() + 4 {
+                format!(" {label} ")
+            } else {
+                truncate(label, r.width.saturating_sub(2) as usize)
+            })
+            .alignment(align),
+        );
     let inside = block.inner(r);
     Clear.render(r, b);
     block.render(r, b);
@@ -271,15 +379,11 @@ fn physical(b: &mut Buffer, c: Rect, a: &mut App) {
     let s = a.sample();
     let mirror = a.cfg.teardown.orientation != "back";
     let ascii = a.cfg.ui.glyphs == "ascii";
+    let layout = Layout::new(c, mirror);
     Block::bordered()
         .border_type(BorderType::Rounded)
         .border_style(Style::new().fg(t.wire))
         .render(c, b);
-    let board_y = (c.height as f32 * 0.57).round() as u16;
-    for x in 1..c.width.saturating_sub(1) {
-        text(b, c, x, board_y, "─", t.wire);
-    }
-
     let heat = s
         .cpu_temp
         .value()
@@ -309,7 +413,7 @@ fn physical(b: &mut Buffer, c: Rect, a: &mut App) {
     for pair in points.windows(2) {
         let point = |(x, y): (f32, f32)| {
             (
-                (if mirror { 1. - x } else { x }) * c.width as f32,
+                grid_x(if mirror { 1. - x } else { x }, c.width) as f32,
                 y * c.height as f32,
             )
         };
@@ -324,10 +428,9 @@ fn physical(b: &mut Buffer, c: Rect, a: &mut App) {
     }
     a.parts.push((Part::Thermal, pipe));
     a.hitmap.add(pipe, 4, Hit::Part(Part::Thermal));
-    wiring(b, c, a, mirror);
-    for spec in COMPONENTS {
+    wiring(b, c, a, mirror, &layout);
+    for (spec, r) in COMPONENTS.iter().zip(layout.components) {
         let p = spec.part;
-        let r = to_cells(spec.rect, c, mirror);
         let selected = a.selection == Some(p);
         let activity = crate::app::metric(p, &s);
         let color = if selected {
@@ -342,7 +445,7 @@ fn physical(b: &mut Buffer, c: Rect, a: &mut App) {
         } else {
             ""
         };
-        let inside = outline(b, r, label, spec.provenance, color, &t);
+        let inside = outline(b, r, label, spec.provenance, color, &t, alignment(r, c));
         a.parts.push((p, r));
         a.hitmap.add(r, 3, Hit::Part(p));
         match p {
@@ -363,62 +466,81 @@ fn physical(b: &mut Buffer, c: Rect, a: &mut App) {
                     } else {
                         0.
                     };
-                    rotor(
+                    rotor_mirrored(
                         b,
                         rotor_area,
                         phase,
                         if fan.rpm > 0 { t.accent } else { t.wire },
                         ascii,
+                        alignment(r, c) == Alignment::Right,
                     );
-                    line(
+                    side_text(
                         b,
                         inside,
+                        c,
                         inside.height.saturating_sub(1),
                         format!("{} rpm", fan.rpm),
                         t.text,
                     );
                 } else {
-                    line(b, inside, 0, s.fans.label(), t.muted);
+                    side_text(b, inside, c, 0, s.fans.label(), t.muted);
                 }
             }
             Part::Soc => {
-                line(b, inside, 0, "M4 PRO", t.cpu);
-                line(b, inside, 1, format!("C {:3.0}%", s.cpu * 100.), t.text);
-                if let Some(g) = s.gpu.value() {
-                    line(b, inside, 2, format!("G {:3.0}%", g * 100.), t.gpu);
-                }
-                line(b, inside, 3, temp(&s.cpu_temp, &a.cfg.units), heat_color);
+                side_text(b, inside, c, 0, format!("C {:.0}%", s.cpu * 100.), t.cpu);
+                side_text(
+                    b,
+                    inside,
+                    c,
+                    1,
+                    s.gpu
+                        .value()
+                        .map_or("G N/A".into(), |g| format!("G {:.0}%", g * 100.)),
+                    t.gpu,
+                );
+                side_text(b, inside, c, 2, temp(&s.cpu_temp, &a.cfg.units), heat_color);
                 let phase = if a.motion == crate::motion::Motion::Full {
                     a.anim.phases.get("ambient").copied().unwrap_or(0.)
                 } else {
                     0.
                 };
-                for y in (5..inside.height).step_by(2) {
-                    for x in (1..inside.width.saturating_sub(1)).step_by(3) {
-                        let lit = ((x + y * 3) as f32 * 0.07 - phase).rem_euclid(1.) < 0.1;
-                        text(
-                            b,
-                            inside,
-                            x,
-                            y,
-                            "·",
-                            if lit {
-                                blend(t.cpu, t.panel, 0.65)
-                            } else {
-                                t.substrate
-                            },
-                        );
+                let center = inside.width / 2;
+                for y in (4..inside.height).step_by(2) {
+                    for distance in (0..=center.saturating_sub(1)).step_by(3) {
+                        let lit = ((distance + y * 3) as f32 * 0.07 - phase).rem_euclid(1.) < 0.1;
+                        for x in [center - distance, center + distance] {
+                            text(
+                                b,
+                                inside,
+                                x,
+                                y,
+                                "·",
+                                if lit {
+                                    blend(t.cpu, t.panel, 0.65)
+                                } else {
+                                    t.substrate
+                                },
+                            );
+                        }
                     }
                 }
             }
             Part::Memory => {
-                let v = s.memory_ratio();
                 for y in 0..inside.height.saturating_sub(1) {
-                    meter(b, row(inside, y, 1), v, t.memory, &t, ascii);
+                    meter_mirrored(
+                        b,
+                        row(inside, y, 1),
+                        s.memory_ratio(),
+                        t.memory,
+                        &t,
+                        ascii,
+                        alignment(r, c) == Alignment::Right,
+                    );
                 }
-                line(
+                side_text(
                     b,
                     inside,
+                    c,
                     inside.height.saturating_sub(1),
                     if inside.width >= 5 {
                         format!("{:.1}G", s.memory_used as f64 / 1024f64.powi(3))
@@ -428,69 +550,104 @@ fn physical(b: &mut Buffer, c: Rect, a: &mut App) {
                     t.text,
                 );
             }
-            Part::Power => line(
-                b,
-                inside,
-                0,
-                if inside.width < 7 {
-                    s.total_power().value().map_or("N/A".into(), |w| {
-                        if inside.width >= 5 {
-                            format!("{w:.1}W")
-                        } else {
-                            format!("{w:.0}W")
-                        }
-                    })
-                } else {
-                    watts(&s.total_power())
-                },
-                t.accent,
-            ),
-            Part::Disk => line(
-                b,
-                inside,
-                0,
-                s.disk.value().map_or("N/A".into(), |f| {
-                    if inside.width >= 6 {
-                        format!("R {:.0}M", f.read / 1e6)
-                    } else {
-                        format!("{:.0}M", f.read / 1e6)
-                    }
-                }),
-                t.disk,
-            ),
-            Part::Battery => {
-                line(
+            Part::Power => {
+                side_text(
                     b,
                     inside,
+                    c,
+                    0,
+                    s.total_power()
+                        .value()
+                        .map_or("N/A".into(), |w| format!("Σ {w:.1}W")),
+                    t.accent,
+                );
+                side_text(
+                    b,
+                    inside,
+                    c,
                     1,
+                    s.system_power
+                        .value()
+                        .map_or("SYS N/A".into(), |w| format!("SYS {w:.0}W")),
+                    t.muted,
+                );
+            }
+            Part::Disk => {
+                if let Some(flow) = s.disk.value() {
+                    for (y, prefix, value) in [(0, "R", flow.read), (1, "W", flow.write)] {
+                        let full = format!("{prefix} {}", rate(value, &a.cfg.units, false));
+                        let value = if full.width() <= inside.width as usize {
+                            full
+                        } else {
+                            format!("{prefix}{}", compact_rate(value, a, false))
+                        };
+                        side_text(b, inside, c, y, value, t.disk);
+                    }
+                } else {
+                    side_text(b, inside, c, 0, s.disk.label(), t.muted);
+                }
+            }
+            Part::Battery => {
+                side_text(
+                    b,
+                    inside,
+                    c,
+                    0,
                     s.battery
                         .value()
                         .map_or("N/A".into(), |v| format!("{:.0}%", v.percent)),
                     t.battery,
                 );
-                for y in 3..inside.height {
-                    line(
-                        b,
-                        inside,
-                        y,
-                        if s.battery.value().is_some_and(|v| v.charging) {
-                            "‹"
+                for y in 2..inside.height {
+                    let arrow = s.battery.value().map_or("│", |v| {
+                        if v.charging {
+                            "↓"
+                        } else if v.ac {
+                            "│"
                         } else {
-                            "›"
-                        },
-                        t.battery,
-                    );
+                            "↑"
+                        }
+                    });
+                    side_text(b, inside, c, y, arrow, t.battery);
                 }
             }
-            Part::Network => line(
-                b,
-                inside,
-                0,
-                s.network.value().map_or("N/A".into(), |f| {
-                    format!("↓ {}", rate(f.read, &a.cfg.units, true))
-                }),
-                t.net,
-            ),
+            Part::Network => {
+                if let Some(flow) = s.network.value() {
+                    if inside.height >= 2 {
+                        side_text(
+                            b,
+                            inside,
+                            c,
+                            0,
+                            format!("↓ {}", rate(flow.read, &a.cfg.units, true)),
+                            t.net,
+                        );
+                        side_text(
+                            b,
+                            inside,
+                            c,
+                            1,
+                            format!("↑ {}", rate(flow.write, &a.cfg.units, true)),
+                            t.net,
+                        );
+                    } else {
+                        side_text(
+                            b,
+                            inside,
+                            c,
+                            0,
+                            format!(
+                                "↓{} ↑{}",
+                                compact_rate(flow.read, a, true),
+                                compact_rate(flow.write, a, true)
+                            ),
+                            t.net,
+                        );
+                    }
+                } else {
+                    side_text(b, inside, c, 0, s.network.label(), t.muted);
+                }
+            }
             _ => {}
         }
         if a.follow.is_some() && !matches!(p, Part::Soc | Part::Memory) {
@@ -505,8 +662,7 @@ fn physical(b: &mut Buffer, c: Rect, a: &mut App) {
             reticle(b, r, t.bright);
         }
     }
-    for (i, n) in CELLS.iter().enumerate() {
-        let r = to_cells(*n, c, mirror);
+    for (i, r) in layout.cells.into_iter().enumerate() {
         let selected = a.selection == Some(Part::Cell(i as u8));
         if a.cells {
             let p = a.resolve(Part::Cell(i as u8));
@@ -521,8 +677,9 @@ fn physical(b: &mut Buffer, c: Rect, a: &mut App) {
                     widgets::tint(p, &t)
                 },
                 &t,
+                alignment(r, c),
             );
-            line(b, inside, 0, widgets::readout(p, &s, a), t.text);
+            side_text(b, inside, c, 0, widgets::readout(p, &s, a), t.text);
             let hist = a.history_values(p);
             let max = hist.iter().copied().fold(1., f32::max);
             if inside.height >= 3 {
@@ -537,9 +694,10 @@ fn physical(b: &mut Buffer, c: Rect, a: &mut App) {
                 );
             }
             if inside.height >= 2 {
-                line(
+                side_text(
                     b,
                     inside,
+                    c,
                     inside.height - 1,
                     match p {
                         Part::Cpu => format!("{} tiers · {} cores", s.tiers.len(), s.core_count()),
@@ -567,10 +725,11 @@ fn physical(b: &mut Buffer, c: Rect, a: &mut App) {
                 Provenance::Photo,
                 t.wire,
                 &t,
+                alignment(r, c),
             );
-            line(b, inside, 0, "▄▄", t.muted);
+            side_text(b, inside, c, 0, "▄▄", t.muted);
             if inside.height > 3 {
-                line(b, inside, inside.height / 2, "BATTERY", t.wire);
+                side_text(b, inside, c, inside.height / 2, "BATTERY", t.wire);
             }
             a.hitmap.add(r, 2, Hit::Part(Part::Battery));
         }
@@ -582,13 +741,47 @@ fn physical(b: &mut Buffer, c: Rect, a: &mut App) {
         (NRect::new(0.02, 0.62, 0.035, 0.30), "SPK"),
         (NRect::new(0.945, 0.62, 0.035, 0.30), "SPK"),
     ] {
-        let r = to_cells(n, c, mirror);
+        let mut r = to_cells(n, c, mirror);
+        if r.width < 3 {
+            if alignment(r, c) == Alignment::Right {
+                r.x -= 3 - r.width;
+            }
+            r.width = 3;
+        }
+        r.y = layout.battery_top + 1;
+        r.height = c.bottom().saturating_sub(r.y + 1);
         for y in 0..r.height {
             line(b, r, y, "░".repeat(r.width as usize), t.wire);
         }
-        line(b, r, r.height / 2, label, t.muted);
+        line(b, r, r.height / 2, " ".repeat(r.width as usize), t.muted);
+        side_text(b, r, c, r.height / 2, label, t.muted);
     }
     edge_ports(b, c, a, mirror);
+}
+fn compact_rate(value: f64, a: &App, network: bool) -> String {
+    let bits = network && a.cfg.units.net == "bits";
+    let base = if bits || a.cfg.units.bytes == "si" {
+        1000.
+    } else {
+        1024.
+    };
+    let mut n = value.max(0.) * if bits { 8. } else { 1. };
+    let mut unit = 0;
+    while n >= base - 0.5 && unit < 4 {
+        n /= base;
+        unit += 1;
+    }
+    let prefix = ["", "K", "M", "G", "T"][unit];
+    format!(
+        "{n:.0}{prefix}{}/s",
+        if bits {
+            "b"
+        } else if unit == 0 {
+            "B"
+        } else {
+            ""
+        }
+    )
 }
 fn generic(b: &mut Buffer, r: Rect, a: &mut App) {
     let t = a.theme.clone();
@@ -756,7 +949,7 @@ fn edge_ports(b: &mut Buffer, c: Rect, a: &mut App, mirror: bool) {
         );
     }
 }
-fn wiring(b: &mut Buffer, c: Rect, a: &App, mirror: bool) {
+fn wiring(b: &mut Buffer, c: Rect, a: &App, mirror: bool, layout: &Layout) {
     let t = &a.theme;
     let s = a.sample();
     let phase = if a.motion == crate::motion::Motion::Full {
@@ -767,103 +960,134 @@ fn wiring(b: &mut Buffer, c: Rect, a: &App, mirror: bool) {
     let moving = a.motion == crate::motion::Motion::Full;
     let wire = blend(t.wire, t.panel, 0.25);
     let signal = blend(t.accent, t.panel, 0.68);
-    // These traces communicate relationships, not the actual PCB routing or bus traffic.
-    for (i, path) in [
-        &[(0.39, 0.27), (0.42, 0.27)][..],
-        &[(0.39, 0.34), (0.42, 0.34)][..],
-        &[(0.58, 0.27), (0.61, 0.27)][..],
-        &[(0.58, 0.34), (0.61, 0.34)][..],
-        &[(0.50, 0.09), (0.50, 0.16)][..],
-        &[(0.355, 0.45), (0.355, 0.43), (0.46, 0.43), (0.46, 0.40)][..],
-        &[(0.645, 0.45), (0.645, 0.43), (0.54, 0.43), (0.54, 0.40)][..],
-        &[(0.355, 0.54), (0.355, 0.57), (0.50, 0.57), (0.50, 0.63)][..],
-        &[(0.18, 0.60), (0.18, 0.57), (0.82, 0.57), (0.82, 0.60)][..],
-        &[(0.38, 0.60), (0.38, 0.57)][..],
-        &[(0.62, 0.60), (0.62, 0.57)][..],
-    ]
-    .iter()
-    .enumerate()
-    {
+    let center = c.x + c.width / 2;
+    let soc = layout.part(Part::Soc);
+    let network = layout.part(Part::Network);
+    trace(
+        b,
+        c,
+        &[(center, network.bottom() - 1), (center, soc.y)],
+        wire,
+        moving.then_some((phase, signal)),
+    );
+    for r in [layout.components[4], layout.components[5]] {
+        let right = r.x > center;
+        for (i, y) in [r.y + 1, r.bottom().saturating_sub(2)]
+            .into_iter()
+            .enumerate()
+        {
+            let (from, to) = if right {
+                (r.x, soc.right() - 1)
+            } else {
+                (r.right() - 1, soc.x)
+            };
+            trace(
+                b,
+                c,
+                &[(from, y), (to, y)],
+                wire,
+                moving.then_some((phase + i as f32 * 0.5, signal)),
+            );
+        }
+    }
+    for r in [layout.part(Part::Disk), layout.part(Part::Power)] {
+        let right = r.x > center;
+        let from = if right { r.x } else { r.right() - 1 };
+        let to = if right { soc.right() - 1 } else { soc.x };
+        let y = soc.bottom() - 2;
         trace(
             b,
             c,
-            mirror,
-            path,
+            &[(from, r.y + 1), (to, r.y + 1), (to, y)],
             wire,
-            moving.then_some((phase + i as f32 * 0.13, signal)),
+            moving.then_some((phase, signal)),
         );
     }
-    for (i, (kind, left, y, _)) in PORTS.iter().enumerate() {
-        let (edge, lane, inner, soc) = if *left {
-            (0.015, 0.065, 0.285, 0.44)
+    let bms = layout.part(Part::Battery);
+    for r in [
+        layout.cells[0],
+        layout.cells[2],
+        layout.cells[3],
+        layout.cells[4],
+    ] {
+        let x = r.x + r.width / 2;
+        trace(
+            b,
+            c,
+            &[
+                (x, r.y),
+                (x, layout.power_y),
+                (center, layout.power_y),
+                (center, bms.y),
+            ],
+            wire,
+            moving.then_some((phase, signal)),
+        );
+    }
+    let pmu = layout.part(Part::Power);
+    let pmu_x = pmu.x + pmu.width / 2;
+    trace(
+        b,
+        c,
+        &[(pmu_x, pmu.bottom() - 1), (pmu_x, layout.power_y)],
+        wire,
+        moving.then_some((phase, signal)),
+    );
+    for (i, (kind, left, y, label)) in PORTS.iter().enumerate() {
+        let left = *left != mirror;
+        let y = c.y + (y * c.height as f32).round() as u16;
+        let lane = grid_x(0.065, c.width).max(5);
+        let edge = if left {
+            c.x + label.len() as u16 + 1
         } else {
-            (0.985, 0.935, 0.715, 0.56)
+            c.right() - label.len() as u16 - 2
         };
+        let lane = if left {
+            c.x + lane
+        } else {
+            c.right() - 1 - lane
+        };
+        let target = if left { center - 2 } else { center + 2 };
         let path = [
-            (edge, *y),
-            (lane, *y),
-            (lane, 0.49),
-            (inner, 0.49),
-            (inner, 0.43),
-            (soc, 0.43),
-            (soc, 0.40),
+            (edge, y),
+            (lane, y),
+            (lane, layout.data_y),
+            (target, layout.data_y),
+            (target, soc.bottom() - 1),
         ];
         let connected = ports::indicator(&s, *kind, t).2 == "CONNECTED";
         trace(
             b,
             c,
-            mirror,
             &path,
             blend(wire, t.panel, 0.15),
             (moving && connected).then_some((phase + i as f32 * 0.17, signal)),
         );
-    }
-    if let Some(input) = crate::metrics::ports::power_input(&s).value()
-        && let Some((_, left, y, _)) = PORTS.iter().find(|p| p.0 == *input)
-    {
-        let (edge, lane) = if *left {
-            (0.015, 0.075)
-        } else {
-            (0.985, 0.925)
-        };
-        let path = [
-            (edge, *y),
-            (lane, *y),
-            (lane, 0.55),
-            (0.50, 0.55),
-            (0.50, 0.63),
-        ];
-        trace(
-            b,
-            c,
-            mirror,
-            &path,
-            blend(t.battery, t.panel, 0.70),
-            moving.then_some((phase, blend(t.battery, t.panel, 0.35))),
-        );
+        if crate::metrics::ports::power_input(&s).value() == Some(kind) {
+            let path = [
+                (edge, y),
+                (lane, y),
+                (lane, layout.power_y),
+                (center, layout.power_y),
+                (center, bms.y),
+            ];
+            trace(
+                b,
+                c,
+                &path,
+                blend(t.battery, t.panel, 0.70),
+                moving.then_some((phase, blend(t.battery, t.panel, 0.35))),
+            );
+        }
     }
 }
 fn trace(
     b: &mut Buffer,
     c: Rect,
-    mirror: bool,
-    path: &[(f32, f32)],
-    color: ratatui::style::Color,
-    pulse: Option<(f32, ratatui::style::Color)>,
+    points: &[(u16, u16)],
+    color: Color,
+    pulse: Option<(f32, Color)>,
 ) {
-    let points: Vec<_> = path
-        .iter()
-        .map(|&(x, y)| {
-            (
-                ((if mirror { 1. - x } else { x }) * c.width as f32)
-                    .round()
-                    .clamp(0., c.width.saturating_sub(1) as f32) as u16,
-                (y * c.height as f32)
-                    .round()
-                    .clamp(0., c.height.saturating_sub(1) as f32) as u16,
-            )
-        })
-        .collect();
     let mut cells = Vec::new();
     for pair in points.windows(2) {
         let (mut x, mut y) = pair[0];
@@ -904,12 +1128,12 @@ fn trace(
             [true, _, _, _] | [_, _, true, _] => "│",
             _ => "─",
         };
-        text(b, c, x, y, glyph, color);
+        text(b, c, x - c.x, y - c.y, glyph, color);
     }
     if let Some((phase, color)) = pulse
         && !cells.is_empty()
     {
         let i = (phase.fract() * cells.len() as f32) as usize % cells.len();
-        text(b, c, cells[i].0, cells[i].1, "·", color);
+        text(b, c, cells[i].0 - c.x, cells[i].1 - c.y, "·", color);
     }
 }

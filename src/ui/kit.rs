@@ -112,6 +112,32 @@ pub fn meter(b: &mut Buffer, r: Rect, v: f32, c: Color, t: &Theme, ascii: bool) 
         );
     }
 }
+pub fn meter_mirrored(
+    b: &mut Buffer,
+    r: Rect,
+    v: f32,
+    c: Color,
+    t: &Theme,
+    ascii: bool,
+    mirror: bool,
+) {
+    meter(b, r, v, c, t, ascii);
+    if !mirror || r.is_empty() {
+        return;
+    }
+    let cells: Vec<_> = (r.x..r.right()).map(|x| b[(x, r.y)].clone()).collect();
+    for (i, mut cell) in cells.into_iter().rev().enumerate() {
+        if let Some(ch @ '▉'..='▏') = cell.symbol().chars().next() {
+            // Unicode has only left-eighth blocks. Paint the complementary empty area
+            // over a filled background to get the exact reflected fractional block.
+            let eighths = 0x2590 - ch as u32;
+            cell.set_char(char::from_u32(0x2588 + eighths).unwrap())
+                .set_fg(t.panel)
+                .set_bg(c);
+        }
+        b[(r.x + i as u16, r.y)] = cell;
+    }
+}
 pub fn avail<T>(v: &Avail<T>, format: impl Fn(&T) -> String) -> String {
     match v {
         Avail::Ok(v) => format(v),
@@ -252,6 +278,19 @@ impl BrailleGrid {
             );
         }
     }
+    fn mirror_x(&mut self) {
+        for y in 0..self.h as usize {
+            let start = y * self.w as usize;
+            self.bits[start..start + self.w as usize].reverse();
+            self.color[start..start + self.w as usize].reverse();
+        }
+        for bits in &mut self.bits {
+            *bits = ((*bits & 0x07) << 3)
+                | ((*bits & 0x38) >> 3)
+                | ((*bits & 0x40) << 1)
+                | ((*bits & 0x80) >> 1);
+        }
+    }
     pub fn flush(&self, r: Rect, b: &mut Buffer, ascii: bool) {
         for (i, &bits) in self.bits.iter().enumerate() {
             if bits != 0 {
@@ -309,6 +348,9 @@ pub fn spark(b: &mut Buffer, r: Rect, data: &[f32], max: f32, c: Color, t: &Them
     g.flush(r, b, ascii);
 }
 pub fn rotor(b: &mut Buffer, r: Rect, phase: f32, c: Color, ascii: bool) {
+    rotor_mirrored(b, r, phase, c, ascii, false);
+}
+pub fn rotor_mirrored(b: &mut Buffer, r: Rect, phase: f32, c: Color, ascii: bool, mirror: bool) {
     if r.width < 3 || r.height < 2 {
         return;
     }
@@ -329,6 +371,9 @@ pub fn rotor(b: &mut Buffer, r: Rect, phase: f32, c: Color, ascii: bool) {
             }
             old = Some(p);
         }
+    }
+    if mirror {
+        g.mirror_x();
     }
     g.flush(r, b, ascii);
 }

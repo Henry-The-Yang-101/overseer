@@ -3,7 +3,10 @@ use overseer::{
     app::{Action, App, Layer, Page, Part, Screen},
     config::Config,
     metrics::{self, Avail, allocate_cells},
-    ui::{processes::power_estimate, teardown::fit_chassis},
+    ui::{
+        processes::power_estimate,
+        teardown::{CELLS, COMPONENTS, fit_chassis, to_cells},
+    },
 };
 use ratatui::layout::Rect;
 fn app() -> App {
@@ -207,6 +210,24 @@ fn chassis_fits_terminal_sizes() {
             let r = Rect::new(1, 3, w, h);
             let c = fit_chassis(r, 1.413, aspect);
             assert!(c.x >= r.x && c.y >= r.y && c.right() <= r.right() && c.bottom() <= r.bottom());
+            assert_eq!(c.width % 2, 1, "chassis must have a center column");
+            for n in COMPONENTS.iter().map(|p| p.rect).chain(CELLS) {
+                let left = to_cells(n, c, false);
+                let right = to_cells(n, c, true);
+                assert_eq!(left.width, right.width);
+                assert_eq!(left.x + right.right(), c.x + c.right());
+                if (n.x + n.w / 2. - 0.5).abs() < 0.0001 {
+                    assert_eq!(left, right);
+                    assert_eq!(left.width % 2, 1);
+                    assert_eq!(left.x + left.width / 2, c.x + c.width / 2);
+                }
+            }
+            for (l, r) in [(1, 2), (4, 5), (6, 7)] {
+                assert_eq!(
+                    to_cells(COMPONENTS[l].rect, c, true),
+                    to_cells(COMPONENTS[r].rect, c, false)
+                );
+            }
         }
     }
 }
