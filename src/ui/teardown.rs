@@ -823,7 +823,7 @@ fn physical(b: &mut Buffer, c: Rect, available: Rect, a: &mut App) {
             if let Some(charge) = charge {
                 // Six equal shares of pack charge, independent of silhouette size.
                 let fill = charge * inside.height as f32 * 8.;
-                let color = t.battery;
+                let color = blend(t.battery, t.panel, 0.5);
                 for from_bottom in 0..inside.height {
                     let eighths = (fill - from_bottom as f32 * 8.).round().clamp(0., 8.) as u32;
                     if eighths == 0 {
