@@ -180,6 +180,26 @@ pub fn demo(scenario: &str, t: f64) -> Sample {
         collector_ms: 1000.,
         ..Sample::default()
     };
+    s.ports = Avail::Ok(Arc::new(
+        ports::PortKind::MACBOOK
+            .into_iter()
+            .map(|kind| {
+                let connected = matches!(kind, ports::PortKind::UsbC(3));
+                ports::Port {
+                    kind,
+                    connected: Avail::Ok(connected),
+                    detail: if kind == ports::PortKind::UsbC(3) {
+                        "USB 2 · DisplayPort".into()
+                    } else if connected {
+                        "Charging cable attached".into()
+                    } else {
+                        "Nothing connected".into()
+                    },
+                }
+            })
+            .collect(),
+    ));
+    s.ports_at = t;
     s.pressure_percent = Avail::Estimated(if scenario == "memory-pressure" {
         92.
     } else {
@@ -278,6 +298,7 @@ pub fn demo(scenario: &str, t: f64) -> Sample {
         Arc::make_mut(&mut s.machine).chip = "Three-tier CPU".into();
     }
     if scenario == "missing-sensors" {
+        s.ports = Avail::Unsupported("port sensors unavailable in this scenario".into());
         s.gpu = Avail::Unsupported("GPU residency not reported".into());
         s.gpu_mhz = Avail::Unsupported("GPU clock not reported".into());
         s.power = std::array::from_fn(|_| Avail::Unsupported("power counter not reported".into()));

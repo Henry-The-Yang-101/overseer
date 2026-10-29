@@ -37,6 +37,10 @@ fn collect(tx: &mpsc::SyncSender<Sample>) -> anyhow::Result<()> {
     let mut socket_data: Option<sockets::Snapshot> = None;
     let mut socket_at = Instant::now() - Duration::from_secs(20);
     let mut last_process = Instant::now() - Duration::from_secs(20);
+    let mut port_rx = Some(ports::request());
+    let mut port_state = Avail::Acquiring;
+    let mut ports_at = 0.;
+    let mut last_ports = Instant::now();
     let mut battery = Avail::Acquiring;
     let mut last_battery = Instant::now() - Duration::from_secs(20);
     #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
@@ -407,6 +411,20 @@ fn collect(tx: &mpsc::SyncSender<Sample>) -> anyhow::Result<()> {
             last_battery = Instant::now();
         }
         s.battery = battery.clone();
+        if let Some(rx) = &port_rx
+            && let Ok(state) = rx.try_recv()
+        {
+            port_state = state;
+            ports_at = s.at;
+            port_rx = None;
+        }
+        if port_rx.is_none() && last_ports.elapsed() >= Duration::from_secs(3) {
+            port_rx = Some(ports::request());
+            last_ports = Instant::now();
+        }
+        s.ports = port_state.clone();
+        s.ports_at = ports_at;
+
         s.uptime = System::uptime().unwrap_or(0);
         read_vm(&mut s);
         if let Some(now) = s.vm_totals.value() {

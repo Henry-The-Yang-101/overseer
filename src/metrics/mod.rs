@@ -1,6 +1,7 @@
 mod collector;
 mod demo;
 pub mod details;
+pub mod ports;
 mod sockets;
 pub use collector::{send_signal, spawn_collector};
 pub use demo::{SCENARIOS, demo};
@@ -175,6 +176,8 @@ pub struct Sample {
     pub volumes: Vec<Volume>,
     pub connection_states: Avail<Vec<(String, u32)>>,
     pub battery: Avail<Battery>,
+    pub ports: ports::Ports,
+    pub ports_at: f64,
     pub processes: Arc<Vec<Proc>>,
     pub process_at: f64,
     pub uptime: u64,
