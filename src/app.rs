@@ -592,11 +592,7 @@ impl App {
             playing: false,
             speed: 0,
             window,
-            selection: Some(if screen == Screen::Teardown {
-                Part::Soc
-            } else {
-                Part::Cpu
-            }),
+            selection: (screen == Screen::Systems).then_some(Part::Cpu),
             selected_at: now,
             zoom: None,
             layers: vec![],
@@ -1163,11 +1159,7 @@ impl App {
             Action::GoTo(s) => {
                 self.screen = s;
                 self.zoom = None;
-                self.selection = Some(if s == Screen::Teardown {
-                    Part::Soc
-                } else {
-                    Part::Cpu
-                });
+                self.selection = (s == Screen::Systems).then_some(Part::Cpu);
                 self.transition = true;
             }
             Action::ToggleView => self.act(Action::GoTo(if self.screen == Screen::Teardown {
@@ -1179,9 +1171,11 @@ impl App {
                 self.act(Action::GoTo(Screen::Systems));
                 self.change_page(page);
             }
-            Action::OpenPartPage => self.act(Action::GoPage(Page::for_part(
-                self.resolve(self.selection.unwrap_or(Part::Soc)),
-            ))),
+            Action::OpenPartPage => {
+                if let Some(part) = self.selection {
+                    self.act(Action::GoPage(Page::for_part(self.resolve(part))));
+                }
+            }
             Action::Loopback => self.cfg.systems.show_loopback = !self.cfg.systems.show_loopback,
             Action::PageRows(n) => {
                 self.move_row(n * self.task_rect.height.saturating_sub(4).max(1) as i32)
@@ -1246,9 +1240,8 @@ impl App {
                     if let Some(p) = self.selected_proc() {
                         self.layers.push(Layer::Process { process: p, tab: 0 });
                     }
-                } else {
-                    self.layers
-                        .push(Layer::Inspector(self.selection.unwrap_or(Part::Cpu)));
+                } else if let Some(part) = self.selection {
+                    self.layers.push(Layer::Inspector(part));
                 }
             }
             Action::InspectPart(p) => {
@@ -1267,8 +1260,8 @@ impl App {
             Action::Zoom => {
                 if self.screen == Screen::Systems {
                     self.expanded = !self.expanded;
-                } else {
-                    self.zoom = Some(self.selection.unwrap_or(Part::Soc));
+                } else if let Some(part) = self.selection {
+                    self.zoom = Some(part);
                     self.transition = true;
                 }
             }

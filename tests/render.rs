@@ -29,7 +29,20 @@ fn render(a: &mut App, w: u16, h: u16) -> String {
 fn representative_layouts() {
     for (w, h) in [(80, 24), (120, 36), (200, 55)] {
         let mut a = app("balanced");
-        let mut frames = format!("TEARDOWN\n{}", render(&mut a, w, h));
+        let unselected = render(&mut a, w, h);
+        assert_eq!(a.selection, None);
+        assert!(!unselected.contains("SELECTED"));
+        assert!(!unselected.contains("SYSTEM ON CHIP"));
+        let mut frames = format!("TEARDOWN\n{unselected}");
+        a.select(Part::Fan0);
+        let selected = render(&mut a, w, h);
+        if w >= 150 {
+            assert!(selected.contains("SELECTED"));
+            frames += &format!("\nSELECTED COMPONENT\n{selected}");
+        }
+        a.act(Action::Back);
+        assert_eq!(a.selection, None);
+        assert_eq!(render(&mut a, w, h), unselected);
         a.cells = true;
         frames += &format!("\nTELEMETRY CELLS\n{}", render(&mut a, w, h));
         a.act(Action::GoTo(Screen::Systems));
@@ -40,6 +53,7 @@ fn representative_layouts() {
         insta::assert_snapshot!(format!("layouts_{w}x{h}"), frames);
         if w >= 120 {
             a.act(Action::GoTo(Screen::Teardown));
+            assert_eq!(a.selection, None);
             let mut numbered = None;
             for orientation in ["front", "back"] {
                 a.cfg.teardown.orientation = orientation.into();

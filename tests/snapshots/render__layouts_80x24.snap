@@ -10,17 +10,17 @@ TEARDOWN
  │ FRONT ORIENTATION · hinge ↑ · MagSafe ← · HDMI/SD →                        │
  │ PORTS · 1 connected   [p]                                                  │
  │ COMPONENT NAVIGATOR                                                        │
- │                                   ┏ SYSTEM ON CHIP ━━━━━━━━━━━━━━━━━━━━━━┓ │
- │   Fan 0                           ┃  40.0%                               ┃ │
- │ › System on chip                  ┃                                      ┃ │
- │   Unified memory                  ┃ P CLUSTER  ×8   2.56 GHz   ACT  45.0 ┃ │
- │   Fan 1                           ┃ P0[o_o]  9  P1[o_o] 12  P2[o_o] 37   ┃ │
- │   Storage                         ┃ P3[>_>] 67  P4[@_@] 84  P5[@_@] 78   ┃ │
- │   Power rails                     ┃ P6[>_>] 52  P7[o_o] 22               ┃ │
- │   Battery pack                    ┃ E CLUSTER  ×4   1.46 GHz   ACT  30.0 ┃ │
- │   Thermal system                  ┃ E0(o_o)  9  E1(o_o) 24  E2(>_>) 40   ┃ │
- │   Network                         ┃ CPU  9.10 W   53°C   UP 75:58:48     ┃ │
- │   Left speaker                    ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛ │
+ │                                                                            │
+ │   Fan 0                                                                    │
+ │   System on chip                                                           │
+ │   Unified memory                                                           │
+ │   Fan 1                                                                    │
+ │   Storage                                                                  │
+ │   Power rails                                                              │
+ │   Battery pack                                                             │
+ │   Thermal system                                                           │
+ │   Network                                                                  │
+ │   Left speaker                                                             │
  │                                                                            │
  │ Layout approximate · wiring symbolic · fan sides assumed                   │
  ╰────────────────────────────────────────────────────────────────────────────╯
@@ -35,17 +35,17 @@ TELEMETRY CELLS
  │ FRONT ORIENTATION · hinge ↑ · MagSafe ← · HDMI/SD →                        │
  │ PORTS · 1 connected   [p]                                                  │
  │ COMPONENT NAVIGATOR                                                        │
- │                                   ┏ SYSTEM ON CHIP ━━━━━━━━━━━━━━━━━━━━━━┓ │
- │   Telemetry cell                  ┃  40.0%                               ┃ │
- │   Telemetry cell                  ┃                                      ┃ │
- │   Telemetry cell                  ┃ P CLUSTER  ×8   2.56 GHz   ACT  45.0 ┃ │
- │   Telemetry cell                  ┃ P0[o_o]  9  P1[o_o] 12  P2[o_o] 37   ┃ │
- │   Telemetry cell                  ┃ P3[>_>] 67  P4[@_@] 84  P5[@_@] 78   ┃ │
- │   Telemetry cell                  ┃ P6[>_>] 52  P7[o_o] 22               ┃ │
- │   Fan 0                           ┃ E CLUSTER  ×4   1.46 GHz   ACT  30.0 ┃ │
- │ › System on chip                  ┃ E0(o_o)  9  E1(o_o) 24  E2(>_>) 40   ┃ │
- │   Fan 1                           ┃ CPU  9.10 W   53°C   UP 75:58:48     ┃ │
- │   Left speaker                    ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛ │
+ │                                                                            │
+ │   Telemetry cell                                                           │
+ │   Telemetry cell                                                           │
+ │   Telemetry cell                                                           │
+ │   Telemetry cell                                                           │
+ │   Telemetry cell                                                           │
+ │   Telemetry cell                                                           │
+ │   Fan 0                                                                    │
+ │   System on chip                                                           │
+ │   Fan 1                                                                    │
+ │   Left speaker                                                             │
  │                                                                            │
  │ CELLS ARE DISPLAY SLOTS · NOT PER-CELL BATTERY DATA                        │
  ╰────────────────────────────────────────────────────────────────────────────╯

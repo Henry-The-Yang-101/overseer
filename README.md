@@ -17,7 +17,7 @@ Requires Rust 1.95+; `run.sh` also finds rustup in `~/.cargo/bin`. Apple Silicon
 - `Space` pauses/plays; `,` / `.` step; `<` / `>` step ten; `{` / `}` jump to spikes; `End` returns live. Collectors keep recording while paused.
 - `/` searches processes, including `user:root` and `pid:123`. `s` sorts, `S` reverses, `T` toggles the tree, `f` follows a process.
 - `X` opens signal confirmation. Only `y` sends SIGTERM; `Y` sends SIGKILL. Signals are disabled in demos and replay. PID and start time are rechecked before sending, without privilege escalation.
-- Teardown: `Tab` selects, arrows navigate, `g` opens the selected resource page, `Enter` inspects, `z` zooms; `m` telemetry slots, `L` labels, `H` activity highlights, `o` mirror; `p` shows connected physical ports.
+- Teardown: `Tab` selects, arrows navigate, `Esc` clears selection and hides the sidebar, `g` opens the selected resource page, `Enter` inspects, `z` zooms; `m` telemetry slots, `L` labels, `H` activity highlights, `o` mirror; `p` shows connected physical ports.
 - `t` cycles six themes; `:` finds commands; `?` opens controls; `q` quits.
 
 Settings are saved in `$XDG_CONFIG_HOME/overseer/config.toml` (default `~/.config/overseer/config.toml`). Demo runs never save preferences. Hardware samples arrive approximately every second; process snapshots every five seconds; physical port connections every three seconds; battery status every ten; visible socket ownership every fifteen. History is bounded to one hour and is not written to disk.

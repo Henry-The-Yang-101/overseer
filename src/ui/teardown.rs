@@ -325,7 +325,11 @@ pub fn draw(b: &mut Buffer, r: Rect, a: &mut App, size: SizeClass) {
     let t = a.theme.clone();
     let sample = a.sample();
     let verified = sample.machine.model == "Mac16,8";
-    let sidebar = if size == SizeClass::Wide { 36 } else { 0 };
+    let sidebar = if size == SizeClass::Wide && a.selection.is_some() {
+        36
+    } else {
+        0
+    };
     let content = Rect::new(
         r.x,
         r.y,
@@ -396,9 +400,11 @@ pub fn draw(b: &mut Buffer, r: Rect, a: &mut App, size: SizeClass) {
         disclaimer,
         t.muted,
     );
-    if sidebar > 0 {
+    if sidebar > 0
+        && let Some(part) = a.selection
+    {
         let rail = Rect::new(content.right() + 1, r.y, sidebar, r.height);
-        selected(b, rail, a);
+        selected(b, rail, a, part);
     }
 }
 fn chassis_outline(b: &mut Buffer, c: Rect, color: Color, cell_aspect: f32, ascii: bool) {
@@ -934,7 +940,11 @@ fn generic(b: &mut Buffer, r: Rect, a: &mut App) {
 fn navigator(b: &mut Buffer, r: Rect, a: &mut App) {
     let t = a.theme.clone();
     let s = a.sample();
-    let left = r.width * 45 / 100;
+    let left = if a.selection.is_some() {
+        r.width * 45 / 100
+    } else {
+        r.width
+    };
     let order = a.part_order();
     let rows = r.height.saturating_sub(2) as usize;
     line(b, r, 0, "COMPONENT NAVIGATOR", t.accent);
@@ -951,7 +961,8 @@ fn navigator(b: &mut Buffer, r: Rect, a: &mut App) {
         a.parts.push((*p, rr));
         a.hitmap.add(rr, 2, Hit::Part(*p));
     }
-    let p = a.resolve(a.selection.unwrap_or(Part::Soc));
+    let Some(part) = a.selection else { return };
+    let p = a.resolve(part);
     let right = Rect::new(
         r.x + left + 1,
         r.y + 1,
@@ -965,9 +976,9 @@ fn navigator(b: &mut Buffer, r: Rect, a: &mut App) {
         widgets::content(b, inner, p, &s, a);
     }
 }
-fn selected(b: &mut Buffer, r: Rect, a: &mut App) {
+fn selected(b: &mut Buffer, r: Rect, a: &mut App, part: Part) {
     let t = &a.theme;
-    let p = a.resolve(a.selection.unwrap_or(Part::Soc));
+    let p = a.resolve(part);
     let s = a.sample();
     let card = Rect::new(r.x, r.y, r.width, (r.height * 43 / 100).max(8));
     let inner = frame(b, card, "SELECTED", "Enter / z", true, t);
@@ -1037,16 +1048,16 @@ fn edge_ports(b: &mut Buffer, c: Rect, a: &mut App, mirror: bool) {
         let x = if left { 0 } else { c.width.saturating_sub(1) };
         text(b, c, x, y, dot, color);
         let x = if left {
-            1
+            2
         } else {
-            c.width.saturating_sub(label.len() as u16 + 1)
+            c.width.saturating_sub(label.len() as u16 + 2)
         };
         text(b, c, x, y, label, color);
         a.hitmap.add(
             Rect::new(
                 c.x + if left { 0 } else { x },
                 c.y + y,
-                label.len() as u16 + 1,
+                label.len() as u16 + 2,
                 1,
             ),
             6,
@@ -1218,9 +1229,9 @@ fn wiring(b: &mut Buffer, c: Rect, a: &App, mirror: bool, layout: &Layout) {
         let y = c.y + (y * c.height as f32).round() as u16;
         let lane = grid_x(0.03, c.width).max(5) + 1;
         let edge = if left {
-            c.x + label.len() as u16 + 1
+            c.x + label.len() as u16 + 2
         } else {
-            c.right() - label.len() as u16 - 2
+            c.right() - label.len() as u16 - 3
         };
         let lane = if left {
             c.x + lane
