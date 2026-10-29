@@ -1,0 +1,134 @@
+---
+source: tests/render.rs
+expression: out
+---
+
+=== board ===
+ O V E R S E E R  M4 Pro                                   SYNTHETIC / all-idle 
+                                                                                
+  1 Board   2 Teardown   3 Processes                                            
+ ┏ CPU COMPLEX ━━━━━━━━━━━━━━━━━━━━   1.0% ┓ ╭ UNIFIED MEMORY ────────────────╮ 
+ ┃ P CLUSTER  ×8   1.01 GHz   ACT   1.0%   ┃ │ ▣▣▣▣■■■■■■■■■■■⣿⣿⣿▒▒▒▒▒▒······ │ 
+ ┃ P0[-_-]  1   P1[-_-]  1   P2[-_-]  1    ┃ │ PRESSURE NORMAL   SWAP 0.0 B   │ 
+ ┃ P3[-_-]  2   P4[-_-]  2   P5[-_-]  1    ┃ ╰────────────────────────────────╯ 
+ ┃ P6[-_-]  1   P7[-_-]  1                 ┃ ╭ STORAGE ───────── Macintosh HD ╮ 
+ ┃ E CLUSTER  ×4    988 MHz   ACT   1.0%   ┃ │ R      0.0 B/s   W      0.0 B/ │ 
+ ┃ CPU  0.52 W   36°C   UP 75:58:48        ┃ ╰────────────────────────────────╯ 
+ ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛ ╭ NETWORK ────────────────── en0 ╮ 
+ ╭ GPU FABRIC ─────   0.0% ╮ ╭ NEURAL ENGIN╮ │ ↓      0.0 B/s   ↑      0.0 B/ │ 
+ │  338 MHz    0.00 W····· │ │  0.00 W     │ ╰────────────────────────────────╯ 
+ │                         │ │ IDLE        │ ╭ THERMAL SYSTEM ─────── NOMINAL ╮ 
+ ╰─────────────────────────╯ ╰─────────────╯ │ CPU 36°C    GPU 34°C           │ 
+ ╭ POWER RAILS ───────────────── Σ  0.52 W ╮ ╰────────────────────────────────╯ 
+ │ CPU   0.52 W    •────•─────•─────•────  │ ╭ BATTERY PACK ── 82% · charging ╮ 
+ │ GPU   0.00 W    ──────────────────────  │ │ ████ ████ ████ ████ ███▋ ────  │ 
+ │ ANE   0.00 W    ──────────────────────  │ │ IN 18.40 W   health 97%        │ 
+ │ Σ  0.52 W   SYS  8.22 W   ≈0.41 Wh      │ │ 112 cycles   0:48 remaining    │ 
+ ╰─────────────────────────────────────────╯ ╰────────────────────────────────╯ 
+ 5m  ⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀◆ NOW    
+                                                                                
+ Tab select   Enter inspect   v teardown   Space pause   ? help                 
+
+=== teardown ===
+ O V E R S E E R  M4 Pro                                   SYNTHETIC / all-idle 
+                                                                                
+  1 Board   2 Teardown   3 Processes                                            
+ ╭ MACBOOK PRO 14 / M4 PRO ───────────────────────────────────── PHYSICAL [m] ╮ 
+ │ UNDERSIDE VIEW · hinge ↑ · HDMI/SD ← · MagSafe →                           │ 
+ │                                                                            │ 
+ │ COMPONENT NAVIGATOR                                                        │ 
+ │                                   ┏ CPU COMPLEX ━━━━━━━━━━━━━━━━━━━━━━━━━┓ │ 
+ │   Fan 0                           ┃   1.0%                               ┃ │ 
+ │   System on chip                  ┃                                      ┃ │ 
+ │   Unified memory                  ┃ P CLUSTER  ×8   1.01 GHz   ACT   1.0 ┃ │ 
+ │   Fan 1                           ┃ P0[-_-]  1  P1[-_-]  1  P2[-_-]  1   ┃ │ 
+ │   Storage                         ┃ P3[-_-]  2  P4[-_-]  2  P5[-_-]  1   ┃ │ 
+ │   Power rails                     ┃ P6[-_-]  1  P7[-_-]  1               ┃ │ 
+ │   Battery pack                    ┃ E CLUSTER  ×4    988 MHz   ACT   1.0 ┃ │ 
+ │   Thermal system                  ┃ E0(-_-)  1  E1(-_-)  1  E2(-_-)  1   ┃ │ 
+ │   Network                         ┃ CPU  0.52 W   36°C   UP 75:58:48     ┃ │ 
+ │                                   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛ │ 
+ │                                                                            │ 
+ │ ── photo-matched   ┄┄ approximate   ┈┈ conceptual   Fan sides assumed      │ 
+ ╰────────────────────────────────────────────────────────────────────────────╯ 
+ 5m  ⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀◆ NOW    
+                                                                                
+ Tab select   Enter inspect   z zoom   m cells   L labels   v board   ? help    
+
+=== telemetry ===
+ O V E R S E E R  M4 Pro                                   SYNTHETIC / all-idle 
+                                                                                
+  1 Board   2 Teardown   3 Processes                                            
+ ╭ MACBOOK PRO 14 / M4 PRO ──────────────────────────────────── TELEMETRY [m] ╮ 
+ │ UNDERSIDE VIEW · hinge ↑ · HDMI/SD ← · MagSafe →                           │ 
+ │                                                                            │ 
+ │ COMPONENT NAVIGATOR                                                        │ 
+ │                                   ┏ CPU COMPLEX ━━━━━━━━━━━━━━━━━━━━━━━━━┓ │ 
+ │   Telemetry cell                  ┃   1.0%                               ┃ │ 
+ │   Telemetry cell                  ┃                                      ┃ │ 
+ │   Telemetry cell                  ┃ P CLUSTER  ×8   1.01 GHz   ACT   1.0 ┃ │ 
+ │   Telemetry cell                  ┃ P0[-_-]  1  P1[-_-]  1  P2[-_-]  1   ┃ │ 
+ │   Telemetry cell                  ┃ P3[-_-]  2  P4[-_-]  2  P5[-_-]  1   ┃ │ 
+ │   Telemetry cell                  ┃ P6[-_-]  1  P7[-_-]  1               ┃ │ 
+ │   Fan 0                           ┃ E CLUSTER  ×4    988 MHz   ACT   1.0 ┃ │ 
+ │   System on chip                  ┃ E0(-_-)  1  E1(-_-)  1  E2(-_-)  1   ┃ │ 
+ │   Fan 1                           ┃ CPU  0.52 W   36°C   UP 75:58:48     ┃ │ 
+ │                                   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛ │ 
+ │                                                                            │ 
+ │ CELLS ARE DISPLAY SLOTS · NOT PER-CELL BATTERY DATA                        │ 
+ ╰────────────────────────────────────────────────────────────────────────────╯ 
+ 5m  ⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀◆ NOW    
+                                                                                
+ Tab select   Enter inspect   z zoom   m cells   L labels   v board   ? help    
+
+=== processes ===
+ O V E R S E E R  M4 Pro                                   SYNTHETIC / all-idle 
+                                                                                
+  1 Board   2 Teardown   3 Processes                                            
+ ╭ PROCESSES ─────────────────────────────────────────────────── 20 processes ╮ 
+ │ 100% = one CPU core  · sorted CPU ↓  · updated 0s ago                      │ 
+ │                                                                            │ 
+ │ PID     NAME                                   CPU      LOAD    MEM        │ 
+ │   2592  node                                      0.4%   ─────   348.0 Mi│ │ 
+ │   1770  Terminal                                  0.4%   ─────   870.0 Mi│ │ 
+ │    811  Code Helper                               0.4%   ─────     1.4 Gi│ │ 
+ │    948  overseer                                  0.4%   ─────     1.4 Gi│ │ 
+ │   1633  Finder                                    0.4%   ─────   957.0 Mi│ │ 
+ │   2455  photolibraryd                             0.3%   ─────   435.0 Mi│ │ 
+ │   2729  com.apple.WebKit                          0.3%   ─────   261.0 Mi│ │ 
+ │      1  launchd                                   0.3%   ─────   783.0 Mi┃ │ 
+ │    674  Safari                                    0.2%   ─────     1.5 Gi│ │ 
+ │   1085  kernel_task                               0.2%   ─────     1.3 Gi│ │ 
+ │   1496  python3                                   0.2%   ─────     1.0 Gi│ │ 
+ │   2318  cloudd                                    0.1%   ─────   522.0 Mi│ │ 
+ │   2866  Spotlight                                 0.1%   ─────   174.0 Mi│ │ 
+ ╰────────────────────────────────────────────────────────────────────────────╯ 
+ 5m  ⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀◆ NOW    
+                                                                                
+ / search   s sort   T tree   Enter inspect   f follow   X signal   ? help      
+
+=== help ===
+ O V E R S E E R  M4 Pro                                   SYNTHETIC / all-idle 
+                                                                                
+  1 Board   2 Teardown   3 Processes                                            
+ ┏ OVERSEER / CONTROLS ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Esc close ┓ 
+ ┃                                                                            ┃ 
+ ┃ MOVE     1 2 3 screens · v board / teardown                                ┃ 
+ ┃          Tab / Shift+Tab next / previous part                              ┃ 
+ ┃          Arrows or h j k l move · Enter inspect                            ┃ 
+ ┃          z zoom · Esc back one layer (never quits)                         ┃ 
+ ┃                                                                            ┃ 
+ ┃ TIME     Space pause / play · , . step one                                 ┃ 
+ ┃          < > step ten · { } previous / next spike                          ┃ 
+ ┃          [ ] history window · + - replay speed                             ┃ 
+ ┃          End live · click / drag timeline to scrub                         ┃ 
+ ┃                                                                            ┃ 
+ ┃ LOOK     t theme · a motion · : commands                                   ┃ 
+ ┃ PROCESS  / search · s sort · S reverse · T tree                            ┃ 
+ ┃          f follow · X signal (y / Y confirmation)                          ┃ 
+ ┃ TEARDOWN m telemetry · L labels · H activity · o mirror                    ┃ 
+ ┃                                                                            ┃ 
+ ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛ 
+ 5m  ⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀◆ NOW    
+                                                                                
+ Esc back

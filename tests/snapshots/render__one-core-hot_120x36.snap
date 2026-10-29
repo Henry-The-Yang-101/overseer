@@ -1,0 +1,194 @@
+---
+source: tests/render.rs
+expression: out
+---
+
+=== board ===
+ O V E R S E E R  Apple M4 Pro  /  12 cores  /  24.0 GiB                                       SYNTHETIC / one-core-hot 
+                                                                                                                        
+  1 Board   2 Teardown   3 Processes                                                     THERMAL NOMINAL   SYS 13.20 W  
+ ┏ CPU COMPLEX ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━   9.5% ┓   ╭ UNIFIED MEMORY ────── 14.0 GiB / 24.0 GiB ╮ 
+ ┃ P CLUSTER  ×8   1.45 GHz   ACT  13.6%                              ┃ ┃ │ ▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣■■■■■■■■■■■■■■■■■■■■ │ 
+ ┃ P0[-_-]  2   P1[-_-]  2   P2[@O@] 98   P3[-_-]  2   P4[-_-]  2     ┃ ┃ │ ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ │ 
+ ┃ ▏─────────── ▏─────────── ███████████▊ ▏─────────── ▏───────────   ┃ ┃ │ ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ │ 
+ ┃ P5[-_-]  2   P6[-_-]  2   P7[-_-]  2                               ┃ ┃ │ ▒▒▒▒▒▒▒·································· │ 
+ ┃ ▏─────────── ▏─────────── ▏───────────                             ┃ ┃ │ PRESSURE NORMAL   SWAP 0.0 B              │ 
+ ┃ E CLUSTER  ×4    996 MHz   ACT   1.5%                              ┃ ┃ ╰───────────────────────────────────────────╯ 
+ ┃ E0(-_-)  2   E1(-_-)  2   E2(-_-)  2   E3(-_-)  2                  ┃ ┃ ╭ STORAGE ──────────────────── Macintosh HD ╮ 
+ ┃ ▏─────────── ▏─────────── ▏─────────── ▏───────────                ┃ ┃ │ R  209.2 MiB/s   W   13.0 MiB/s           │ 
+ ┃                                                                    ┃ ┃ │ •━━•━━•━━•━━•━━•━━•━━•━━•━━•━━•━━•━━•━━•━ │ 
+ ┃                                                                    ┃ ┃ ╰───────────────────────────────────────────╯ 
+ ┃                                    ⢀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀ ┃ ┃ ╭ NETWORK ───────────────────────────── en0 ╮ 
+ ┃                                                                    ┃ ┃ │ ↓  390.7 KiB/s   ↑  784.6 KiB/s           │ 
+ ┃ CPU  2.40 W   40°C   UP 75:58:48                                   ┃ ┃ │ •━━━•━━━━•━━━•━━━━•━━━•━━━━•━━━•━━━━•━━━━ │ 
+ ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛ ┃ ╰───────────────────────────────────────────╯ 
+ ╭ GPU FABRIC ────────────────────────  23.9% ╮ ╭ NEURAL ENGINE ──────╮ ┃ ╭ THERMAL SYSTEM ────────────────── NOMINAL ╮ 
+ │ ····▓···▓··········▓····▓·▓·     ⢠⣶⠶⢶⣦     │ │ ◇─◇─◇─◇─◇─◇─◇─◇─◇─  │ ┃ │ CPU 40°C    GPU 44°C                      │ 
+ │ ▓·█▓▓·▓·········▓···▓·······     ⢸⣇ ⢀⣿     │ │ ◇─◇─◇─◇─◇─◇─◇─◇─◇─  │ ┃ │ F0 1457 rpm   F1 1445 rpm                 │ 
+ │ ·▓·▓█··▓······█▓··▓······▓··     ⠈⠁  ⠉     │ │ ◇─◇─◇─◇─◇─◇─◇─◇─◇─  │ ┃ │                                           │ 
+ │  576 MHz    3.10 W                         │ │  0.17 W             │ ┃ │                                           │ 
+ │ 16 cores · aggregate utilization           │ │ POWER ACTIVITY      │ ┃ ╰───────────────────────────────────────────╯ 
+ ╰────────────────────────────────────────────╯ ╰─────────────────────╯ ┃ ╭ BATTERY PACK ───────────── 82% · charging ╮ 
+ ╭ POWER RAILS ──────────────────────────────────────────── Σ  5.67 W ╮ ┃ │ █████ █████ █████ █████ ████▌ ─────       │ 
+ │ CPU   2.40 W    •━━•━━━•━━━•━━━• GPU   3.10 W    •━━•━━━•━━•━━━•━  │ ┃ │ IN 18.40 W   health 97%                   │ 
+ │ ANE   0.17 W    •────────•────── DRAM  0.42 W    •─────•─────•───  │ ┃ │ 112 cycles   0:48 remaining               │ 
+ │                                                                    │ ┃ │                                           │ 
+ │                                                                    │ ┃ │                                           │ 
+ │ Σ  5.67 W   SYS 13.20 W   ≈0.63 Wh                                 │ ┃ │                                           │ 
+ ╰────────────────────────────────────────────────────────────────────╯   ╰───────────────────────────────────────────╯ 
+ 5m                   ⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀◆ NOW    
+     −02:59                                                 CPU / GPU · click to scrub                                  
+                                                                                                                        
+ Tab select   Enter inspect   v teardown   Space pause   / processes   ? help   : commands                              
+
+=== teardown ===
+ O V E R S E E R  Apple M4 Pro  /  12 cores  /  24.0 GiB                                       SYNTHETIC / one-core-hot 
+                                                                                                                        
+  1 Board   2 Teardown   3 Processes                                                     THERMAL NOMINAL   SYS 13.20 W  
+ ╭ MACBOOK PRO 14 / M4 PRO ───────────────────────────────────────────────────────────────────────────── PHYSICAL [m] ╮ 
+ │ UNDERSIDE VIEW · hinge ↑ · HDMI/SD ← · MagSafe →                                                                   │ 
+ │                                                                                                                    │ 
+ │                         ╭───────║║║║║║║║║║║║║─↓ 390.7 KiB/s──────────║║║║║║║║║║║║║───────╮                         │ 
+ │                         │       ║║║║║║║║║║║║║                        ║║║║║║║║║║║║║       │                         │ 
+ │                         │    ╭ FAN 0 ────────╮══════════════════════╭ FAN 1 ────────╮    │                         │ 
+ │                         │HDMI│    ⣠⢴⠒⠒⢒⠦⣄    │       ╭ SoC ─╮       │    ⣠⢴⠒⠒⢒⠦⣄    │MAG │                         │ 
+ │                         │    │  ⢠⣎⣀⣀⠙⢆ ⡇ ⡱⡄  │ ┌ MEM┐│M4 PRO│┌ MEM┐ │  ⢠⣎⣀⣀⠙⢆ ⡇ ⡱⡄  │    │                         │ 
+ │                         │    │  ⡏ ⣀⡠⡵⠚⢴⣁⠜⠁⢹  │ ┊██▎─┊│C  10%│┊██▎─┊ │  ⡏ ⣀⡠⡵⠚⢴⣁⠜⠁⢹  │    │                         │ 
+ │                         │SDXC│  ⣇⠊ ⡔⢳⢤⠺⠥⠤⠔⣺  │ ┊14.0┊╰──────╯┊14.0┊ │  ⣇⠊ ⡔⢳⢤⠺⠥⠤⠔⣺  │TB5 │                         │ 
+ │                         │    │  ⠘⢆⢸ ⠸⡀⠑⠢⠤⡰⠃  │ └┈┈┈┈┘        └┈┈┈┈┘ │  ⠘⢆⢸ ⠸⡀⠑⠢⠤⡰⠃  │    │                         │ 
+ │                         │TB5 │    ⠙⠲⠤⠵⠤⠖⠋    │                      │    ⠙⠲⠤⠵⠤⠖⠋    │3.5 │                         │ 
+ │                         │    │1457 rpm       │   5.67        R 219  │1445 rpm       │    │                         │ 
+ │                         │    ╰───────────────╯                      ╰───────────────╯    │                         │ 
+ │                         │─────────────────────────── LOGIC BOARD ────────────────────────│                         │ 
+ │                         │   ╭ CELL 1 ───╮ ╭ CELL 3 ───╮╭ B╮╭ CELL 4 ───╮  ╭ CELL 5 ──╮   │                         │ 
+ │                         ░░░ │▄▄         │ │▄▄         ││  ││▄▄         │  │▄▄        │ ░░░                         │ 
+ │                         ░░░ │           │ │           ││82││           │  │          │ ░░░                         │ 
+ │                         ░░░ ╰───────────╯ │BATTERY    ││  ││BATTERY    │  ╰──────────╯ ░░░                         │ 
+ │                         SPK ╭ CELL 2 ───╮ │           ││‹ ││           │  ╭ CELL 6 ──╮ SPK                         │ 
+ │                         ░░░ │▄▄         │ │           ││‹ ││           │  │▄▄        │ ░░░                         │ 
+ │                         ░░░ │           │ ╰───────────╯│‹ │╰───────────╯  │          │ ░░░                         │ 
+ │                         ░░░ │           │              ╰──╯               │          │ ░░░                         │ 
+ │                         │   ╰───────────╯   ┌ TRACKPAD RECESS ┄┄┄┄┄┄┄┐    ╰──────────╯   │                         │ 
+ │                         │                   └┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┘                   │                         │ 
+ │                         ╰────────────────────────────────────────────────────────────────╯                         │ 
+ │                                                                                                                    │ 
+ │ ── photo-matched   ┄┄ approximate   ┈┈ conceptual   Fan sides assumed                                              │ 
+ ╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯ 
+ 5m                   ⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀◆ NOW    
+     −02:59                                                 CPU / GPU · click to scrub                                  
+                                                                                                                        
+ Tab select   Enter inspect   z zoom   m cells   L labels   v board   ? help                                            
+
+=== telemetry ===
+ O V E R S E E R  Apple M4 Pro  /  12 cores  /  24.0 GiB                                       SYNTHETIC / one-core-hot 
+                                                                                                                        
+  1 Board   2 Teardown   3 Processes                                                     THERMAL NOMINAL   SYS 13.20 W  
+ ╭ MACBOOK PRO 14 / M4 PRO ──────────────────────────────────────────────────────────────────────────── TELEMETRY [m] ╮ 
+ │ UNDERSIDE VIEW · hinge ↑ · HDMI/SD ← · MagSafe →                                                                   │ 
+ │                                                                                                                    │ 
+ │                         ╭───────║║║║║║║║║║║║║─↓ 390.7 KiB/s──────────║║║║║║║║║║║║║───────╮                         │ 
+ │                         │       ║║║║║║║║║║║║║                        ║║║║║║║║║║║║║       │                         │ 
+ │                         │    ╭ FAN 0 ────────╮══════════════════════╭ FAN 1 ────────╮    │                         │ 
+ │                         │HDMI│    ⣠⢴⠒⠒⢒⠦⣄    │       ╭ SoC ─╮       │    ⣠⢴⠒⠒⢒⠦⣄    │MAG │                         │ 
+ │                         │    │  ⢠⣎⣀⣀⠙⢆ ⡇ ⡱⡄  │ ┌ MEM┐│M4 PRO│┌ MEM┐ │  ⢠⣎⣀⣀⠙⢆ ⡇ ⡱⡄  │    │                         │ 
+ │                         │    │  ⡏ ⣀⡠⡵⠚⢴⣁⠜⠁⢹  │ ┊██▎─┊│C  10%│┊██▎─┊ │  ⡏ ⣀⡠⡵⠚⢴⣁⠜⠁⢹  │    │                         │ 
+ │                         │SDXC│  ⣇⠊ ⡔⢳⢤⠺⠥⠤⠔⣺  │ ┊14.0┊╰──────╯┊14.0┊ │  ⣇⠊ ⡔⢳⢤⠺⠥⠤⠔⣺  │TB5 │                         │ 
+ │                         │    │  ⠘⢆⢸ ⠸⡀⠑⠢⠤⡰⠃  │ └┈┈┈┈┘        └┈┈┈┈┘ │  ⠘⢆⢸ ⠸⡀⠑⠢⠤⡰⠃  │    │                         │ 
+ │                         │TB5 │    ⠙⠲⠤⠵⠤⠖⠋    │                      │    ⠙⠲⠤⠵⠤⠖⠋    │3.5 │                         │ 
+ │                         │    │1457 rpm       │   5.67        R 219  │1445 rpm       │    │                         │ 
+ │                         │    ╰───────────────╯                      ╰───────────────╯    │                         │ 
+ │                         │─────────────────────────── LOGIC BOARD ────────────────────────│                         │ 
+ │                         │   ╭ 1 / CPU CO╮ ╭ 3 / UNIFIE╮╭ B╮╭ 4 / POWER ╮  ╭ 5 / THERM╮   │                         │ 
+ │                         ░░░ │  9.5%     │ │14.0 GiB / ││  ││Σ  5.67 W  │  │NOMINAL   │ ░░░                         │ 
+ │                         ░░░ │2 tiers · 1│ │           ││82││  ⣠⣾⣿⣦⡀   ⢀│  │60s histor│ ░░░                         │ 
+ │                         ░░░ ╰───────────╯ │⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶││  ││⢀⣼⣿⣿⣿⣿⣷⣄ ⢠⣾│  ╰──────────╯ ░░░                         │ 
+ │                         SPK ╭ 2 / GPU FA╮ │⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿││‹ ││⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿│  ╭ 6 / BATTE╮ SPK                         │ 
+ │                         ░░░ │ 23.9%     │ │PRESSURE NO││‹ ││SYS 13.20 W│  │82% · char│ ░░░                         │ 
+ │                         ░░░ │⣀⣀⣀⣤⣤⣄⣀⣀⣀⣀⣀│ ╰───────────╯│‹ │╰───────────╯  │⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿│ ░░░                         │ 
+ │                         ░░░ │60s history│              ╰──╯               │60s histor│ ░░░                         │ 
+ │                         │   ╰───────────╯   ┌ TRACKPAD RECESS ┄┄┄┄┄┄┄┐    ╰──────────╯   │                         │ 
+ │                         │                   └┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┘                   │                         │ 
+ │                         ╰────────────────────────────────────────────────────────────────╯                         │ 
+ │                                                                                                                    │ 
+ │ CELLS ARE DISPLAY SLOTS · NOT PER-CELL BATTERY DATA                                                                │ 
+ ╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯ 
+ 5m                   ⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀◆ NOW    
+     −02:59                                                 CPU / GPU · click to scrub                                  
+                                                                                                                        
+ Tab select   Enter inspect   z zoom   m cells   L labels   v board   ? help                                            
+
+=== processes ===
+ O V E R S E E R  Apple M4 Pro  /  12 cores  /  24.0 GiB                                       SYNTHETIC / one-core-hot 
+                                                                                                                        
+  1 Board   2 Teardown   3 Processes                                                     THERMAL NOMINAL   SYS 13.20 W  
+ ╭ PROCESSES ─────────────────────────────────────────────────────────────────────────────────────────── 20 processes ╮ 
+ │ 100% = one CPU core  · sorted CPU ↓  · updated 0s ago                                                              │ 
+ │                                                                                                                    │ 
+ │ PID     NAME                              CPU      LOAD    MEM          USER         TIME        READ / WRITE      │ 
+ │    811  Code Helper                         38.1%  ██▎───     1.4 GiB   demo         22:06       0.0 B/s / 0.0 B/s │ 
+ │    674  Safari                              30.3%  █▊────     1.5 GiB   demo         21:24       0.0 B/s / 0.0 B/s │ 
+ │    948  overseer                            29.5%  █▊────     1.4 GiB   demo         22:48       0.0 B/s / 0.0 B/s │ 
+ │   1770  Terminal                            14.3%  ▊─────   870.0 MiB   demo         27:00       0.0 B/s / 0.0 B/s │ 
+ │   1633  Finder                              14.0%  ▊─────   957.0 MiB   demo         26:18       0.0 B/s / 0.0 B/s │ 
+ │   1085  kernel_task                         13.4%  ▊─────     1.3 GiB   root         23:30       0.0 B/s / 0.0 B/s │ 
+ │    537  rustc                                9.6%  ▌─────     1.6 GiB   demo         20:42       0.0 B/s / 0.0 B/s │ 
+ │   2592  node                                 9.4%  ▌─────   348.0 MiB   demo         31:12       0.0 B/s / 0.0 B/s │ 
+ │      1  launchd                              8.6%  ▌─────   783.0 MiB   root         27:42       0.0 B/s / 0.0 B/s │ 
+ │   2455  photolibraryd                        7.7%  ▍─────   435.0 MiB   demo         30:30       0.0 B/s / 0.0 B/s │ 
+ │   1496  python3                              7.6%  ▍─────     1.0 GiB   demo         25:36       0.0 B/s / 0.0 B/s │ 
+ │   2729  com.apple.WebKit                     6.8%  ▍─────   261.0 MiB   demo         31:54       0.0 B/s / 0.0 B/s │ 
+ │    400  WindowServer                         3.4%  ▏─────     1.7 GiB   root         20:00       0.0 B/s / 0.0 B/s │ 
+ │   2318  cloudd                               3.1%  ▏─────   522.0 MiB   demo         29:48       0.0 B/s / 0.0 B/s │ 
+ │   2866  Spotlight                            2.5%  ▏─────   174.0 MiB   demo         32:36       0.0 B/s / 0.0 B/s │ 
+ │   2044  coreaudiod                           2.1%  ▏─────   696.0 MiB   demo         28:24       0.0 B/s / 0.0 B/s │ 
+ │   1222  mds_stores                           1.8%   ─────     1.2 GiB   demo         24:12       0.0 B/s / 0.0 B/s │ 
+ │   1359  Music                                0.9%   ─────     1.1 GiB   demo         24:54       0.0 B/s / 0.0 B/s │ 
+ │   2181  bird                                 0.1%   ─────   609.0 MiB   demo         29:06       0.0 B/s / 0.0 B/s │ 
+ │   3003  Slack                                0.0%   ─────    87.0 MiB   demo         33:18       0.0 B/s / 0.0 B/s │ 
+ │                                                                                                                    │ 
+ │                                                                                                                    │ 
+ │                                                                                                                    │ 
+ │                                                                                                                    │ 
+ ╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯ 
+ 5m                   ⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀◆ NOW    
+     −02:59                                                 CPU / GPU · click to scrub                                  
+                                                                                                                        
+ / search   s sort   T tree   Enter inspect   f follow   X signal   ? help                                              
+
+=== help ===
+ O V E R S E E R  Apple M4 Pro  /  12 cores  /  24.0 GiB                                       SYNTHETIC / one-core-hot 
+                                                                                                                        
+  1 Board   2 Teardown   3 Processes                                                     THERMAL NOMINAL   SYS 13.20 W  
+ ╭ PRO┏ OVERSEER / CONTROLS ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Esc close ┓ses ╮ 
+ │ 100┃                                                                                                          ┃    │ 
+ │    ┃ MOVE                             INSPECT                          TIME                                   ┃    │ 
+ │ PID┃ 1 2 3      screens               Enter      component / process   Space   pause / play                   ┃    │ 
+ │    ┃ v          board / teardown      z          zoom part             , .     step one                       ┃B/s │ 
+ │    ┃ Tab / ⇧Tab next / previous       f          follow process        < >     step ten                       ┃B/s │ 
+ │    ┃ ↑↓←→ hjkl  spatial navigation    /          process search        { }     jump to spike                  ┃B/s │ 
+ │   1┃ Esc        back one layer        :          command palette       [ ]     history window                 ┃B/s │ 
+ │   1┃                                  ?          this help             + -     replay speed                   ┃B/s │ 
+ │   1┃                                                                   End     return to live                 ┃B/s │ 
+ │    ┃                                                                                                          ┃B/s │ 
+ │   2┃ TEARDOWN     m telemetry cells   L labels   H highlight activity   o mirror orientation                  ┃B/s │ 
+ │    ┃ PROCESSES    s sort   S reverse   T tree   X send signal   user:root / pid:123 filters                   ┃B/s │ 
+ │   2┃ LOOK & FEEL  t theme   a motion (full / reduced / off)   ASCII toggle in command palette                 ┃B/s │ 
+ │   1┃ MOUSE        click select   double-click zoom / inspect   drag rail scrub   wheel scroll                 ┃B/s │ 
+ │   2┃                                                                                                          ┃B/s │ 
+ │    ┃ MEMORY       ▣ wired   ■ app   ⣿ compressed   ▒ cache   · free  (symbolic aggregate map)                 ┃B/s │ 
+ │   2┃ PROVENANCE   ── photo-matched   ┄┄ approximate   ┈┈ conceptual   ≈ estimated                             ┃B/s │ 
+ │   2┃ VALUES       0.00 W measured zero   N/A unsupported   READ FAILED sensor error                           ┃B/s │ 
+ │   2┃                                                                                                          ┃B/s │ 
+ │   1┃ Signals require y for SIGTERM or Y for SIGKILL. Enter never confirms. Disabled in replay.                ┃B/s │ 
+ │   1┃ Esc is always safe. It closes one layer and never quits. q or Ctrl+C quits Overseer.                     ┃B/s │ 
+ │   2┃                                                                                                          ┃B/s │ 
+ │   3┃                                                                                                          ┃B/s │ 
+ │    ┃                                                                                                          ┃    │ 
+ │    ┃                                                                                                          ┃    │ 
+ │    ┃                                                                                                          ┃    │ 
+ │    ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛    │ 
+ ╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯ 
+ 5m                   ⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀◆ NOW    
+     −02:59                                                 CPU / GPU · click to scrub                                  
+                                                                                                                        
+ Esc back
