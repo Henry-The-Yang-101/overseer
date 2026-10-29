@@ -30,6 +30,7 @@ pub fn draw(b: &mut Buffer, r: Rect, a: &mut App) {
         match layer {
             Layer::Help => help(b, centered(r, 108, 28), a),
             Layer::Ports => super::ports::modal(b, centered(r, 72, 25), a),
+            Layer::SystemsInfo { .. } => super::insights::modal(b, centered(r, 116, 34), a),
             Layer::Palette { query, index } => {
                 let rect = centered(r, 76, 18);
                 Clear.render(rect, b);

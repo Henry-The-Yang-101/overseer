@@ -9,7 +9,7 @@ pub struct Wifi {
     pub rssi: i32,
     pub noise: Option<i32>,
     pub channel: u32,
-    pub tx_mbps: f64,
+    pub tx_mbps: Option<f64>,
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Route {
@@ -54,6 +54,15 @@ pub struct Snapshot {
     pub traffic: Avail<Vec<Traffic>>,
 }
 impl Snapshot {
+    pub fn stale(&self, at: f64) -> bool {
+        at - self.at > 15.
+            && (self.wifi.value().is_some()
+                || self.routes.value().is_some()
+                || self.assertions.value().is_some()
+                || self.adapter.value().is_some()
+                || self.disks.value().is_some()
+                || self.traffic.value().is_some())
+    }
     pub fn traffic(&self, p: &Proc, at: f64) -> Option<&Traffic> {
         if at - self.at > 15. || at < self.at {
             return None;
@@ -169,10 +178,11 @@ mod macos {
             .map(|(pid, p)| (pid.as_u32(), p.start_time()))
             .collect()
     }
+    type NetworkCounters = HashMap<(u32, u64), (u64, u64)>;
     #[derive(Default)]
     pub struct Reader {
         disks: Option<(Instant, Vec<RawDisk>)>,
-        network: Option<(Instant, HashMap<(u32, u64), (u64, u64)>)>,
+        network: Option<(Instant, NetworkCounters)>,
     }
     impl Reader {
         pub fn sample(
@@ -392,6 +402,8 @@ mod tests {
         };
         assert!(s.traffic(&p, 12.).is_some());
         assert!(s.traffic(&p, 26.).is_none());
+        assert!(s.stale(26.));
+        assert!(!Snapshot::default().stale(26.));
         assert!(s.traffic(&p, 9.).is_none());
         p.start = 6;
         assert!(s.traffic(&p, 12.).is_none());

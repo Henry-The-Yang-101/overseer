@@ -32,7 +32,10 @@ pub fn primary(p: &Proc, page: Page, s: &Sample) -> f32 {
         Page::Memory => p.footprint.value().copied().unwrap_or(0) as f32,
         Page::Energy => power_estimate(p, s).value().copied().unwrap_or(0.),
         Page::Disk => (p.read + p.write) as f32,
-        Page::Network => p.connections.value().copied().unwrap_or(0) as f32,
+        Page::Network => s
+            .extra
+            .traffic(p, s.at)
+            .map_or(0., |v| (v.read + v.write) as f32),
         Page::Gpu => 0.,
     }
 }
@@ -41,7 +44,7 @@ pub fn draw(b: &mut Buffer, r: Rect, a: &mut App, size: SizeClass) {
     let s = a.sample();
     let page = a.page;
     let title = if page == Page::Network {
-        "TOP NETWORK TASKS · VISIBLE SOCKETS".into()
+        "TOP NETWORK TASKS · TRAFFIC".into()
     } else {
         format!("TOP {} TASKS", page.name().to_uppercase())
     };
@@ -80,7 +83,9 @@ pub fn draw(b: &mut Buffer, r: Rect, a: &mut App, size: SizeClass) {
         Page::Memory => "Physical footprint · macOS task accounting · compressed bytes unavailable",
         Page::Energy => "CPU POWER ≈ · measured CPU watts × CPU-time share; excludes GPU / system",
         Page::Disk => "READ + WRITE · bars relative to top task · sampled every 5s",
-        Page::Network => "Socket ownership · 15s scan · visible records only; per-task traffic N/A",
+        Page::Network => {
+            "Measured RX + TX · external interfaces · ~5s samples · unavailable ≠ zero"
+        }
         _ => "",
     };
     let caption = if let Some(q) = a.search.as_ref().filter(|q| !q.is_empty() || a.searching) {
@@ -120,7 +125,7 @@ pub fn draw(b: &mut Buffer, r: Rect, a: &mut App, size: SizeClass) {
         Page::Memory => "FOOTPRINT",
         Page::Energy => "CPU POWER ≈",
         Page::Disk => "READ + WRITE",
-        Page::Network => "SOCKETS",
+        Page::Network => "RX + TX",
         _ => "",
     };
     text(b, inner, 0, 1, " #", t.muted);
@@ -144,7 +149,8 @@ pub fn draw(b: &mut Buffer, r: Rect, a: &mut App, size: SizeClass) {
             Page::Memory => "CPU%    THREADS  COMP",
             Page::Energy => "CPU%    GPU%    WAKES",
             Page::Disk => "READ/s       WRITE/s       READ TOTAL / WRITTEN",
-            Page::Network => "CPU%    MEM       USER",
+            Page::Network if compact => "TX/s",
+            Page::Network => "RX/s         TX/s         SOCKETS",
             _ => "",
         },
         t.muted,
@@ -222,7 +228,7 @@ pub fn draw(b: &mut Buffer, r: Rect, a: &mut App, size: SizeClass) {
             inner,
             y + 1,
             if page == Page::Network {
-                "No visible socket owners yet. macOS may restrict access."
+                "No measured traffic yet. Allow two samples; i shows collection status."
             } else if s.processes.is_empty() {
                 "Acquiring task snapshot…"
             } else {
@@ -328,7 +334,14 @@ fn draw_row(
             avail(&power_estimate(p, &s), |v| format!("{v:.2} W"))
         ),
         Page::Disk => format!("{:>11}", rate(p.read + p.write, &a.cfg.units, false)),
-        Page::Network => format!("{:>8}", avail(&p.connections, |v| v.to_string())),
+        Page::Network => format!(
+            "{:>11}",
+            s.extra.traffic(p, s.at).map_or("N/A".into(), |v| rate(
+                v.read + v.write,
+                &a.cfg.units,
+                true
+            ))
+        ),
         _ => "N/A".into(),
     };
     text(b, r, value_x, 0, value, fg);
@@ -418,12 +431,18 @@ fn draw_row(
             bytes(p.total_read, &a.cfg.units),
             bytes(p.total_write, &a.cfg.units)
         ),
-        Page::Network => format!(
-            "{:>5.1}%   {:<10} {}",
-            p.cpu,
-            bytes(p.memory, &a.cfg.units),
-            p.user
-        ),
+        Page::Network => s.extra.traffic(p, s.at).map_or("N/A".into(), |v| {
+            if compact {
+                rate(v.write, &a.cfg.units, true)
+            } else {
+                format!(
+                    "{:<12} {:<12} {}",
+                    rate(v.read, &a.cfg.units, true),
+                    rate(v.write, &a.cfg.units, true),
+                    avail(&p.connections, |n| n.to_string())
+                )
+            }
+        }),
         _ => String::new(),
     };
     text(b, r, secondary_x, 0, secondary, t.muted);
@@ -488,6 +507,41 @@ pub fn overview(b: &mut Buffer, r: Rect, p: &Proc, a: &App) {
         ),
         t.muted,
     );
+    if a.screen == crate::app::Screen::Systems {
+        let s = a.sample();
+        let extra = if a.page == Page::Memory {
+            format!(
+                "Δ 1/5/15m: {} / {} / {}",
+                super::insights::growth(p, &s, a, 60.),
+                super::insights::growth(p, &s, a, 300.),
+                super::insights::growth(p, &s, a, 900.)
+            )
+        } else if a.page == Page::Energy {
+            if s.extra.stale(s.at) {
+                "Sleep blockers: STALE".into()
+            } else {
+                format!(
+                    "Sleep assertions: {} · i on Systems for reasons",
+                    avail(&s.extra.assertions, |v| v
+                        .iter()
+                        .filter(|v| v.pid == p.pid)
+                        .count()
+                        .to_string())
+                )
+            }
+        } else {
+            s.extra
+                .traffic(p, s.at)
+                .map_or("Network rates: N/A".into(), |v| {
+                    format!(
+                        "RX {} · TX {}",
+                        rate(v.read, &a.cfg.units, true),
+                        rate(v.write, &a.cfg.units, true)
+                    )
+                })
+        };
+        line(b, r, 8, extra, t.accent);
+    }
     if r.height > 10 {
         line(b, r, 9, "COMMAND", t.muted);
         Paragraph::new(if p.command.is_empty() {

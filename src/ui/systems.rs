@@ -49,9 +49,9 @@ pub fn draw(b: &mut Buffer, r: Rect, a: &mut App, size: SizeClass) {
         format!("{} · {}", a.page.name().to_uppercase(), a.page.title())
     };
     let subtitle = if a.expanded {
-        "z restore tasks"
+        "i details · z restore tasks"
     } else {
-        "z expand"
+        "i details · z expand"
     };
     let mut inner = frame(b, main, &title, subtitle, false, &t);
     if size == SizeClass::Regular && inner.height > 7 {
@@ -445,6 +445,9 @@ fn energy(b: &mut Buffer, r: Rect, a: &App, s: &Sample) {
             ),
             t.muted,
         );
+        if r.height > 3 {
+            line(b, r, 3, super::insights::power(s), t.muted);
+        }
         return;
     }
     let system = matches!(s.system_power, Avail::Ok(_));
@@ -600,10 +603,23 @@ fn flow(b: &mut Buffer, r: Rect, a: &App, s: &Sample) {
             ),
             color,
         );
-        if r.height > 2 {
+        if r.height > 1 {
+            line(
+                b,
+                r,
+                1,
+                if network {
+                    super::insights::wifi(s)
+                } else {
+                    super::insights::disk(s)
+                },
+                t.muted,
+            );
+        }
+        if r.height > 3 {
             butterfly(
                 b,
-                Rect::new(r.x, r.y + 1, r.width, r.height - 1),
+                Rect::new(r.x, r.y + 2, r.width, r.height - 2),
                 a,
                 s,
                 network,
@@ -686,7 +702,10 @@ fn flow(b: &mut Buffer, r: Rect, a: &App, s: &Sample) {
             b,
             r,
             5,
-            "Flash planes are symbolic · IOPS / SSD temperature not exposed",
+            format!(
+                "{} · i for all devices / operation sizes",
+                super::insights::disk(s)
+            ),
             t.muted,
         );
     }
@@ -976,6 +995,30 @@ fn side_card(b: &mut Buffer, r: Rect, a: &App, s: &Sample) {
         Page::Energy => {
             let mut v = vec![
                 (
+                    if s.extra.stale(s.at) {
+                        "ADAPTER STALE".into()
+                    } else {
+                        format!(
+                            "ADAPTER {}",
+                            avail(&s.extra.adapter, |v| v
+                                .watts
+                                .map_or("watts N/A".into(), |w| format!("{w:.0} W rated")))
+                        )
+                    },
+                    t.battery,
+                ),
+                (
+                    if s.extra.stale(s.at) {
+                        "SLEEP ASSERTIONS STALE".into()
+                    } else {
+                        format!(
+                            "SLEEP ASSERTIONS {} · i reasons",
+                            avail(&s.extra.assertions, |v| v.len().to_string())
+                        )
+                    },
+                    t.muted,
+                ),
+                (
                     format!(
                         "CPU {}  GPU {}",
                         temp(&s.cpu_temp, &a.cfg.units),
@@ -1031,7 +1074,24 @@ fn side_card(b: &mut Buffer, r: Rect, a: &App, s: &Sample) {
             v
         }
         Page::Disk => {
-            let mut v = vec![];
+            let mut v = vec![(super::insights::disk(s), t.disk)];
+            if !s.extra.stale(s.at)
+                && let Some(disks) = s.extra.disks.value()
+            {
+                for d in disks.iter().take(2) {
+                    v.push((
+                        format!(
+                            "{} avg R {} / W {}",
+                            d.name,
+                            d.read_size
+                                .map_or("idle".into(), |v| bytes(v as u64, &a.cfg.units)),
+                            d.write_size
+                                .map_or("idle".into(), |v| bytes(v as u64, &a.cfg.units))
+                        ),
+                        t.muted,
+                    ));
+                }
+            }
             for d in &s.volumes {
                 v.push((
                     format!("{}{}", d.name, if d.external { " · external" } else { "" }),
@@ -1063,6 +1123,40 @@ fn side_card(b: &mut Buffer, r: Rect, a: &App, s: &Sample) {
         }
         Page::Network => {
             let mut v = vec![];
+            if !s.extra.stale(s.at) {
+                if let Some(w) = s.extra.wifi.value() {
+                    v.push((format!("Wi-Fi {} · {} dBm", w.interface, w.rssi), t.net));
+                    v.push((
+                        format!(
+                            "Noise {} · SNR {}",
+                            w.noise.map_or("N/A".into(), |n| format!("{n} dBm")),
+                            w.noise
+                                .map_or("N/A".into(), |n| format!("{} dB", w.rssi - n))
+                        ),
+                        t.text,
+                    ));
+                    v.push((
+                        format!(
+                            "CH {} · {} link",
+                            w.channel,
+                            w.tx_mbps.map_or("N/A".into(), |n| format!("{n:.0} Mb/s"))
+                        ),
+                        t.muted,
+                    ));
+                } else {
+                    v.push((format!("Wi-Fi {}", s.extra.wifi.label()), t.muted));
+                }
+                if let Some(routes) = s.extra.routes.value() {
+                    for route in routes.iter().take(2) {
+                        v.push((
+                            format!("{} route: {}", route.family, route.interface),
+                            t.net,
+                        ));
+                    }
+                }
+            } else {
+                v.push(("Link details STALE · i details".into(), t.warn));
+            }
             if let Some(f) = s.network.value() {
                 v.push((format!("{} · physical interface", f.name), t.net));
                 for ip in f.addresses.iter().take(2) {
@@ -1073,7 +1167,6 @@ fn side_card(b: &mut Buffer, r: Rect, a: &App, s: &Sample) {
                     t.muted,
                 ));
             }
-            v.push(("Wi-Fi RSSI / link rate: N/A".into(), t.muted));
             v.push(("TCP · visible sockets only".into(), t.net));
             if let Some(states) = s.connection_states.value() {
                 for (state, n) in states {
@@ -1185,17 +1278,7 @@ fn inline_stats(b: &mut Buffer, r: Rect, a: &App, s: &Sample) {
                     .collect::<Vec<_>>()
                     .join(" · "))
             ),
-            format!(
-                "BATTERY {}   DRAM {} · SRAM {}",
-                avail(&s.battery, |v| format!(
-                    "{:.0}% · health {} · {} cycles",
-                    v.percent,
-                    avail(&v.health, |v| format!("{v:.0}%")),
-                    avail(&v.cycles, |v| v.to_string())
-                )),
-                watts(&s.power[3]),
-                watts(&s.power[4])
-            ),
+            super::insights::power(s),
         ),
         Page::Disk => (
             s.volumes
@@ -1210,7 +1293,8 @@ fn inline_stats(b: &mut Buffer, r: Rect, a: &App, s: &Sample) {
                     )
                 }),
             format!(
-                "{} mounted volumes · APFS capacity is shared · IOPS / SSD temperature N/A",
+                "{} · {} volumes · i operation sizes",
+                super::insights::disk(s),
                 s.volumes.len()
             ),
         ),
@@ -1221,15 +1305,7 @@ fn inline_stats(b: &mut Buffer, r: Rect, a: &App, s: &Sample) {
                 s.network.value().map_or(0., |v| v.packets_in),
                 s.network.value().map_or(0., |v| v.packets_out)
             ),
-            format!(
-                "VISIBLE TCP {} · Wi-Fi RSSI / link rate N/A",
-                avail(&s.connection_states, |v| v
-                    .iter()
-                    .take(3)
-                    .map(|(s, n)| format!("{s} {n}"))
-                    .collect::<Vec<_>>()
-                    .join(" / "))
-            ),
+            super::insights::wifi(s),
         ),
         Page::Gpu => (
             format!(

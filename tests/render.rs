@@ -294,3 +294,47 @@ fn unavailable_sensors_and_small_resizes_stay_usable() {
     assert!(hover.lines().nth(34).unwrap().contains("Enter inspect"));
     assert!(notice.lines().nth(34).unwrap().contains("Motion · reduced"));
 }
+
+#[test]
+fn systems_details_pin_samples_and_support_small_layouts() {
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+    use overseer::app::Layer;
+    let key = |code| KeyEvent::new(code, KeyModifiers::NONE);
+    let mut a = app("balanced");
+    let teardown = render(&mut a, 200, 55);
+    a.on_key(key(KeyCode::Char('i')));
+    assert!(a.layers.is_empty());
+    assert_eq!(teardown, render(&mut a, 200, 55));
+    for scenario in ["balanced", "missing-sensors"] {
+        for (w, h) in [(60, 18), (80, 24), (120, 36), (200, 55)] {
+            let mut a = app(scenario);
+            for page in Page::ALL {
+                a.act(Action::GoPage(page));
+                a.act(Action::SystemsInfo);
+                assert!(render(&mut a, w, h).contains("SYSTEMS DETAILS"));
+                let pinned = match a.layers.last().unwrap() {
+                    Layer::SystemsInfo { sample, .. } => sample.at,
+                    _ => unreachable!(),
+                };
+                a.ingest(overseer::metrics::demo(scenario, pinned + 1.));
+                assert!(
+                    matches!(a.layers.last(), Some(Layer::SystemsInfo { sample, .. }) if sample.at == pinned)
+                );
+                for _ in 0..2 {
+                    a.on_key(key(KeyCode::Right));
+                    render(&mut a, w, h);
+                }
+                a.on_key(key(KeyCode::Enter));
+                assert!(
+                    matches!(a.layers.last(), Some(Layer::SystemsInfo { expanded, .. }) if expanded.len() == 1)
+                );
+                for _ in 0..40 {
+                    a.on_key(key(KeyCode::Down));
+                }
+                render(&mut a, w, h);
+                a.on_key(key(KeyCode::Esc));
+                assert!(a.layers.is_empty());
+            }
+        }
+    }
+}

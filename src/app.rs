@@ -238,6 +238,7 @@ pub enum Action {
     Quit,
     Help,
     Ports,
+    SystemsInfo,
     Palette,
     GoTo(Screen),
     ToggleView,
@@ -441,6 +442,7 @@ pub fn map_key(k: KeyEvent, s: Screen) -> Option<Action> {
         Char('H') if s == Screen::Teardown => Action::Highlight,
         Char('o') if s == Screen::Teardown => Action::Mirror,
         Char('s') if s == Screen::Systems => Action::Sort,
+        Char('i') if s == Screen::Systems => Action::SystemsInfo,
         Char('S') if s == Screen::Systems => Action::Reverse,
         Char('T') if s == Screen::Systems => Action::Tree,
         Char('f') => Action::Follow,
@@ -452,10 +454,26 @@ pub fn map_key(k: KeyEvent, s: Screen) -> Option<Action> {
 pub enum Layer {
     Help,
     Ports,
-    Palette { query: String, index: usize },
+    SystemsInfo {
+        tab: usize,
+        scroll: usize,
+        index: usize,
+        expanded: HashSet<String>,
+        sample: Arc<Sample>,
+    },
+    Palette {
+        query: String,
+        index: usize,
+    },
     Inspector(Part),
-    Process { process: Proc, tab: usize },
-    Signal { process: Proc, force: bool },
+    Process {
+        process: Proc,
+        tab: usize,
+    },
+    Signal {
+        process: Proc,
+        force: bool,
+    },
 }
 #[derive(Clone, Debug)]
 pub struct Toast {
@@ -534,6 +552,7 @@ pub struct App {
     pub persist: bool,
     pub energy_wh: f64,
     pub spike_marks: Vec<f64>,
+    pub system_events: VecDeque<metrics::insights::Event>,
     pub detail_rx: Option<std::sync::mpsc::Receiver<metrics::details::ProcessDetails>>,
     pub detail_data: Option<metrics::details::ProcessDetails>,
     pub detail_request: Option<((u32, u64), usize)>,
@@ -633,6 +652,7 @@ impl App {
             persist: true,
             energy_wh: 0.,
             spike_marks: vec![],
+            system_events: VecDeque::new(),
             detail_rx: None,
             detail_data: None,
             detail_request: None,
@@ -685,6 +705,8 @@ impl App {
             }
         }
         if let Some(prev) = self.history.back() {
+            self.system_events
+                .extend(metrics::insights::events(prev, &s));
             let dt = (s.at - prev.at).clamp(0., 5.);
             if let Some(w) = s.system_power.value() {
                 self.energy_wh += *w as f64 * dt / 3600.;
@@ -799,6 +821,8 @@ impl App {
         }
         self.spike_marks
             .retain(|t| *t >= self.history.front().map_or(0., |s| s.at));
+        self.system_events
+            .retain(|e| e.at >= self.history.front().map_or(0., |s| s.at));
         if let Some(c) = self.cursor
             && let Some(first) = self.history.front()
             && c < first.at
@@ -1152,6 +1176,17 @@ impl App {
             Action::Back => self.back(),
             Action::Help => self.layers.push(Layer::Help),
             Action::Ports => self.layers.push(Layer::Ports),
+            Action::SystemsInfo => {
+                if self.screen == Screen::Systems {
+                    self.layers.push(Layer::SystemsInfo {
+                        tab: 0,
+                        scroll: 0,
+                        index: 0,
+                        expanded: HashSet::new(),
+                        sample: self.sample(),
+                    });
+                }
+            }
             Action::Palette => self.layers.push(Layer::Palette {
                 query: String::new(),
                 index: 0,
@@ -1427,6 +1462,7 @@ impl App {
                 self.persist = false;
                 self.history.clear();
                 self.spike_marks.clear();
+                self.system_events.clear();
                 self.archive_processes = Arc::new(vec![]);
                 self.task_history.clear();
                 self.task_history_at = -5.;
@@ -1530,6 +1566,67 @@ impl App {
                 Layer::Ports => {
                     if matches!(k.code, KeyCode::Esc | KeyCode::Char('p') | KeyCode::Enter) {
                         self.layers.pop();
+                    }
+                    return;
+                }
+                Layer::SystemsInfo {
+                    tab,
+                    scroll,
+                    index,
+                    expanded,
+                    sample,
+                } => {
+                    match k.code {
+                        KeyCode::Char('[') => {
+                            self.window = (self.window + 3) % 4;
+                            *scroll = 0;
+                        }
+                        KeyCode::Char(']') => {
+                            self.window = (self.window + 1) % 4;
+                            *scroll = 0;
+                        }
+                        KeyCode::Esc | KeyCode::Char('i') => {
+                            self.layers.pop();
+                        }
+                        KeyCode::Tab | KeyCode::Right => {
+                            *tab = (*tab + 1) % 3;
+                            *scroll = 0;
+                        }
+                        KeyCode::BackTab | KeyCode::Left => {
+                            *tab = (*tab + 2) % 3;
+                            *scroll = 0;
+                        }
+                        KeyCode::PageDown => {
+                            *scroll = scroll.saturating_add(8);
+                        }
+                        KeyCode::PageUp => {
+                            *scroll = scroll.saturating_sub(8);
+                        }
+                        KeyCode::Down | KeyCode::Char('j') => {
+                            if *tab == 2 {
+                                *index = index.saturating_add(1);
+                                *scroll = usize::MAX;
+                            } else {
+                                *scroll = scroll.saturating_add(1);
+                            }
+                        }
+                        KeyCode::Up | KeyCode::Char('k') => {
+                            if *tab == 2 {
+                                *index = index.saturating_sub(1);
+                                *scroll = usize::MAX;
+                            } else {
+                                *scroll = scroll.saturating_sub(1);
+                            }
+                        }
+                        KeyCode::Enter if *tab == 2 => {
+                            let groups = crate::ui::insights::app_groups(sample, self.page);
+                            if let Some(g) = groups.get(*index)
+                                && !expanded.remove(&g.key)
+                            {
+                                expanded.insert(g.key.clone());
+                            }
+                        }
+                        _ => {}
                     }
                     return;
                 }
@@ -1734,7 +1831,7 @@ impl App {
             s.processes.as_ref().clone()
         };
         if self.page == Page::Network {
-            all.retain(|p| p.connections.value().is_some_and(|n| *n > 0));
+            all.retain(|p| s.extra.traffic(p, s.at).is_some());
         }
         let sort = self.sort;
         all.sort_by(|a, b| {
@@ -1746,7 +1843,8 @@ impl App {
                 4 => b.cpu_time.cmp(&a.cpu_time),
                 5 => b.cpu.total_cmp(&a.cpu),
                 6 => (b.read + b.write).total_cmp(&(a.read + a.write)),
-                7 => b.connections.value().cmp(&a.connections.value()),
+                7 => crate::ui::processes::primary(b, Page::Network, &s)
+                    .total_cmp(&crate::ui::processes::primary(a, Page::Network, &s)),
                 _ => a.pid.cmp(&b.pid),
             }
             .then(a.pid.cmp(&b.pid));
@@ -1942,17 +2040,12 @@ pub fn metric_available(p: Part, s: &Sample) -> bool {
 }
 
 pub const SORT_NAMES: [&str; 9] = [
-    "CPU",
-    "MEMORY",
-    "PID",
-    "NAME",
-    "TIME",
-    "POWER",
-    "IO",
-    "CONNECTIONS",
-    "GPU",
+    "CPU", "MEMORY", "PID", "NAME", "TIME", "POWER", "IO", "NETWORK", "GPU",
 ];
 pub fn sort_index(s: &str) -> usize {
+    if s.eq_ignore_ascii_case("connections") {
+        return 7;
+    }
     SORT_NAMES
         .iter()
         .position(|n| n.eq_ignore_ascii_case(s))

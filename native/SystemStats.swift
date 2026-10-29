@@ -10,8 +10,8 @@ var result: [String: Any] = [:]
 if let wifi = CWWiFiClient.shared().interface(), wifi.powerOn(),
    let channel = wifi.wlanChannel(), wifi.rssiValue() != 0 {
     var value: [String: Any] = ["interface": wifi.interfaceName ?? "",
-        "rssi": wifi.rssiValue(), "channel": channel.channelNumber,
-        "tx_mbps": wifi.transmitRate()]
+        "rssi": wifi.rssiValue(), "channel": channel.channelNumber]
+    if wifi.transmitRate() > 0 { value["tx_mbps"] = wifi.transmitRate() }
     if wifi.noiseMeasurement() != 0 { value["noise"] = wifi.noiseMeasurement() }
     result["wifi"] = value
 }
@@ -47,7 +47,7 @@ if IOPMCopyAssertionsByProcess(&assertions) == kIOReturnSuccess,
 
 if let adapter = IOPSCopyExternalPowerAdapterDetails()?.takeRetainedValue() as? [String: Any] {
     var value: [String: Any] = [:]
-    if let watts = adapter[kIOPSPowerAdapterWattsKey] as? NSNumber { value["watts"] = watts }
+    if let watts = adapter[kIOPSPowerAdapterWattsKey] as? NSNumber, watts.doubleValue > 0 { value["watts"] = watts }
     if let current = adapter[kIOPSPowerAdapterCurrentKey] as? NSNumber { value["milliamps"] = current }
     result["adapter"] = value
 }

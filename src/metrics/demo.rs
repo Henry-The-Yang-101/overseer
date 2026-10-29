@@ -304,7 +304,7 @@ pub fn demo(scenario: &str, t: f64) -> Sample {
             rssi: -61,
             noise: Some(-94),
             channel: 44,
-            tx_mbps: 544.,
+            tx_mbps: Some(544.),
         }),
         routes: Avail::Ok(vec![extra::Route {
             family: "IPv4".into(),

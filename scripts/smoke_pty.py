@@ -16,7 +16,7 @@ def drain(seconds=0.15):
             except OSError: break
 try:
     drain(.5)
-    for keys in [b'1', b':inspect left speaker', b'\r', b'e', b'e', b'\x1b', b'p', b'\x1b', b'o', b'o', b'\t', b'z', b'\x1b', b'm', b'g', b'\x1b[C', b'\x1b[C', b'\x1b[C', b'\x1b[C', b'\x1b[C', b'\x1b[C', b'\x1b[B', b'\r', b'\x1b[C', b'\x1b[B', b'\x1b', b'/rustc', b'\r', b'\x1b[B', b'f', b' ', b',', b' ', b'\x1b[F', b'?', b'\x1b', b':theme amber', b'\r', b'a', b'a']:
+    for keys in [b'1', b':inspect left speaker', b'\r', b'e', b'e', b'\x1b', b'p', b'\x1b', b'o', b'o', b'\t', b'z', b'\x1b', b'm', b'g', b'i', b'\x1b[C', b'\x1b[C', b'\r', b'\x1b[6~', b'\x1b[5~', b'\x1b[B', b'\x1b', b'\x1b[C', b'\x1b[C', b'\x1b[C', b'\x1b[C', b'\x1b[C', b'\x1b[C', b'\x1b[B', b'\r', b'\x1b[C', b'\x1b[B', b'\x1b', b'/rustc', b'\r', b'\x1b[B', b'f', b' ', b',', b' ', b'\x1b[F', b'?', b'\x1b', b':theme amber', b'\r', b'a', b'a']:
         os.write(master,keys);drain()
     for rows, cols in [(24,80),(14,52),(36,120),(55,200)]:
         fcntl.ioctl(slave,termios.TIOCSWINSZ,struct.pack('HHHH',rows,cols,cols*9,rows*18));os.kill(proc.pid,28);drain(.2)

@@ -58,7 +58,7 @@ cpu
   1 Teardown   2 Systems
  ‹  CPU  40.0%  ›                                                ● ○ ○ ○ ○ ○
 
- ╭ CPU · EXECUTION FLOOR · AUTOMATIC ─────────────────────────────── z expand ╮
+ ╭ CPU · EXECUTION FLOOR · AUTOMATIC ─────────────────── i details · z expand ╮
  │ P0[o_o]  9  P1[o_o] 12  P2[o_o] 37  P3[>_>] 67  P4[@_@] 84  P5[>_>] 78     │
  │ P6[>_>] 52  P7[o_o] 22                                                     │
  │ E0(o_o)  9  E1(o_o) 24  E2(>_>) 40  E3(>_>) 47                             │
@@ -76,14 +76,14 @@ cpu
  ╰────────────────────────────────────────────────────────────────────────────╯
  5m  ⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤◆ NOW
 
- ←→ pages   ↑↓ tasks   Enter inspect   / filter   z expand   f follow   ? help
+ ←→ pages   ↑↓ tasks   Enter inspect   i stats / history / apps   / filter   z
 memory
  O V E R S E E R  M4 Pro                                              SYNTHETIC
 
   1 Teardown   2 Systems
  ‹  MEMORY 14.0G  ›                                              ○ ● ○ ○ ○ ○
 
- ╭ MEMORY · ADDRESS MATRIX ───────────────────────────────────────── z expand ╮
+ ╭ MEMORY · ADDRESS MATRIX ───────────────────────────── i details · z expand ╮
  │ ▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ │
  │ ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ │
  │ ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ │
@@ -101,18 +101,18 @@ memory
  ╰────────────────────────────────────────────────────────────────────────────╯
  5m  ⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤◆ NOW
 
- ←→ pages   ↑↓ tasks   Enter inspect   / filter   z expand   f follow   ? help
+ ←→ pages   ↑↓ tasks   Enter inspect   i stats / history / apps   / filter   z
 energy
  O V E R S E E R  M4 Pro                                              SYNTHETIC
 
   1 Teardown   2 Systems
  ‹  ENERGY 19.90 W  ›                                            ○ ○ ● ○ ○ ○
 
- ╭ ENERGY · POWER FLOW ───────────────────────────────────────────── z expand ╮
+ ╭ ENERGY · POWER FLOW ───────────────────────────────── i details · z expand ╮
  │ AC ADAPTER  →  SYSTEM 19.90 W   Σ SoC 12.37 W                              │
  │ CPU  9.10 W    GPU  3.10 W    ANE  0.17 W                                  │
  │ CPU 53°C  GPU 44°C   NOMINAL                                               │
- │                                                                            │
+ │ ADAPTER 65 W rated · 1 sleep assertions                                    │
  │                                                                            │
  ╰────────────────────────────────────────────────────────────────────────────╯
  ╭ TOP ENERGY TASKS ──────────────────────────────────────────── 20 · POWER ↓ ╮
@@ -126,18 +126,18 @@ energy
  ╰────────────────────────────────────────────────────────────────────────────╯
  5m  ⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤◆ NOW
 
- ←→ pages   ↑↓ tasks   Enter inspect   / filter   z expand   f follow   ? help
+ ←→ pages   ↑↓ tasks   Enter inspect   i stats / history / apps   / filter   z
 disk
  O V E R S E E R  M4 Pro                                              SYNTHETIC
 
   1 Teardown   2 Systems
  ‹  DISK 222.2 MiB/s  ›                                          ○ ○ ○ ● ○ ○
 
- ╭ DISK · NAND ARRAY ─────────────────────────────────────────────── z expand ╮
+ ╭ DISK · NAND ARRAY ─────────────────────────────────── i details · z expand ╮
  │ Macintosh HD   READ 209.2 MiB/s   WRITE 13.0 MiB/s                         │
- │ READ ▲               ⢀⣤⣴⣶⣶⣤⣄         ⢀⣤⣴⣶⣶⣤⣄         ⢀⣠⣴⣶⣶⣦⣄⡀         ⣠⣤   │
- │             ⣿⣶⣄⣀⣀⣀⣀⣤⣾⣿⣿⣿⣿⣿⣿⣿⣿⣶⣤⣀⣀⣀⣀⣤⣾⣿⣿⣿⣿⣿⣿⣿⣿⣶⣤⣀⣀⣀⣀⣤⣶⣿⣿⣿⣿⣿⣿⣿⣿⣶⣤⣀⣀⣀⣀⣤⣶⣿⣿⣿   │
- │ 5m / shared ⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉   │
+ │ disk0 IOPS R 840 / W 120                                                   │
+ │ READ ▲      ⣀       ⢀⣠⣤⣶⣶⣶⣦⣤⣀       ⢀⣀⣤⣶⣶⣶⣦⣤⣀        ⣀⣤⣶⣶⣶⣶⣤⣀        ⣀⣤⣴   │
+ │             ⠿⠿⠶⠶⠶⠶⠶⠿⠿⠿⠿⠿⠿⠿⠿⠿⠿⠿⠶⠶⠶⠶⠶⠾⠿⠿⠿⠿⠿⠿⠿⠿⠿⠿⠷⠶⠶⠶⠶⠾⠿⠿⠿⠿⠿⠿⠿⠿⠿⠿⠷⠶⠶⠶⠶⠾⠿⠿⠿⠿   │
  │ WRITE▼                                                                     │
  ╰────────────────────────────────────────────────────────────────────────────╯
  ╭ TOP DISK TASKS ───────────────────────────────────────────────── 20 · IO ↓ ╮
@@ -151,39 +151,39 @@ disk
  ╰────────────────────────────────────────────────────────────────────────────╯
  5m  ⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤◆ NOW
 
- ←→ pages   ↑↓ tasks   Enter inspect   / filter   z expand   f follow   ? help
+ ←→ pages   ↑↓ tasks   Enter inspect   i stats / history / apps   / filter   z
 network
  O V E R S E E R  M4 Pro                                              SYNTHETIC
 
   1 Teardown   2 Systems
  ‹  NETWORK 1.1 MiB/s  ›                                         ○ ○ ○ ○ ● ○
 
- ╭ NETWORK · SIGNAL TRACES ───────────────────────────────────────── z expand ╮
+ ╭ NETWORK · SIGNAL TRACES ───────────────────────────── i details · z expand ╮
  │ en0   RX 390.7 KiB/s   TX 784.6 KiB/s                                      │
- │ DOWN ▲      ⣤⣶⣶⣶⣤⣀         ⣀⣤⣶⣶⣶⣤⣀         ⣀⣤⣶⣶⣶⣤⣀         ⢀⣤⣴⣶⣶⣤⣄         │
- │             ⣿⣿⣿⣿⣿⣿⣿⣦⣄⣀⣀⣀⣠⣴⣾⣿⣿⣿⣿⣿⣿⣿⣿⣶⣄⣀⣀⣀⣀⣤⣾⣿⣿⣿⣿⣿⣿⣿⣿⣶⣤⣀⣀⣀⣀⣤⣾⣿⣿⣿⣿⣿⣿⣿⣿⣶⣤⣀⣀⣀   │
- │ 5m / shared ⠉⠉⠉⠉⠉⠉⠛⠛⠛⠋⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠛⠛⠛⠛⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠛⠛⠛⠛⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠛⠛⠛⠛⠉⠉   │
+ │ en0 -61 dBm · CH 44 · 544 Mb/s link                                        │
+ │ DOWN ▲      ⣤⣶⣶⣶⣤⣤⣀       ⣀⣠⣤⣶⣶⣶⣦⣤⣀       ⢀⣠⣤⣶⣶⣶⣦⣤⣀       ⢀⣀⣤⣶⣶⣶⣦⣤⣀        │
+ │             ⠿⠿⠿⠿⠿⠿⠿⠿⠶⠶⠶⠶⠶⠿⠿⠿⠿⠿⠿⠿⠿⠿⠿⠿⠶⠶⠶⠶⠶⠿⠿⠿⠿⠿⠿⠿⠿⠿⠿⠿⠶⠶⠶⠶⠶⠿⠿⠿⠿⠿⠿⠿⠿⠿⠿⠿⠷⠶⠶⠶   │
  │ UP   ▼                                                                     │
  ╰────────────────────────────────────────────────────────────────────────────╯
- ╭ TOP NETWORK TASKS · VISIBLE SOCKETS ──────────────────── 7 · CONNECTIONS ↓ ╮
- │ Socket ownership · 15s scan · visible records only; per-task traffic N/A   │
- │  #  NAME                               SOCKETS               CPU%    MEM   │
- │ 01  WindowServer                             20     ████████   3.4%   1.7  │
- │ 02  Code Helper                              17     ██████▊─  38.1%   1.4  │
- │ 03  mds_stores                               14     █████▌──   1.8%   1.2  │
- │ 04  Finder                                   11     ████▍───  14.0%   957. │
- │ 05  coreaudiod                                8     ███▏────   2.1%   696. │
+ ╭ TOP NETWORK TASKS · TRAFFIC ─────────────────────────────── 20 · NETWORK ↓ ╮
+ │ Measured RX + TX · external interfaces · ~5s samples · unavailable ≠ zero  │
+ │  #  NAME                               RX + TX               TX/s          │
+ │ 01  com.apple.WebKit                    78.3 KiB/s  ████████ 39.2 KiB/s    │
+ │ 02  python3                             71.8 KiB/s  ███████▎ 39.2 KiB/s    │
+ │ 03  Code Helper                         58.7 KiB/s  █████▉── 19.6 KiB/s    │
+ │ 04  Safari                              52.3 KiB/s  █████▎── 39.2 KiB/s    │
+ │ 05  photolibraryd                       52.2 KiB/s  █████▎── 19.6 KiB/s    │
  ╰────────────────────────────────────────────────────────────────────────────╯
  5m  ⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤◆ NOW
 
- ←→ pages   ↑↓ tasks   Enter inspect   / filter   z expand   f follow   ? help
+ ←→ pages   ↑↓ tasks   Enter inspect   i stats / history / apps   / filter   z
 gpu
  O V E R S E E R  M4 Pro                                              SYNTHETIC
 
   1 Teardown   2 Systems
  ‹  GPU  23.9%  ›                                                ○ ○ ○ ○ ○ ●
 
- ╭ GPU · SHADER FABRIC ───────────────────────────────────────────── z expand ╮
+ ╭ GPU · SHADER FABRIC ───────────────────────────────── i details · z expand ╮
  │ ·············▓▓··········▓▓·▓▓▓······▓·▓▓···█····                          │
  │ ·▓······▓▓··▓▓·▓·····▓▓▓········▓·····▓······█···                          │
  │  576 MHz    3.10 W                                                         │
@@ -201,4 +201,4 @@ gpu
  ╰────────────────────────────────────────────────────────────────────────────╯
  5m  ⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤◆ NOW
 
- ←→ pages   ↑↓ tasks   Enter inspect   / filter   z expand   f follow   ? help
+ ←→ pages   ↑↓ tasks   Enter inspect   i stats / history / apps   / filter   z

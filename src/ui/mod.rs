@@ -1,4 +1,5 @@
 pub mod audio;
+pub mod insights;
 pub mod kit;
 pub mod overlays;
 pub mod ports;
@@ -340,6 +341,13 @@ fn timeline(b: &mut ratatui::buffer::Buffer, r: Rect, a: &mut App) {
             text(b, chart, xpos(spike), 0, "▾", t.warn);
         }
     }
+    if a.screen == Screen::Systems {
+        for event in &a.system_events {
+            if event.at >= start && event.at <= end {
+                text(b, chart, xpos(event.at), 0, "│", t.accent);
+            }
+        }
+    }
     text(b, chart, xpos(a.sample().at), 0, "◆", t.bright);
     text(
         b,
@@ -352,7 +360,18 @@ fn timeline(b: &mut ratatui::buffer::Buffer, r: Rect, a: &mut App) {
     if r.height > 2 {
         let duration = duration(end - start);
         text(b, r, 4, 1, format!("−{duration}"), t.muted);
-        text(b, r, r.width / 2, 1, "CPU / GPU · click to scrub", t.muted);
+        text(
+            b,
+            r,
+            r.width / 2,
+            1,
+            if a.screen == Screen::Systems {
+                "CPU / GPU · │ events · click to scrub"
+            } else {
+                "CPU / GPU · click to scrub"
+            },
+            t.muted,
+        );
     }
 }
 // Passive messages have a reserved row: they never paint over content or keyboard hints.
@@ -389,6 +408,9 @@ fn hints(b: &mut ratatui::buffer::Buffer, r: Rect, a: &App, size: SizeClass) {
     let h = if let Some(layer) = a.layers.last() {
         match layer {
             Layer::Ports => "p / Esc close ports",
+            Layer::SystemsInfo { .. } => {
+                "←→ tabs   ↑↓ scroll / apps   Enter expand app   Esc close"
+            }
             Layer::Help => "Esc close controls",
             Layer::Palette { .. } => "↑↓ choose   Enter run   Esc close",
             Layer::Signal { force, .. } => {
@@ -416,7 +438,7 @@ fn hints(b: &mut ratatui::buffer::Buffer, r: Rect, a: &App, size: SizeClass) {
     } else if a.zoom.is_some() {
         "← → sibling   Enter details   Esc back"
     } else if a.screen == Screen::Systems {
-        "←→ pages   ↑↓ tasks   Enter inspect   / filter   z expand   f follow   ? help"
+        "←→ pages   ↑↓ tasks   Enter inspect   i stats / history / apps   / filter   z expand"
     } else if a.screen == Screen::Teardown && size == SizeClass::Compact {
         "Tab select   Enter inspect   p ports   m cells   2 Systems   ? help"
     } else if a.screen == Screen::Teardown {
