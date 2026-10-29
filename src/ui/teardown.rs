@@ -404,36 +404,30 @@ fn chassis_outline(b: &mut Buffer, c: Rect, color: Color, cell_aspect: f32, asci
     if ascii {
         return;
     }
-    // A modest physical radius, adjusted for the terminal's taller character cells.
-    let rx = (c.width as f32 * 0.03).round().clamp(2., 5.) as u16;
-    let ry = (rx as f32 / cell_aspect.max(0.1)).round().max(1.) as u16;
-    let w = (rx + 1).min(c.width / 2);
-    let h = (ry + 1).min(c.height / 2);
-    let right = (w * 2 - 1) as f32;
-    let bottom = (h * 4 - 1) as f32;
-    let mut corners: [BrailleGrid; 4] = std::array::from_fn(|_| BrailleGrid::new(w, h));
-    for i in 0..=64 {
-        let angle = i as f32 / 64. * std::f32::consts::FRAC_PI_2;
-        let x = (right - (right - 1.) * angle.cos()).round() as i32;
-        let y = (bottom - (bottom - 2.) * angle.sin()).round() as i32;
-        corners[0].set(x, y, color);
-        corners[1].set(right as i32 - x, y, color);
-        corners[2].set(x, bottom as i32 - y, color);
-        corners[3].set(right as i32 - x, bottom as i32 - y, color);
-    }
-    for (grid, (x, y)) in corners.iter().zip([
-        (c.x, c.y),
-        (c.right() - w, c.y),
-        (c.x, c.bottom() - h),
-        (c.right() - w, c.bottom() - h),
-    ]) {
-        let corner = Rect::new(x, y, w, h);
-        for y in corner.y..corner.bottom() {
-            for x in corner.x..corner.right() {
-                b[(x, y)].set_symbol(" ");
+    // Solid diagonal glyphs broaden the rounded corners without Braille dots.
+    let radius = (c.width as f32 * 0.03 / cell_aspect.max(0.1))
+        .round()
+        .clamp(1., 2.) as u16;
+    for (right, bottom) in [(false, false), (true, false), (false, true), (true, true)] {
+        for y in 0..=radius {
+            for x in 0..=radius {
+                let symbol = if y == 0 && x == radius {
+                    match (right, bottom) {
+                        (false, false) => "╭",
+                        (true, false) => "╮",
+                        (false, true) => "╰",
+                        (true, true) => "╯",
+                    }
+                } else if y > 0 && x == radius - y {
+                    if right == bottom { "╱" } else { "╲" }
+                } else {
+                    " "
+                };
+                let x = if right { c.right() - 1 - x } else { c.x + x };
+                let y = if bottom { c.bottom() - 1 - y } else { c.y + y };
+                b[(x, y)].set_symbol(symbol).set_fg(color);
             }
         }
-        grid.flush(corner, b, false);
     }
 }
 fn physical(b: &mut Buffer, c: Rect, available: Rect, a: &mut App) {
