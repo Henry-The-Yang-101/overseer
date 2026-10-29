@@ -793,6 +793,7 @@ fn physical(b: &mut Buffer, c: Rect, available: Rect, a: &mut App) {
             reticle(b, r, t.bright);
         }
     }
+    let audio = super::audio::frame(a);
     for (n, label) in [
         (NRect::new(0.02, 0.62, 0.035, 0.30), "SPK"),
         (NRect::new(0.945, 0.62, 0.035, 0.30), "SPK"),
@@ -804,14 +805,17 @@ fn physical(b: &mut Buffer, c: Rect, available: Rect, a: &mut App) {
             let edge = layout.cells.iter().map(|cell| cell.x).min().unwrap();
             r.x = r.x.min(edge.saturating_sub(5)).max(c.x + 1);
             r.width = (edge - r.x).min(7);
+            r.width -= u16::from(r.width.is_multiple_of(2));
         } else {
             let edge = layout.cells.iter().map(|cell| cell.right()).max().unwrap();
             let right = r.right().max(edge + 5).min(c.right() - 1);
             r.width = (right - edge).min(7);
+            r.width -= u16::from(r.width.is_multiple_of(2));
             r.x = right - r.width;
         }
         let space = c.bottom().saturating_sub(layout.battery_top + 2);
         r.height = ((space / 3).max(5) + 2).min(space.saturating_sub(1));
+        r.height -= u16::from(r.height.is_multiple_of(2));
         let graph_height = space;
         let graph_y = layout.battery_top + 1;
         r.y = graph_y + (graph_height - r.height) / 2;
@@ -822,48 +826,7 @@ fn physical(b: &mut Buffer, c: Rect, available: Rect, a: &mut App) {
         };
         a.parts.push((p, r));
         a.hitmap.add(r, 4, Hit::Part(p));
-        let level = if a.motion == crate::motion::Motion::Full && a.cursor.is_none() {
-            a.anim.speakers[usize::from(p == Part::SpeakerRight)]
-                .pos
-                .clamp(0., 1.)
-        } else {
-            0.
-        };
-        // Contract as well as expand, including when a compact layout has no growth room.
-        // Give audible output enough travel to cross a whole-cell boundary; RMS alone
-        // otherwise settles between sizes and makes sustained audio appear motionless.
-        let vibration = if level > 0.005 {
-            (0.65 + 0.35 * level.sqrt()) * (a.anim.speaker_phase * std::f32::consts::TAU).sin()
-        } else {
-            0.
-        };
-        let dimension = |max: u16| {
-            (5.min(max) as f32 + vibration * max.saturating_sub(5).max(1) as f32)
-                .round()
-                .clamp(4.min(max) as f32, max as f32) as u16
-        };
-        let width = dimension(r.width);
-        let height = dimension(r.height);
-        let spare = r.width - width;
-        let pill = Rect::new(
-            r.x + if left { spare / 2 } else { spare.div_ceil(2) },
-            r.y + (r.height - height) / 2,
-            width,
-            height,
-        );
-        Block::bordered()
-            .border_type(BorderType::Rounded)
-            .border_style(Style::new().fg(t.wire))
-            .render(pill, b);
-        if pill.width >= 4 && pill.height >= 4 {
-            Block::bordered()
-                .border_type(BorderType::Rounded)
-                .border_style(Style::new().fg(t.muted))
-                .render(
-                    Rect::new(pill.x + 1, pill.y + 1, pill.width - 2, pill.height - 2),
-                    b,
-                );
-        }
+        super::audio::grille(b, r, p, a, &audio);
         let graph = if left {
             Rect::new(
                 available.x,
@@ -879,7 +842,7 @@ fn physical(b: &mut Buffer, c: Rect, available: Rect, a: &mut App) {
                 graph_height,
             )
         };
-        super::audio::bars(b, graph, p, a, left);
+        super::audio::bars(b, graph, p, a, left, &audio);
         text(
             b,
             available,

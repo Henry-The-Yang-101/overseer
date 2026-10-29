@@ -121,8 +121,6 @@ pub struct Anim {
     pub energy: Spring,
     pub cpu: Spring,
     pub gpu: Spring,
-    pub speakers: [Spring; 2],
-    pub speaker_phase: f32,
     pub phases: HashMap<String, f32>,
     pub moods: HashMap<String, MoodTracker>,
 }
@@ -164,8 +162,6 @@ impl Anim {
         if motion != Motion::Full || !live {
             return;
         }
-        // Slow the audio-driven grille vibration to a frequency a terminal can show.
-        self.speaker_phase = (self.speaker_phase + dt * 4.).fract();
         // Decorative signal motion also runs at idle; it does not represent throughput.
         let ambient = self.phases.entry("ambient".into()).or_default();
         *ambient = (*ambient + dt / 8.).fract();

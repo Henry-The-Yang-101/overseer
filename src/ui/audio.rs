@@ -6,7 +6,8 @@ use crate::{
 use ratatui::{
     buffer::Buffer,
     layout::Rect,
-    widgets::{Clear, Widget},
+    style::Style,
+    widgets::{Block, BorderType, Clear, Widget},
 };
 pub fn frame(a: &App) -> Frame {
     let status = if !a.cfg.teardown.audio_enabled {
@@ -134,12 +135,42 @@ pub fn inspector(b: &mut Buffer, r: Rect, p: Part, a: &App) {
     );
 }
 
+/// Two centered sprites, selected directly from the current waveform's amplitude.
+pub fn grille(b: &mut Buffer, r: Rect, p: Part, a: &App, frame: &Frame) -> Rect {
+    let enlarged = a.motion == crate::motion::Motion::Full
+        && a.cursor.is_none()
+        && frame.level(usize::from(p == Part::SpeakerRight)) >= 0.03;
+    let size = if enlarged { 7 } else { 5 };
+    // Odd dimensions keep both sprites on exactly the same center cell.
+    let width = size.min(r.width.saturating_sub(u16::from(r.width.is_multiple_of(2))));
+    let height = size.min(
+        r.height
+            .saturating_sub(u16::from(r.height.is_multiple_of(2))),
+    );
+    let pill = Rect::new(
+        r.x + (r.width - width) / 2,
+        r.y + (r.height - height) / 2,
+        width,
+        height,
+    );
+    Block::bordered()
+        .border_type(BorderType::Rounded)
+        .border_style(Style::new().fg(a.theme.wire))
+        .render(pill, b);
+    if width >= 5 && height >= 5 {
+        Block::bordered()
+            .border_type(BorderType::Rounded)
+            .border_style(Style::new().fg(a.theme.muted))
+            .render(Rect::new(pill.x + 1, pill.y + 1, width - 2, height - 2), b);
+    }
+    pill
+}
+
 /// Mirrored amplitude bars: each row summarizes a short slice of system output.
-pub fn bars(b: &mut Buffer, r: Rect, p: Part, a: &App, left: bool) {
+pub fn bars(b: &mut Buffer, r: Rect, p: Part, a: &App, left: bool, frame: &Frame) {
     if r.is_empty() {
         return;
     }
-    let frame = frame(a);
     let Some(samples) = frame.channels.get(usize::from(p == Part::SpeakerRight)) else {
         return;
     };

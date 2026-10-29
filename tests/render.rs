@@ -43,60 +43,51 @@ fn representative_layouts() {
 #[test]
 fn speaker_grilles_follow_channels_and_respect_motion_settings() {
     use overseer::{audio::Frame, motion::Motion};
-    fn speakers(a: &mut App, w: u16, h: u16) -> Vec<(ratatui::layout::Rect, String)> {
-        let mut term = Terminal::new(TestBackend::new(w, h)).unwrap();
-        term.draw(|f| ui::draw(f, a, Duration::ZERO)).unwrap();
-        [Part::SpeakerLeft, Part::SpeakerRight]
-            .into_iter()
-            .map(|part| {
-                let r = a.parts.iter().find(|(p, _)| *p == part).unwrap().1;
-                let cells = (r.y..r.bottom())
-                    .flat_map(|y| (r.x..r.right()).map(move |x| (x, y)))
-                    .map(|pos| term.backend().buffer()[pos].symbol())
-                    .collect();
-                (r, cells)
-            })
-            .collect()
+    use ratatui::{buffer::Buffer, layout::Rect};
+    fn draw(a: &App, bounds: Rect, part: Part, audio: &Frame) -> (Rect, Buffer) {
+        let mut buffer = Buffer::empty(bounds);
+        let pill = ui::audio::grille(&mut buffer, bounds, part, a, audio);
+        (pill, buffer)
     }
     let mut a = app("balanced");
     a.motion = Motion::Full;
-    let quiet = speakers(&mut a, 200, 55);
-    assert!(quiet[0].1.contains("╭─╮"));
-    assert!(!quiet[0].1.contains('▪'));
-    let audio = Frame {
+    let silent = Frame {
         status: String::new(),
-        channels: vec![vec![0.25; 64], vec![0.; 64]],
+        channels: vec![vec![0.; 64]; 2],
     };
-    assert_eq!(
-        (audio.level(0), audio.level(1), audio.level(2)),
-        (1., 0., 0.)
-    );
-    a.anim.speakers[0].snap(audio.level(0));
-    a.anim.speaker_phase = 0.25;
-    let loud = speakers(&mut a, 200, 55);
-    assert_eq!(quiet[0].0, loud[0].0); // Hit targets stay still while the grille moves.
-    assert!(loud[0].1.contains("╭───╮"));
-    assert_ne!(quiet[0].1, loud[0].1);
-    assert_eq!(quiet[1], loud[1]);
-    for motion in [Motion::Off, Motion::Reduced] {
-        a.motion = motion;
-        assert_eq!(speakers(&mut a, 200, 55), quiet);
-    }
-    // Steady, quiet audio must still visibly vibrate, even with no expansion room.
-    for (w, h) in [(120, 36), (160, 46), (200, 55)] {
-        a.motion = Motion::Full;
-        a.anim.speakers[0].snap(0.01);
+    let audible = Frame {
+        status: String::new(),
+        channels: vec![vec![0.01; 64], vec![0.; 64]],
+    };
+    assert!((audible.level(0) - 0.04).abs() < 0.000001);
+    assert_eq!((audible.level(1), audible.level(2)), (0., 0.));
+    for (w, h) in [(7, 7), (5, 7), (7, 5), (5, 5)] {
+        let bounds = Rect::new(10, 8, w, h);
+        let normal = draw(&a, bounds, Part::SpeakerLeft, &silent);
+        let enlarged = draw(&a, bounds, Part::SpeakerLeft, &audible);
+        assert_eq!((normal.0.width, normal.0.height), (5, 5));
+        assert_eq!((enlarged.0.width, enlarged.0.height), (w, h));
+        assert_eq!(
+            normal.0.x * 2 + normal.0.width,
+            enlarged.0.x * 2 + enlarged.0.width
+        );
+        assert_eq!(
+            normal.0.y * 2 + normal.0.height,
+            enlarged.0.y * 2 + enlarged.0.height
+        );
+        assert_eq!(draw(&a, bounds, Part::SpeakerRight, &audible), normal);
+        assert_eq!(draw(&a, bounds, Part::SpeakerLeft, &silent), normal);
+        // Advancing time cannot change a sprite when the waveform stays the same.
         let sample = a.sample();
-        let mut frames = std::collections::HashSet::new();
-        let mut other_channel = std::collections::HashSet::new();
-        for _ in 0..32 {
-            a.anim.tick(&sample, 1. / 64., Motion::Full, true, 60.);
-            let grilles = speakers(&mut a, w, h);
-            frames.insert(grilles[0].1.clone());
-            other_channel.insert(grilles[1].1.clone());
+        for _ in 0..16 {
+            a.anim.tick(&sample, 1. / 60., Motion::Full, true, 60.);
+            assert_eq!(draw(&a, bounds, Part::SpeakerLeft, &audible), enlarged);
         }
-        assert!(frames.len() > 1, "Grille stayed still at {w}x{h}");
-        assert_eq!(other_channel.len(), 1, "Silent channel should stay still");
+        for motion in [Motion::Off, Motion::Reduced] {
+            a.motion = motion;
+            assert_eq!(draw(&a, bounds, Part::SpeakerLeft, &audible), normal);
+        }
+        a.motion = Motion::Full;
     }
 }
 #[test]
