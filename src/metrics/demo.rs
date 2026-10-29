@@ -258,6 +258,12 @@ pub fn demo(scenario: &str, t: f64) -> Sample {
             parent: if i > 6 { 537 } else { 1 },
             name: Arc::from(*name),
             command: Arc::from(format!("/Applications/{name}")),
+            application: Arc::from(match i {
+                2 | 17 => "/Applications/Safari.app",
+                3 | 16 => "/Applications/Code.app",
+                7 => "/System/Applications/Music.app",
+                _ => "",
+            }),
             user: Arc::from(if i == 0 || i == 5 || i == 11 {
                 "root"
             } else {
@@ -291,6 +297,56 @@ pub fn demo(scenario: &str, t: f64) -> Sample {
         })
         .collect(),
     );
+    s.extra = Arc::new(extra::Snapshot {
+        at: t,
+        wifi: Avail::Ok(extra::Wifi {
+            interface: "en0".into(),
+            rssi: -61,
+            noise: Some(-94),
+            channel: 44,
+            tx_mbps: 544.,
+        }),
+        routes: Avail::Ok(vec![extra::Route {
+            family: "IPv4".into(),
+            interface: "en0".into(),
+            gateway: "192.0.2.1".into(),
+        }]),
+        adapter: Avail::Ok(extra::Adapter {
+            watts: Some(65.),
+            milliamps: Some(3250.),
+        }),
+        assertions: Avail::Ok(vec![extra::Assertion {
+            pid: 1359,
+            kind: "PreventUserIdleSystemSleep".into(),
+            reason: "Playing audio (demo)".into(),
+        }]),
+        disks: Avail::Ok(vec![extra::DiskActivity {
+            name: "disk0".into(),
+            reads: if idle { 0. } else { 840. },
+            writes: if idle { 0. } else { 120. },
+            read_size: (!idle).then_some(65536.),
+            write_size: (!idle).then_some(16384.),
+        }]),
+        traffic: Avail::Ok(
+            s.processes
+                .iter()
+                .map(|p| extra::Traffic {
+                    pid: p.pid,
+                    start: p.start,
+                    read: if idle {
+                        0.
+                    } else {
+                        (p.pid % 7) as f64 * 150_000. * wave(7.) as f64
+                    },
+                    write: if idle {
+                        0.
+                    } else {
+                        (p.pid % 3) as f64 * 40_000. * wave(5.) as f64
+                    },
+                })
+                .collect(),
+        ),
+    });
     if scenario == "fanless" {
         s.fans = Avail::NoHardware("passive cooling".into());
         Arc::make_mut(&mut s.machine).model = "MacBook Air (demo)".into();
@@ -304,6 +360,15 @@ pub fn demo(scenario: &str, t: f64) -> Sample {
         Arc::make_mut(&mut s.machine).chip = "Three-tier CPU".into();
     }
     if scenario == "missing-sensors" {
+        s.extra = Arc::new(extra::Snapshot {
+            at: t,
+            wifi: Avail::Permission("Wi-Fi access restricted (demo)".into()),
+            routes: Avail::Unsupported("route state unavailable (demo)".into()),
+            adapter: Avail::NoHardware("no adapter details (demo)".into()),
+            assertions: Avail::Permission("sleep assertions restricted (demo)".into()),
+            disks: Avail::Unsupported("disk counters unavailable (demo)".into()),
+            traffic: Avail::Failed("network scan failed (demo)".into()),
+        });
         s.power_mode = Avail::Unsupported("power mode unavailable in this scenario".into());
         s.ports = Avail::Unsupported("port sensors unavailable in this scenario".into());
         s.gpu = Avail::Unsupported("GPU residency not reported".into());

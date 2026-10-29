@@ -1,6 +1,8 @@
 mod collector;
 mod demo;
 pub mod details;
+pub mod extra;
+pub mod insights;
 pub mod ports;
 pub mod power_mode;
 mod sockets;
@@ -124,6 +126,7 @@ pub struct Proc {
     pub parent: u32,
     pub name: Arc<str>,
     pub command: Arc<str>,
+    pub application: Arc<str>,
     pub user: Arc<str>,
     pub cpu: f32,
     pub memory: u64,
@@ -147,6 +150,7 @@ impl Proc {
 #[derive(Clone, Debug, Default, Serialize)]
 pub struct Sample {
     pub at: f64,
+    pub extra: Arc<extra::Snapshot>,
     pub energy_wh: f64,
     pub machine: Arc<Machine>,
     pub cpu: f32,

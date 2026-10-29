@@ -25,6 +25,8 @@ fn collect(tx: &mpsc::SyncSender<Sample>) -> anyhow::Result<()> {
     let mut disks = Disks::new_with_refreshed_list()?;
     let users = Users::new_with_refreshed_list()?;
     let start = Instant::now();
+    let extra_rx = extra::spawn(start);
+    let mut extra = Arc::new(extra::Snapshot::default());
     let mut previous = Instant::now();
     type Metadata = (Arc<str>, Arc<str>, Arc<str>, Arc<str>);
     let mut strings: HashMap<(u32, u64), Metadata> = HashMap::new();
@@ -204,6 +206,10 @@ fn collect(tx: &mpsc::SyncSender<Sample>) -> anyhow::Result<()> {
             s.fans = Avail::Unsupported("fan sensors unavailable".into());
         }
         s.at = start.elapsed().as_secs_f64();
+        while let Ok(value) = extra_rx.try_recv() {
+            extra = value;
+        }
+        s.extra = extra.clone();
         let elapsed = previous.elapsed().as_secs_f64().max(0.001);
         previous = Instant::now();
         let ticks = cpu_ticks();
@@ -331,6 +337,7 @@ fn collect(tx: &mpsc::SyncSender<Sample>) -> anyhow::Result<()> {
                     .with_memory()
                     .with_disk_usage()
                     .with_cmd(UpdateKind::OnlyIfNotSet)
+                    .with_exe(UpdateKind::OnlyIfNotSet)
                     .with_user(UpdateKind::OnlyIfNotSet),
             );
             let mut out = Vec::with_capacity(sys.processes().len());
@@ -375,6 +382,15 @@ fn collect(tx: &mpsc::SyncSender<Sample>) -> anyhow::Result<()> {
                     parent: p.parent().map(|p| p.as_u32()).unwrap_or(0),
                     name: meta.0.clone(),
                     command: meta.1.clone(),
+                    application: Arc::from(
+                        p.exe()
+                            .and_then(|path| path.to_str())
+                            .and_then(|path| {
+                                path.split_once(".app/Contents/")
+                                    .map(|(app, _)| format!("{app}.app"))
+                            })
+                            .unwrap_or_default(),
+                    ),
                     user: meta.2.clone(),
                     cpu: p.cpu_usage(),
                     memory: p.memory(),

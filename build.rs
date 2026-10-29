@@ -1,9 +1,21 @@
 fn main() {
     println!("cargo:rerun-if-changed=native/AudioCapture.swift");
     println!("cargo:rerun-if-changed=native/AudioCapture.plist");
+    println!("cargo:rerun-if-changed=native/SystemStats.swift");
     if std::env::var("CARGO_CFG_TARGET_OS").as_deref() != Ok("macos") {
         return;
     }
+    let stats =
+        std::path::PathBuf::from(std::env::var_os("OUT_DIR").unwrap()).join("overseer-stats");
+    assert!(
+        std::process::Command::new("xcrun")
+            .args(["swiftc", "-O", "native/SystemStats.swift", "-o"])
+            .arg(stats)
+            .status()
+            .expect("Swift compiler required for macOS telemetry")
+            .success(),
+        "System stats helper compilation failed"
+    );
     let out = std::path::PathBuf::from(std::env::var_os("OUT_DIR").unwrap()).join("overseer-audio");
     let plist = std::env::current_dir()
         .unwrap()
