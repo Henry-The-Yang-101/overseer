@@ -215,6 +215,21 @@ impl Layout {
         components[0].y = c.y + 1;
         components[0].height = components[0].height.max(3);
         components[3].y = components[3].y.max(components[0].bottom() + 1);
+        let chip = components[3];
+        for i in [4, 5] {
+            let right = components[i].x > chip.x;
+            let gap = if right {
+                components[i].x.saturating_sub(chip.right())
+            } else {
+                chip.x.saturating_sub(components[i].right())
+            };
+            // Widen inward while keeping two visible columns for the RAM bus.
+            let extra = gap.saturating_sub(2).min(2);
+            components[i].width += extra;
+            if right {
+                components[i].x -= extra;
+            }
+        }
         for i in [6, 7] {
             components[i].height = components[i].height.max(4);
             // Open one more terminal column beside the chip, reflected in back view.
