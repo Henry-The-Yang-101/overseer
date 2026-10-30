@@ -371,7 +371,7 @@ fn teardown_memory_pressure_colors_both_readouts_without_a_notice() {
 fn teardown_fan_hubs_center_readings_and_keep_them_upright() {
     use overseer::{metrics::Avail, motion::Motion};
     use std::sync::Arc;
-    for (w, h) in [(100, 32), (120, 36), (160, 46), (200, 55)] {
+    for (w, h) in [(100, 32), (120, 36), (160, 46), (200, 55), (240, 70)] {
         let mut a = app("balanced");
         a.motion = Motion::Full;
         for orientation in ["front", "back"] {
@@ -417,20 +417,36 @@ fn teardown_fan_hubs_center_readings_and_keep_them_upright() {
                             );
                             let (x, y) = digits[0];
                             if inline {
+                                let with_unit = w >= 240;
+                                let label = if with_unit {
+                                    format!("{value} rpm")
+                                } else {
+                                    value.clone()
+                                };
+                                let row = (r.x + 1..r.right() - 1)
+                                    .map(|x| term.backend().buffer()[(x, y)].symbol())
+                                    .collect::<String>();
+                                assert_eq!(row.contains("rpm"), with_unit);
+                                assert_eq!(
+                                    (x..x + label.len() as u16)
+                                        .map(|x| term.backend().buffer()[(x, y)].symbol())
+                                        .collect::<String>(),
+                                    label
+                                );
                                 assert_eq!(
                                     digits,
                                     (0..value.len() as u16)
                                         .map(|i| (x + i, y))
                                         .collect::<Vec<_>>()
                                 );
-                                for neighbor in [x - 1, x + value.len() as u16] {
+                                for neighbor in [x - 1, x + label.len() as u16] {
                                     assert_eq!(
                                         term.backend().buffer()[(neighbor, y)].symbol(),
                                         " "
                                     );
                                 }
                                 assert!(
-                                    (x as i32 * 2 + value.len() as i32
+                                    (x as i32 * 2 + label.len() as i32
                                         - (r.x as i32 * 2 + r.width as i32))
                                         .abs()
                                         <= 1

@@ -113,6 +113,7 @@ pub fn impeller(
     // Center the circle on either one row or the compact two-by-two readout.
     let cy = if inline { inline_cy } else { inline_cy + 2. };
     let radius = radius_at(cy);
+    let with_unit = inline && hub_radius(radius) >= (padded_half_width + 4.).hypot(3.);
     let color = if fan.rpm > 0 {
         theme.accent
     } else {
@@ -157,13 +158,18 @@ pub fn impeller(
         }
     } else {
         // Keep the number upright and centered, including unexpected longer readings.
-        let width = digits.len() as u16;
+        let label = if with_unit {
+            format!("{digits} rpm")
+        } else {
+            digits
+        };
+        let width = label.len() as u16;
         let left = r.width.saturating_sub(width) / 2;
         let x = if mirror {
             r.width.saturating_sub(left + width)
         } else {
             left
         };
-        text(b, r, x, label_y, digits, theme.text);
+        text(b, r, x, label_y, label, theme.text);
     }
 }
