@@ -1400,10 +1400,10 @@ fn wiring(b: &mut Buffer, c: Rect, a: &App, mirror: bool, layout: &Layout) {
     );
     for r in [layout.components[4], layout.components[5]] {
         let right = r.x > center;
-        for (i, y) in [r.y + 1, r.bottom().saturating_sub(2)]
-            .into_iter()
-            .enumerate()
-        {
+        let top = (r.y + 1).max(soc.y + 1);
+        let bottom = r.bottom().min(soc.bottom()).saturating_sub(1);
+        // Use every shared interior row without running through either module's title.
+        for (i, y) in (top..bottom).enumerate() {
             let (from, to) = if right {
                 (r.x, soc.right() - 1)
             } else {
@@ -1414,7 +1414,7 @@ fn wiring(b: &mut Buffer, c: Rect, a: &App, mirror: bool, layout: &Layout) {
                 c,
                 &[(from, y), (to, y)],
                 wire,
-                moving.then_some((phase + i as f32 * 0.5, signal)),
+                moving.then_some((phase + i as f32 * 0.17, signal)),
             );
         }
     }
