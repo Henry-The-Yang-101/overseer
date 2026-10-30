@@ -407,7 +407,7 @@ fn teardown_fan_hubs_center_readings_and_keep_them_upright() {
                             );
                             let (x, y) = digits[0];
                             if inline {
-                                let with_unit = w >= 240;
+                                let with_unit = w >= 200;
                                 let label = if with_unit {
                                     format!("{value} rpm")
                                 } else {
@@ -430,10 +430,12 @@ fn teardown_fan_hubs_center_readings_and_keep_them_upright() {
                                         .collect::<Vec<_>>()
                                 );
                                 for neighbor in [x - 1, x + label.len() as u16] {
-                                    assert_eq!(
-                                        term.backend().buffer()[(neighbor, y)].symbol(),
-                                        " "
-                                    );
+                                    let symbol = term.backend().buffer()[(neighbor, y)].symbol();
+                                    if with_unit {
+                                        assert!(!symbol.chars().any(|c| c.is_ascii_alphanumeric()));
+                                    } else {
+                                        assert_eq!(symbol, " ");
+                                    }
                                 }
                                 assert!(
                                     (x as i32 * 2 + label.len() as i32

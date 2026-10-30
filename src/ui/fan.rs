@@ -113,7 +113,8 @@ pub fn impeller(
     // Center the circle on either one row or the compact two-by-two readout.
     let cy = if inline { inline_cy } else { inline_cy + 2. };
     let radius = radius_at(cy);
-    let with_unit = inline && hub_radius(radius) >= (padded_half_width + 4.).hypot(3.);
+    // Units can sit a little closer to the hub edge than the number-only layout.
+    let with_unit = inline && hub_radius(radius) >= (padded_half_width + 3.).hypot(2.);
     let color = if fan.rpm > 0 {
         theme.accent
     } else {
