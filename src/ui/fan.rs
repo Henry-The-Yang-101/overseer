@@ -8,8 +8,20 @@ use ratatui::{
     layout::{Alignment, Rect},
     style::{Color, Style},
     text::Line,
-    widgets::{Block, BorderType, Clear, Widget},
+    widgets::{Block, BorderType, Borders, Clear, Widget},
 };
+
+/// Terminal columns at the open exhaust mouth, shared with the grille above it.
+pub fn exhaust(r: Rect, mirror: bool) -> Rect {
+    if r.is_empty() || r.width < 10 || r.height < 6 {
+        return Rect::new(r.x, r.y, r.width, 1);
+    }
+    let span = (r.width * 2 - 1) as f32;
+    let outer = (span * 0.12).round() as u16 / 2;
+    let inner = (span * 0.98).round() as u16 / 2;
+    let x = if mirror { r.width - 1 - inner } else { outer };
+    Rect::new(r.x + x, r.y, inner - outer + 1, 1)
+}
 
 /// A mirrored blower shroud: straight exhaust neck above a rounded lower chamber.
 pub fn housing(
@@ -25,12 +37,12 @@ pub fn housing(
     b.set_style(r, Style::new().bg(theme.panel));
     if r.width < 10 || r.height < 6 {
         let block = Block::bordered()
+            .borders(Borders::LEFT | Borders::RIGHT | Borders::BOTTOM)
             .border_type(BorderType::Rounded)
             .border_style(Style::new().fg(color))
             .title_top(Line::from(label).alignment(Alignment::Center));
-        let inside = block.inner(r);
         block.render(r, b);
-        return inside;
+        return inner(r, 1, 1);
     }
     let mut grid = BrailleGrid::new(r.width, r.height);
     let point = |x: f32, y: f32| {
@@ -40,7 +52,6 @@ pub fn housing(
         )
     };
     for (from, to) in [
-        ((0.12, 0.), (0.98, 0.)),
         ((0.98, 0.), (0.98, 0.48)),
         ((0.02, 0.48), (0.12, 0.24)),
         ((0.12, 0.24), (0.12, 0.)),

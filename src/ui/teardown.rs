@@ -548,7 +548,8 @@ fn physical(b: &mut Buffer, c: Rect, available: Rect, a: &mut App) {
         let fx = center_x(fan, c);
         let fin_top = c.y + 1;
         let fin_h = fan.y.saturating_sub(fin_top).max(1);
-        let fin = Rect::new(fan.x + 1, fin_top, fan.width.saturating_sub(2), fin_h);
+        let exhaust = super::fan::exhaust(fan, alignment(fan, c) == Alignment::Right);
+        let fin = Rect::new(exhaust.x, fin_top, exhaust.width, fin_h);
         for y in 0..fin.height {
             line(b, fin, y, "║".repeat(fin.width as usize), heat_color);
         }
