@@ -13,7 +13,7 @@ use ratatui::{
 pub fn draw(b: &mut Buffer, r: Rect, a: &mut App, size: SizeClass) {
     strip(b, row(r, 0, 1), a, size);
     let body = Rect::new(r.x, r.y + 2, r.width, r.height.saturating_sub(2));
-    let visual_h = if a.expanded {
+    let mut visual_h = if a.expanded {
         body.height
     } else {
         (body.height
@@ -26,6 +26,10 @@ pub fn draw(b: &mut Buffer, r: Rect, a: &mut App, size: SizeClass) {
             .max(if size == SizeClass::Compact { 7 } else { 5 })
             .min(body.height.saturating_sub(6))
     };
+    if a.page == Page::Cpu && !a.expanded {
+        let minimum = if size == SizeClass::Compact { 10 } else { 19 };
+        visual_h = visual_h.max(minimum.min(body.height.saturating_sub(6)));
+    }
     let visual = Rect::new(body.x, body.y, body.width, visual_h);
     let side_width = if size == SizeClass::Wide { 35 } else { 0 };
     let main = Rect::new(
@@ -219,72 +223,25 @@ fn strip(b: &mut Buffer, r: Rect, a: &mut App, size: SizeClass) {
     }
 }
 fn cpu(b: &mut Buffer, r: Rect, a: &App, s: &Sample) {
-    if r.height < 8 {
-        let mut y = 0;
-        let cols = (r.width / 12).max(1);
-        for tier in &s.tiers {
-            for (i, c) in tier.cores.iter().enumerate() {
-                let x = i as u16 % cols * (r.width / cols);
-                let cy = y + i as u16 / cols;
-                if cy >= r.height.saturating_sub(1) {
-                    break;
-                }
-                let mood = if c.active < 0.02 {
-                    crate::motion::Mood::Asleep
-                } else if c.active < 0.4 {
-                    crate::motion::Mood::Idle
-                } else if c.active > 0.8 {
-                    crate::motion::Mood::High
-                } else {
-                    crate::motion::Mood::Busy
-                };
-                text(
-                    b,
-                    r,
-                    x,
-                    cy,
-                    format!(
-                        "{}{}{}{:3.0}",
-                        tier.label,
-                        c.id,
-                        crate::motion::face(&tier.label, mood),
-                        c.active * 100.
-                    ),
-                    a.theme.cpu,
-                );
-            }
-            y += (tier.cores.len() as u16).div_ceil(cols);
-        }
-        line(
-            b,
-            r,
-            r.height.saturating_sub(1),
-            format!(
-                "CPU {}  {}   LOAD {:.2}   {} tasks",
-                percent(s.cpu),
-                temp(&s.cpu_temp, &a.cfg.units),
-                s.load[0],
-                s.processes.len()
-            ),
-            a.theme.muted,
-        );
+    let reserve = if r.height >= 15 {
+        s.tiers.len() as u16 + 1
+    } else {
+        0
+    };
+    let core_r = row(r, 0, r.height.saturating_sub(reserve));
+    widgets::content(b, core_r, Part::Cpu, s, a);
+    if reserve == 0 {
         return;
     }
-    let compact = false;
-    let reserve = if compact { 1 } else { s.tiers.len() as u16 + 2 };
-    let core_r = Rect::new(r.x, r.y, r.width, r.height.saturating_sub(reserve));
-    widgets::content(b, core_r, Part::Cpu, s, a);
-    if !compact {
-        for (i, tier) in s.tiers.iter().enumerate() {
-            dvfs(
-                b,
-                row(r, core_r.height + i as u16, 1),
-                &format!("{} DVFS", tier.label),
-                &tier.freqs,
-                tier.mhz,
-                a,
-            );
-        }
+    for (i, tier) in s.tiers.iter().enumerate() {
+        dvfs(
+            b,
+            row(r, core_r.height + i as u16, 1),
+            &format!("{} DVFS", tier.label),
+            &tier.freqs,
+            tier.mhz,
+            a,
+        );
     }
     let y = r.height.saturating_sub(1);
     let split = avail(&s.cpu_split, |v| {

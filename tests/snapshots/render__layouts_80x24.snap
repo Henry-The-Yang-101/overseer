@@ -59,20 +59,20 @@ cpu
  ‹  CPU  40.0%  ›                                                ● ○ ○ ○ ○ ○
 
  ╭ CPU · EXECUTION FLOOR · AUTOMATIC ─────────────────── i details · z expand ╮
- │ P0[o_o]  9  P1[o_o] 12  P2[o_o] 37  P3[>_>] 67  P4[@_@] 84  P5[>_>] 78     │
- │ P6[>_>] 52  P7[o_o] 22                                                     │
- │ E0(o_o)  9  E1(o_o) 24  E2(>_>) 40  E3(>_>) 47                             │
+ │ PERFORMANCE 0 · ×4                                                         │
+ │ PCPU000   9%      PCPU010  12%      PCPU020  37%      PCPU030  67%         │
+ │ PERFORMANCE 1 · ×4                                                         │
+ │ PCPU100  84%      PCPU110  78%      PCPU120  52%      PCPU130  22%         │
+ │ EFFICIENCY 0 · ×4                                                          │
+ │ ECPU000   9%      ECPU010  24%      ECPU020  40%      ECPU030  47%         │
  │                                                                            │
- │ CPU  40.0%  53°C   LOAD 4.80   20 tasks                                    │
+ │ AUTOMATIC · CPU  9.10 W   53°C   UP 75:58:48                               │
  ╰────────────────────────────────────────────────────────────────────────────╯
  ╭ TOP CPU TASKS ───────────────────────────────────────────────── 20 · CPU ↓ ╮
  │ CPU time · 100% = one core · bars use whole-machine capacity               │
  │  #  NAME                               CPU%                  MEM           │
  │ 01  Code Helper                            38.1%    ▎─────── 1.4 GiB       │
  │ 02  Safari                                 30.3%    ▏─────── 1.5 GiB       │
- │ 03  overseer                               29.5%    ▏─────── 1.4 GiB       │
- │ 04  Terminal                               14.3%     ─────── 870.0 MiB     │
- │ 05  Finder                                 14.0%     ─────── 957.0 MiB     │
  ╰────────────────────────────────────────────────────────────────────────────╯
  5m  ⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤◆ NOW
 

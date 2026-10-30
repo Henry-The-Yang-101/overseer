@@ -230,156 +230,133 @@ pub fn content(b: &mut Buffer, r: Rect, p: Part, s: &Sample, a: &App) {
 }
 fn cpu(b: &mut Buffer, r: Rect, s: &Sample, a: &App) {
     let t = &a.theme;
-    let ascii = a.cfg.ui.glyphs == "ascii";
-    if s.tiers.is_empty() {
-        line(b, r, 1, "Acquiring core telemetry…", t.muted);
+    if r.height == 0 || r.width == 0 {
         return;
     }
-    let large = r.height >= 16 && r.width >= 60;
-    let cols = (r.width / if large { 16 } else { 13 }).max(1);
-    let unit_h = if large { 5 } else { 2 };
-    let required: u16 = s
-        .tiers
-        .iter()
-        .map(|t| 1 + (t.cores.len() as u16).div_ceil(cols) * unit_h)
-        .sum();
-    let compressed = required > r.height.saturating_sub(2);
-    let mut y = 0;
-    for tier in &s.tiers {
-        if y >= r.height {
-            break;
-        }
-        let tc = if tier.label.starts_with('E') {
-            blend(t.cpu, t.text, 0.45)
-        } else {
-            t.cpu
-        };
-        let head = format!(
-            "{} CLUSTER  ×{}   {}   ACT {}",
-            tier.label,
-            tier.cores.len(),
-            freq(tier.mhz),
-            percent(tier.active)
-        );
-        line(b, r, y, head, tc);
-        y += 1;
-        let columns = if compressed {
-            (r.width / 12).max(1)
-        } else {
-            cols
-        };
-        let h = if compressed { 1 } else { unit_h };
-        for (i, c) in tier.cores.iter().enumerate() {
-            let x = (i as u16 % columns) * (r.width / columns);
-            let cy = y + (i as u16 / columns) * h;
-            if cy >= r.height.saturating_sub(1) {
-                break;
-            }
-            let w = (r.width / columns).saturating_sub(1);
-            let rect = Rect::new(r.x + x, r.y + cy, w, h.min(r.height - cy));
-            let key = format!("{}:{}:{}", tier.label, c.die, c.id);
-            let mood = if a.cursor.is_none() {
-                a.anim.moods.get(&key).map_or(Mood::Idle, |m| m.mood)
+    let clusters = s.cpu_clusters();
+    if clusters.is_empty() {
+        line(b, r, 0, "Acquiring core telemetry…", t.muted);
+        return;
+    }
+    let reserve = if a.preview_proc().is_some() { 2 } else { 1 };
+    let body = row(r, 0, r.height.saturating_sub(reserve));
+    // Adjacent clusters keep their own core grid. More space goes to the taller P cores.
+    let cards = body.width >= 100 && body.height >= 10 && clusters.len() <= 3;
+    if cards {
+        let total_weight: u16 = clusters
+            .iter()
+            .map(|c| if c.tier.label == "E" { 4 } else { 5 })
+            .sum();
+        let usable = body.width.saturating_sub((clusters.len() - 1) as u16 * 2);
+        let mut x = body.x;
+        let mut used_weight = 0;
+        for cluster in &clusters {
+            let weight = if cluster.tier.label == "E" { 4 } else { 5 };
+            let next_weight = used_weight + weight;
+            let width = usable * next_weight / total_weight - usable * used_weight / total_weight;
+            let area = Rect::new(x, body.y, width, body.height);
+            let tc = if cluster.tier.label == "E" {
+                blend(t.cpu, t.text, 0.45)
             } else {
-                let mut m = crate::motion::MoodTracker::default();
-                for historical in a
-                    .history
-                    .iter()
-                    .filter(|h| h.at >= s.at - 10. && h.at <= s.at)
-                {
-                    if let Some(core) = historical
-                        .tiers
-                        .iter()
-                        .find(|t| t.label == tier.label)
-                        .and_then(|t| t.cores.iter().find(|v| v.id == c.id && v.die == c.die))
-                    {
-                        m.update(core.active, historical.at);
-                    }
-                }
-                m.mood
+                t.cpu
             };
-            let face = face(&tier.label, mood);
-            if large && !compressed {
-                let inside = frame(b, rect, &format!("{}{}", tier.label, c.id), "", false, t);
-                let density = (c.active * (inside.width.saturating_sub(6)) as f32) as usize;
-                let phase = if a.motion == crate::motion::Motion::Full {
-                    a.anim.phases.get(&key).copied().unwrap_or(0.) as usize
-                } else {
-                    0
-                };
-                let lane: String = (0..inside.width.saturating_sub(6) as usize)
-                    .map(|j| {
-                        if (j + phase) % (inside.width.saturating_sub(6).max(1) as usize) < density
-                        {
-                            if ascii { '#' } else { '▪' }
-                        } else {
-                            ' '
-                        }
-                    })
-                    .collect();
-                line(b, inside, 0, format!("{lane}{face}"), tc);
-                let history: Vec<_> = a
-                    .history
-                    .iter()
-                    .rev()
-                    .filter(|h| h.at <= s.at)
-                    .take(60)
-                    .collect::<Vec<_>>()
-                    .into_iter()
-                    .rev()
-                    .filter_map(|s| {
-                        s.tiers
-                            .iter()
-                            .find(|t| t.label == tier.label)
-                            .and_then(|t| t.cores.iter().find(|v| v.id == c.id && v.die == c.die))
-                            .map(|c| c.active)
-                    })
-                    .collect();
-                spark(b, row(inside, 1, 1), &history, 1., tc, t, ascii);
-                line(
-                    b,
-                    inside,
-                    2,
-                    format!("{} {:3.0}%", freq(c.mhz).replace(" ", ""), c.active * 100.),
-                    t.text,
-                );
+            line(b, area, 0, cluster.title(), tc);
+            line(
+                b,
+                area,
+                1,
+                format!(
+                    "{} active · {}",
+                    percent(cluster.active()),
+                    freq(cluster.mhz())
+                ),
+                t.muted,
+            );
+            let min_width = if cluster.tier.label == "E" { 12 } else { 16 };
+            let limit = (width / min_width).max(1).min(cluster.cores.len() as u16);
+            let columns = (1..=limit)
+                .rev()
+                .find(|cols| (cluster.cores.len() as u16).is_multiple_of(*cols))
+                .unwrap_or(1);
+            let rows = (cluster.cores.len() as u16).div_ceil(columns);
+            let max_h = body.height.saturating_sub(2) / rows.max(1);
+            let performance_h = max_h.min(7);
+            let h = if cluster.tier.label == "E" {
+                performance_h.saturating_sub(2).max(3).min(max_h)
             } else {
+                performance_h
+            };
+            for (i, core) in cluster.cores.iter().enumerate() {
+                let col = i as u16 % columns;
+                let cell_w = width / columns;
+                let rect = Rect::new(
+                    x + col * cell_w,
+                    body.y + 2 + i as u16 / columns * h,
+                    cell_w.saturating_sub(1),
+                    h,
+                );
+                cpu_core(b, rect, cluster.tier, core, s, a, tc);
+            }
+            x += width + 2;
+            used_weight = next_weight;
+        }
+    } else {
+        let columns = (body.width / 17).max(1);
+        let mut y = 0;
+        for cluster in &clusters {
+            let tc = if cluster.tier.label == "E" {
+                blend(t.cpu, t.text, 0.45)
+            } else {
+                t.cpu
+            };
+            line(b, body, y, cluster.title(), tc);
+            y += 1;
+            for (i, core) in cluster.cores.iter().enumerate() {
+                let x = i as u16 % columns * (body.width / columns);
+                let cy = y + i as u16 / columns;
+                let cell = Rect::new(
+                    body.x + x,
+                    body.y + cy.min(body.height),
+                    body.width / columns,
+                    1.min(body.height.saturating_sub(cy)),
+                );
                 line(
                     b,
-                    rect,
+                    cell,
                     0,
-                    format!("{}{}{}{:3.0}", tier.label, c.id, face, c.active * 100.),
+                    format!("{} {:3.0}%", core.channel, core.active * 100.),
                     tc,
                 );
-                if h > 1 {
-                    meter(b, row(rect, 1, 1), c.active, tc, t, ascii);
-                }
             }
+            y += (cluster.cores.len() as u16).div_ceil(columns);
         }
-        y += (tier.cores.len() as u16).div_ceil(columns) * h;
+        if body.height > y + 1 {
+            spark(
+                b,
+                row(body, y + 1, body.height - y - 1),
+                &a.history_values(Part::Cpu),
+                1.,
+                t.cpu,
+                t,
+                a.cfg.ui.glyphs == "ascii",
+            );
+        }
     }
-    if r.height > y + 2 {
-        let hist = a.history_values(Part::Cpu);
-        spark(
-            b,
-            Rect::new(r.x, r.y + y, r.width, r.height - y - 2),
-            &hist,
-            1.,
-            t.cpu,
-            t,
-            ascii,
-        );
-    }
-    let footer = format!(
-        "{} · CPU {}   {}   UP {}",
-        avail(&s.power_mode, |mode| mode.label().into()),
-        watts(&s.power[0]),
-        temp(&s.cpu_temp, &a.cfg.units),
-        duration(s.uptime as f64)
+    line(
+        b,
+        r,
+        r.height - 1,
+        format!(
+            "{} · CPU {}   {}   UP {}",
+            avail(&s.power_mode, |mode| mode.label().into()),
+            watts(&s.power[0]),
+            temp(&s.cpu_temp, &a.cfg.units),
+            duration(s.uptime as f64)
+        ),
+        t.muted,
     );
-    line(b, r, r.height - 1, footer, t.muted);
-    if let Some(p) = &a.preview_proc()
-        && r.height > 2
+    if let Some(p) = a.preview_proc()
+        && r.height > 1
     {
         line(
             b,
@@ -392,6 +369,72 @@ fn cpu(b: &mut Buffer, r: Rect, s: &Sample, a: &App) {
             ),
             t.cpu,
         );
+    }
+}
+
+fn cpu_core(
+    b: &mut Buffer,
+    rect: Rect,
+    tier: &crate::metrics::Tier,
+    c: &crate::metrics::Core,
+    s: &Sample,
+    a: &App,
+    color: ratatui::style::Color,
+) {
+    let t = &a.theme;
+    let ascii = a.cfg.ui.glyphs == "ascii";
+    let key = format!("{}:{}:{}", tier.label, c.die, c.id);
+    let history: Vec<_> = a
+        .history
+        .iter()
+        .filter(|h| h.at <= s.at && h.at >= s.at - 60.)
+        .filter_map(|s| {
+            s.tiers
+                .iter()
+                .find(|t| t.label == tier.label)
+                .and_then(|t| t.cores.iter().find(|v| v.id == c.id && v.die == c.die))
+                .map(|c| (s.at, c.active))
+        })
+        .collect();
+    let mood = if a.cursor.is_none() {
+        a.anim.moods.get(&key).map_or(Mood::Idle, |m| m.mood)
+    } else {
+        let mut tracker = crate::motion::MoodTracker::default();
+        for (at, active) in &history {
+            if *at >= s.at - 10. {
+                tracker.update(*active, *at);
+            }
+        }
+        tracker.mood
+    };
+    let inside = frame(b, rect, &c.channel, "", false, t);
+    if inside.height == 0 {
+        return;
+    }
+    line(
+        b,
+        inside,
+        0,
+        format!("{} {:3.0}%", face(&tier.label, mood), c.active * 100.),
+        color,
+    );
+    if inside.height >= 3 {
+        let values = history
+            .iter()
+            .map(|(_, active)| *active)
+            .collect::<Vec<_>>();
+        spark(
+            b,
+            row(inside, 1, inside.height - 2),
+            &values,
+            1.,
+            color,
+            t,
+            ascii,
+        );
+    }
+    if inside.height >= 2 {
+        line(b, inside, inside.height - 1, freq(c.mhz), t.text);
     }
 }
 fn gpu(b: &mut Buffer, r: Rect, s: &Sample, a: &App) {

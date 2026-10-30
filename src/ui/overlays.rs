@@ -510,7 +510,7 @@ pub fn detail(b: &mut Buffer, r: Rect, a: &mut App, part: Part, zoom: bool) {
         r,
         &core.map_or_else(
             || p.name().to_uppercase(),
-            |(tier, c)| format!("{} / {}{}", p.name().to_uppercase(), tier.label, c.id),
+            |(_, c)| format!("{} / {}", p.name().to_uppercase(), c.channel),
         ),
         if zoom {
             "ZOOM · ← → siblings · Esc back"

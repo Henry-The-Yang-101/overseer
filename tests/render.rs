@@ -104,6 +104,56 @@ fn representative_layouts() {
     }
 }
 #[test]
+fn cpu_clusters_keep_channel_ids_and_size_performance_cores_larger() {
+    let names = [
+        "PCPU000", "PCPU010", "PCPU020", "PCPU030", "PCPU100", "PCPU110", "PCPU120", "PCPU130",
+        "ECPU000", "ECPU010", "ECPU020", "ECPU030",
+    ];
+    let mut a = app("balanced");
+    a.act(Action::GoPage(Page::Cpu));
+    for (w, h) in [(80, 24), (120, 36), (160, 46), (200, 55)] {
+        for expanded in [false, true] {
+            a.expanded = expanded;
+            let view = render(&mut a, w, h);
+            for label in names.into_iter().chain([
+                "PERFORMANCE 0 · ×4",
+                "PERFORMANCE 1 · ×4",
+                "EFFICIENCY 0 · ×4",
+            ]) {
+                assert!(
+                    view.contains(label),
+                    "{w}x{h}, expanded={expanded}: missing {label}"
+                );
+            }
+        }
+    }
+    let bounds = ratatui::layout::Rect::new(0, 0, 120, 20);
+    let mut buffer = ratatui::buffer::Buffer::empty(bounds);
+    ui::widgets::content(&mut buffer, bounds, Part::Cpu, &a.sample(), &a);
+    let card_size = |name: &str| {
+        for y in 0..bounds.height {
+            let row = (0..bounds.width)
+                .map(|x| buffer[(x, y)].symbol())
+                .collect::<String>();
+            if let Some(start) = row.find(name) {
+                let x = row[..start].chars().count() as u16 - 2;
+                let right = (x + 1..bounds.width)
+                    .find(|x| buffer[(*x, y)].symbol() == "╮")
+                    .unwrap();
+                let bottom = (y + 1..bounds.height)
+                    .find(|y| buffer[(x, *y)].symbol() == "╰")
+                    .unwrap();
+                return (right - x + 1, bottom - y + 1);
+            }
+        }
+        panic!("missing card {name}");
+    };
+    let p = card_size("PCPU000");
+    let e = card_size("ECPU000");
+    assert_eq!(p, card_size("PCPU100"));
+    assert!(p.0 > e.0 && p.1 > e.1, "P {p:?}, E {e:?}");
+}
+#[test]
 fn pack_charge_fills_cells_in_order_from_bottom_to_top() {
     use overseer::metrics::Avail;
     use std::sync::Arc;
