@@ -1424,7 +1424,8 @@ fn wiring(b: &mut Buffer, c: Rect, a: &App, mirror: bool, layout: &Layout) {
                 c,
                 &[(from, y), (to, y)],
                 wire,
-                moving.then_some((phase + i as f32 * 0.17, signal)),
+                // Four passes per ambient cycle: faster dots and shorter gaps.
+                moving.then_some((phase * 4. + i as f32 * 0.17, signal)),
             );
         }
     }
