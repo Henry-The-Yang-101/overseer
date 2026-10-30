@@ -857,6 +857,10 @@ fn physical(b: &mut Buffer, c: Rect, available: Rect, a: &mut App) {
             );
             if let Some(charge) = charge {
                 battery_fill(b, inside, charge, i, a);
+                if cell_flow(s.battery.value()).is_some_and(|flow| flow.charging && flow.index == i)
+                {
+                    charging_cell(b, inside, a);
+                }
             } else {
                 let label = if s.battery.value().is_some() {
                     "N/A"
@@ -993,6 +997,30 @@ fn battery_fill(b: &mut Buffer, r: Rect, charge: f32, index: usize, a: &App) {
             b[(r.x + x, r.y + y)].set_bg(blend(t.battery, t.panel, 0.92));
         }
     }
+}
+fn charging_cell(b: &mut Buffer, r: Rect, a: &App) {
+    if r.width < 3 || r.height == 0 {
+        return;
+    }
+    let phase = (ambient_phase(a) * 2.).fract();
+    let y = r.height - 1 - (phase * r.height as f32) as u16;
+    let ascii = a.cfg.ui.glyphs == "ascii";
+    // A bright rising front and one fading row distinguish incoming energy from shimmer.
+    // Leave the leftmost capacity spine untouched, even when the active cell is empty.
+    for x in 1..r.width {
+        text(b, r, x, y, if ascii { "=" } else { "━" }, a.theme.battery);
+        if a.motion == crate::motion::Motion::Full && y + 1 < r.height {
+            b[(r.x + x, r.y + y + 1)].set_fg(blend(a.theme.battery, a.theme.panel, 0.38));
+        }
+    }
+    text(
+        b,
+        r,
+        r.width / 2,
+        y,
+        if ascii { "^" } else { "↑" },
+        a.theme.bright,
+    );
 }
 fn compact_rate(value: f64, a: &App, network: bool) -> String {
     let bits = network && a.cfg.units.net == "bits";
