@@ -662,17 +662,13 @@ fn physical(b: &mut Buffer, c: Rect, available: Rect, a: &mut App) {
                 }
             }
             Part::Memory => {
-                for y in 0..inside.height.saturating_sub(1) {
-                    meter_mirrored(
-                        b,
-                        row(inside, y, 1),
-                        s.memory_ratio(),
-                        t.memory,
-                        &t,
-                        ascii,
-                        alignment(r, c) == Alignment::Right,
-                    );
-                }
+                memory_banks(
+                    b,
+                    inside,
+                    s.memory_ratio(),
+                    alignment(r, c) == Alignment::Right,
+                    a,
+                );
                 side_text(
                     b,
                     inside,
@@ -977,6 +973,53 @@ fn ambient_phase(a: &App) -> f32 {
         a.anim.phases.get("ambient").copied().unwrap_or(0.)
     } else {
         0.
+    }
+}
+fn memory_banks(b: &mut Buffer, r: Rect, used: f32, mirror: bool, a: &App) {
+    let cols = (r.width + 1) / 3;
+    let rows = r.height.saturating_sub(1);
+    let count = cols * rows;
+    if count == 0 {
+        return;
+    }
+    let occupied = (used.clamp(0., 1.) * count as f32).round() as u16;
+    let scan = (ambient_phase(a) * count as f32) as u16;
+    let ascii = a.cfg.ui.glyphs == "ascii";
+    for y in 0..rows {
+        for col in 0..cols {
+            let index = y * cols + col;
+            let allocated = index < occupied;
+            let x = if mirror {
+                r.width - 2 - col * 3
+            } else {
+                col * 3
+            };
+            // Capacity is measured; this slow row refresh is decorative, not memory I/O.
+            let color = blend(
+                a.theme.memory,
+                a.theme.panel,
+                if index == scan {
+                    if allocated { 0.05 } else { 0.58 }
+                } else if allocated {
+                    0.38
+                } else {
+                    0.85
+                },
+            );
+            let glyph = match (ascii, allocated) {
+                (true, true) => "##",
+                (true, false) => "..",
+                (false, true) => "▦▦",
+                (false, false) => "▫▫",
+            };
+            text(b, r, x, y, glyph, color);
+            if allocated {
+                b.set_style(
+                    Rect::new(r.x + x, r.y + y, 2, 1),
+                    Style::new().bg(blend(a.theme.memory, a.theme.panel, 0.9)),
+                );
+            }
+        }
     }
 }
 fn battery_fill(b: &mut Buffer, r: Rect, charge: f32, index: usize, a: &App) {
