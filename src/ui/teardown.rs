@@ -714,17 +714,29 @@ fn physical(b: &mut Buffer, c: Rect, available: Rect, a: &mut App) {
                         .map_or("N/A".into(), |v| format!("{:.0}%", v.percent)),
                     t.battery,
                 );
-                for y in 2..inside.height {
-                    let arrow = s.battery.value().map_or("│", |v| {
-                        if v.charging {
-                            "↓"
-                        } else if v.ac {
-                            "│"
-                        } else {
-                            "↑"
+                let flow = cell_flow(s.battery.value());
+                let count = inside.height.saturating_sub(2);
+                // One missing arrow advances every ~0.8 s, including a beat off either end.
+                let step = a.anim.phases.get("bms").copied().unwrap_or(0.) as u16 % (count + 1);
+                let gap = if flow.is_some_and(|f| f.charging) {
+                    step
+                } else {
+                    count.saturating_sub(step + 1)
+                };
+                for y in 0..count {
+                    let arrow = match flow {
+                        Some(_)
+                            if a.motion == crate::motion::Motion::Full
+                                && step < count
+                                && y == gap =>
+                        {
+                            " "
                         }
-                    });
-                    side_text(b, inside, c, y, arrow, t.battery);
+                        Some(f) if f.charging => "↓",
+                        Some(_) => "↑",
+                        None => "│",
+                    };
+                    side_text(b, inside, c, y + 2, arrow, t.battery);
                 }
             }
             Part::Network => {

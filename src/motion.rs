@@ -165,6 +165,8 @@ impl Anim {
         // Decorative signal motion also runs at idle; it does not represent throughput.
         let ambient = self.phases.entry("ambient".into()).or_default();
         *ambient = (*ambient + dt / 8.).fract();
+        let bms = self.phases.entry("bms".into()).or_default();
+        *bms = (*bms + dt / 0.8).rem_euclid(3600.);
         let donut = self.phases.entry("donut".into()).or_default();
         *donut = (*donut + dt / 12.).fract();
         if s.gpu.value().is_some_and(|v| *v > 0.) {
