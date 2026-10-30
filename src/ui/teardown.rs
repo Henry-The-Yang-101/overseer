@@ -354,29 +354,20 @@ pub fn draw(b: &mut Buffer, r: Rect, a: &mut App, size: SizeClass) {
         false,
         &t,
     );
-    let orientation = if a.cfg.teardown.orientation != "back" {
-        "FRONT ORIENTATION · hinge ↑ · MagSafe ← · HDMI/SD →"
+    let disclaimer = if a.cells {
+        Some("CELLS ARE DISPLAY SLOTS · NOT PER-CELL BATTERY DATA")
+    } else if !verified {
+        Some("GENERIC SCHEMATIC · NOT THE PHYSICAL LAYOUT OF THIS MACHINE")
     } else {
-        "BACK ORIENTATION · hinge ↑ · HDMI/SD ← · MagSafe →"
+        None
     };
-    line(
-        b,
-        inside,
-        0,
-        if verified {
-            orientation
-        } else {
-            "Schematic arrangement · hardware positions are not known"
-        },
-        t.muted,
-    );
-    line(b, inside, 1, ports::summary(&sample), t.muted);
-    a.hitmap.add(row(inside, 1, 1), 3, Hit::Ports);
     let available = Rect::new(
         inside.x,
-        inside.y + 2,
+        inside.y,
         inside.width,
-        inside.height.saturating_sub(4),
+        inside
+            .height
+            .saturating_sub(u16::from(disclaimer.is_some())),
     );
     let chassis = fit_chassis(available, 312.6 / 221.2, a.cell_aspect);
     if chassis.width < 64 || chassis.height < 22 {
@@ -386,20 +377,15 @@ pub fn draw(b: &mut Buffer, r: Rect, a: &mut App, size: SizeClass) {
     } else {
         physical(b, chassis, available, a);
     }
-    let disclaimer = if a.cells {
-        "CELLS ARE DISPLAY SLOTS · NOT PER-CELL BATTERY DATA"
-    } else if verified {
-        "Layout approximate · wiring symbolic · fan sides assumed"
-    } else {
-        "GENERIC SCHEMATIC · NOT THE PHYSICAL LAYOUT OF THIS MACHINE"
-    };
-    line(
-        b,
-        inside,
-        inside.height.saturating_sub(1),
-        disclaimer,
-        t.muted,
-    );
+    if let Some(disclaimer) = disclaimer {
+        line(
+            b,
+            inside,
+            inside.height.saturating_sub(1),
+            disclaimer,
+            t.muted,
+        );
+    }
     if sidebar > 0
         && let Some(part) = a.selection
     {

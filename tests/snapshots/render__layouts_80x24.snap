@@ -7,8 +7,6 @@ TEARDOWN
 
   1 Teardown   2 Systems
  ╭ MACBOOK PRO 14 / M4 PRO ───────────────────────────────────── PHYSICAL [m] ╮
- │ FRONT ORIENTATION · hinge ↑ · MagSafe ← · HDMI/SD →                        │
- │ PORTS · 1 connected   [p]                                                  │
  │ COMPONENT NAVIGATOR                                                        │
  │                                                                            │
  │   Fan 0                                                                    │
@@ -21,8 +19,10 @@ TEARDOWN
  │   Thermal system                                                           │
  │   Network                                                                  │
  │   Left speaker                                                             │
+ │   Right speaker                                                            │
  │                                                                            │
- │ Layout approximate · wiring symbolic · fan sides assumed                   │
+ │                                                                            │
+ │                                                                            │
  ╰────────────────────────────────────────────────────────────────────────────╯
  5m  ⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤◆ NOW
 
@@ -32,8 +32,6 @@ TELEMETRY CELLS
 
   1 Teardown   2 Systems
  ╭ MACBOOK PRO 14 / M4 PRO ──────────────────────────────────── TELEMETRY [m] ╮
- │ FRONT ORIENTATION · hinge ↑ · MagSafe ← · HDMI/SD →                        │
- │ PORTS · 1 connected   [p]                                                  │
  │ COMPONENT NAVIGATOR                                                        │
  │                                                                            │
  │   Telemetry cell                                                           │
@@ -46,6 +44,8 @@ TELEMETRY CELLS
  │   System on chip                                                           │
  │   Fan 1                                                                    │
  │   Left speaker                                                             │
+ │   Right speaker                                                            │
+ │                                                                            │
  │                                                                            │
  │ CELLS ARE DISPLAY SLOTS · NOT PER-CELL BATTERY DATA                        │
  ╰────────────────────────────────────────────────────────────────────────────╯

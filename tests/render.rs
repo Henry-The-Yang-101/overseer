@@ -33,6 +33,9 @@ fn representative_layouts() {
         assert_eq!(a.selection, None);
         assert!(!unselected.contains("SELECTED"));
         assert!(!unselected.contains("SYSTEM ON CHIP"));
+        assert!(!unselected.contains("ORIENTATION"));
+        assert!(!unselected.contains("PORTS ·"));
+        assert!(!unselected.contains("Layout approximate"));
         let mut frames = format!("TEARDOWN\n{unselected}");
         a.select(Part::Fan0);
         let selected = render(&mut a, w, h);
@@ -92,11 +95,7 @@ fn representative_layouts() {
                 std::sync::Arc::make_mut(a.history.back_mut().unwrap()).power_mode =
                     overseer::metrics::Avail::Ok(mode);
                 let chip = render(&mut a, w, h);
-                assert!(chip.contains(if w == 120 {
-                    mode.compact_label()
-                } else {
-                    mode.label()
-                }));
+                assert!(chip.contains(mode.label()));
                 a.act(Action::GoPage(Page::Cpu));
                 assert!(render(&mut a, w, h).contains(mode.label()));
                 a.act(Action::GoTo(Screen::Teardown));
