@@ -217,6 +217,12 @@ impl Layout {
         components[3].y = components[3].y.max(components[0].bottom() + 1);
         for i in [6, 7] {
             components[i].height = components[i].height.max(4);
+            // Open one more terminal column beside the chip, reflected in back view.
+            if components[i].x < c.x + c.width / 2 {
+                components[i].x -= 1;
+            } else {
+                components[i].x += 1;
+            }
         }
         // Leave a row of air between the fans/RAM and the lower board modules.
         let lower_top = components[6].y;
