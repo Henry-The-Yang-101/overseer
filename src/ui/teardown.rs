@@ -592,7 +592,19 @@ fn physical(b: &mut Buffer, c: Rect, available: Rect, a: &mut App) {
         } else {
             ""
         };
-        let inside = outline(b, r, label, spec.provenance, color, &t, alignment(r, c));
+        let inside = if matches!(p, Part::Fan0 | Part::Fan1) {
+            super::fan::housing(
+                b,
+                r,
+                label,
+                color,
+                &t,
+                alignment(r, c) == Alignment::Right,
+                ascii,
+            )
+        } else {
+            outline(b, r, label, spec.provenance, color, &t, alignment(r, c))
+        };
         a.parts.push((p, r));
         a.hitmap.add(r, 3, Hit::Part(p));
         match p {
@@ -621,12 +633,13 @@ fn physical(b: &mut Buffer, c: Rect, available: Rect, a: &mut App) {
                         ascii,
                         alignment(r, c) == Alignment::Right,
                     );
-                    side_text(
+                    let rpm = format!("{} rpm", fan.rpm);
+                    text(
                         b,
                         inside,
-                        c,
+                        inside.width.saturating_sub(rpm.len() as u16) / 2,
                         inside.height.saturating_sub(1),
-                        format!("{} rpm", fan.rpm),
+                        rpm,
                         t.text,
                     );
                 } else {

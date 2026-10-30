@@ -1,5 +1,6 @@
 pub mod audio;
 pub mod donut;
+mod fan;
 pub mod insights;
 pub mod kit;
 pub mod overlays;
