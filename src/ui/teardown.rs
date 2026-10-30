@@ -448,9 +448,7 @@ pub fn draw(b: &mut Buffer, r: Rect, a: &mut App, size: SizeClass) {
         false,
         &t,
     );
-    let disclaimer = if a.cells {
-        Some("CELLS ARE DISPLAY SLOTS · NOT PER-CELL BATTERY DATA")
-    } else if !verified {
+    let disclaimer = if !verified {
         Some("GENERIC SCHEMATIC · NOT THE PHYSICAL LAYOUT OF THIS MACHINE")
     } else {
         None
