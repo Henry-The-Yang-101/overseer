@@ -290,10 +290,15 @@ fn teardown_flow_animations_follow_direction_and_motion_settings() {
                 .map(|(r, _, _)| *r)
                 .collect();
             for (i, cell) in cells.into_iter().enumerate() {
-                let has_front = (cell.y + 1..cell.bottom() - 1).any(|y| {
-                    (cell.x + 1..cell.right() - 1).any(|x| second[(x, y)].symbol() == "↑")
-                });
-                assert_eq!(has_front, charging && i == 4);
+                let x = cell.x + 2;
+                assert_eq!(first[(x, cell.y + 1)].symbol() == "━", charging && i == 4);
+                // The marker turns off, without moving through the interior.
+                for y in cell.y + 1..cell.bottom() - 1 {
+                    assert_ne!(second[(x, y)].symbol(), "━");
+                    if y > cell.y + 1 {
+                        assert_ne!(first[(x, y)].symbol(), "━");
+                    }
+                }
             }
             let phases = a.anim.phases.clone();
             a.anim.tick(&a.sample(), 1., Motion::Full, false, 60.);

@@ -1074,28 +1074,14 @@ fn battery_fill(b: &mut Buffer, r: Rect, charge: f32, index: usize, a: &App) {
     }
 }
 fn charging_cell(b: &mut Buffer, r: Rect, a: &App) {
-    if r.width < 3 || r.height == 0 {
+    if r.width < 3 || r.height == 0 || (ambient_phase(a) * 4.).fract() >= 0.5 {
         return;
     }
-    let phase = (ambient_phase(a) * 2.).fract();
-    let y = r.height - 1 - (phase * r.height as f32) as u16;
     let ascii = a.cfg.ui.glyphs == "ascii";
-    // A bright rising front and one fading row distinguish incoming energy from shimmer.
-    // Leave the leftmost capacity spine untouched, even when the active cell is empty.
+    // Flash a fixed top edge once every two seconds; preserve the capacity spine.
     for x in 1..r.width {
-        text(b, r, x, y, if ascii { "=" } else { "━" }, a.theme.battery);
-        if a.motion == crate::motion::Motion::Full && y + 1 < r.height {
-            b[(r.x + x, r.y + y + 1)].set_fg(blend(a.theme.battery, a.theme.panel, 0.38));
-        }
+        text(b, r, x, 0, if ascii { "=" } else { "━" }, a.theme.battery);
     }
-    text(
-        b,
-        r,
-        r.width / 2,
-        y,
-        if ascii { "^" } else { "↑" },
-        a.theme.bright,
-    );
 }
 fn compact_rate(value: f64, a: &App, network: bool) -> String {
     let bits = network && a.cfg.units.net == "bits";
