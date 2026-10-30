@@ -128,7 +128,6 @@ pub fn content(b: &mut Buffer, r: Rect, p: Part, s: &Sample, a: &App) {
         return;
     }
     let t = &a.theme;
-    let ascii = a.cfg.ui.glyphs == "ascii";
     match p {
         Part::Cpu | Part::Soc => cpu(b, r, s, a),
         Part::Gpu => gpu(b, r, s, a),
@@ -194,35 +193,7 @@ pub fn content(b: &mut Buffer, r: Rect, p: Part, s: &Sample, a: &App) {
             }
         }
         Part::Thermal => thermal(b, r, s, a),
-        Part::Fan0 | Part::Fan1 => {
-            if let Some(fan) = s
-                .fans
-                .value()
-                .and_then(|f| f.get(if p == Part::Fan0 { 0 } else { 1 }))
-            {
-                rotor(
-                    b,
-                    row(r, 0, r.height.saturating_sub(2)),
-                    a.anim.phases.get(&fan.name).copied().unwrap_or(0.),
-                    t.accent,
-                    ascii,
-                );
-                line(
-                    b,
-                    r,
-                    r.height.saturating_sub(2),
-                    format!(
-                        "{} rpm · max {}",
-                        fan.rpm,
-                        fan.max.map_or("N/A".into(), |m| m.to_string())
-                    ),
-                    t.text,
-                );
-                line(b, r, r.height - 1, "Physical side assumed", t.muted);
-            } else {
-                unavailable(b, r, &s.fans, t);
-            }
-        }
+        Part::Fan0 | Part::Fan1 => super::fan::pair(b, r, s, a),
         Part::Battery => battery(b, r, s, a),
         Part::SpeakerLeft | Part::SpeakerRight => super::audio::waveform(b, r, p, a, false),
         Part::Cell(_) => {}

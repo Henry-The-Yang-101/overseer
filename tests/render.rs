@@ -355,6 +355,32 @@ fn component_inspectors_have_no_sample_summary() {
                     .collect::<String>();
                 assert!(!text.contains("CURRENT SAMPLE"));
                 assert!(!text.contains("T-SNAPSHOT"));
+                assert!(!text.to_lowercase().contains("physical side assumed"));
+                if matches!(p, Part::Fan0 | Part::Fan1) {
+                    let mut other = Buffer::empty(bounds);
+                    ui::overlays::detail(&mut other, bounds, &mut a, Part::Fan0, zoom);
+                    assert_eq!(
+                        buffer, other,
+                        "Either fan opens the same combined inspector"
+                    );
+                    assert!(text.contains("FANS"));
+                    let fans = a.sample();
+                    let fans = fans.fans.value().unwrap();
+                    let left = format!("{} rpm", fans[0].rpm);
+                    let right = format!("{} rpm", fans[1].rpm);
+                    let rows = (1..h - 1)
+                        .map(|y| {
+                            (2..w - 2)
+                                .map(|x| buffer[(x, y)].symbol())
+                                .collect::<String>()
+                        })
+                        .collect::<Vec<_>>();
+                    assert!(
+                        rows.iter()
+                            .any(|row| row.starts_with(&left) && row.ends_with(&right)),
+                        "Fan speeds stay outside the art, aligned to the outer edges"
+                    );
+                }
             }
         }
     }
@@ -701,6 +727,11 @@ fn unavailable_sensors_and_small_resizes_stay_usable() {
             a.act(Action::InspectPart(Part::SpeakerLeft));
             render(&mut a, w, h);
             a.act(Action::Back);
+            for fan in [Part::Fan0, Part::Fan1] {
+                a.act(Action::InspectPart(fan));
+                render(&mut a, w, h);
+                a.act(Action::Back);
+            }
         }
     }
     let mut a = app("balanced");

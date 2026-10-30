@@ -492,6 +492,10 @@ pub fn detail(b: &mut Buffer, r: Rect, a: &mut App, part: Part, zoom: bool) {
         super::audio::inspector(b, r, p, a);
         return;
     }
+    if matches!(p, Part::Fan0 | Part::Fan1) {
+        super::fan::inspector(b, r, a, zoom);
+        return;
+    }
     let s = a.sample();
     let cores: Vec<_> = s
         .tiers

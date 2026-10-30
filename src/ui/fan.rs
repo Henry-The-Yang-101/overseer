@@ -2,7 +2,11 @@ use super::{
     kit::*,
     theme::{Theme, blend},
 };
-use crate::metrics::Fan;
+use crate::{
+    app::{App, Part},
+    metrics::{Fan, Sample},
+    motion::Motion,
+};
 use ratatui::{
     buffer::Buffer,
     layout::{Alignment, Rect},
@@ -88,6 +92,37 @@ pub fn impeller(
     mirror: bool,
     ascii: bool,
 ) {
+    draw_impeller(
+        b,
+        r,
+        phase,
+        fan,
+        theme,
+        ImpellerStyle {
+            mirror,
+            ascii,
+            readout: true,
+        },
+    );
+}
+struct ImpellerStyle {
+    mirror: bool,
+    ascii: bool,
+    readout: bool,
+}
+fn draw_impeller(
+    b: &mut Buffer,
+    r: Rect,
+    phase: f32,
+    fan: &Fan,
+    theme: &Theme,
+    style: ImpellerStyle,
+) {
+    let ImpellerStyle {
+        mirror,
+        ascii,
+        readout,
+    } = style;
     if r.width < 2 || r.height < 2 {
         return;
     }
@@ -150,6 +185,9 @@ pub fn impeller(
         }
         grid.flush(r, b, ascii);
     }
+    if !readout {
+        return;
+    }
     let digits = if inline {
         number
     } else {
@@ -175,5 +213,181 @@ pub fn impeller(
         let x = (label_x as i32 + centered as i32 - hub_left as i32)
             .clamp(0, r.width.saturating_sub(width) as i32) as u16;
         text(b, r, x, label_y, label, theme.text);
+    }
+}
+
+fn halves(r: Rect) -> [Rect; 2] {
+    let gap = if r.width >= 20 { 3 } else { 1 }.min(r.width);
+    let width = r.width.saturating_sub(gap);
+    let left = width / 2;
+    [
+        Rect::new(r.x, r.y, left, r.height),
+        Rect::new(r.x + left + gap, r.y, width - left, r.height),
+    ]
+}
+fn aligned(b: &mut Buffer, r: Rect, y: u16, value: impl AsRef<str>, color: Color, right: bool) {
+    let value = truncate(value.as_ref(), r.width as usize);
+    let x = if right {
+        r.width.saturating_sub(value.chars().count() as u16)
+    } else {
+        0
+    };
+    text(b, r, x, y, value, color);
+}
+
+pub fn pair(b: &mut Buffer, r: Rect, s: &Sample, a: &App) {
+    if r.is_empty() {
+        return;
+    }
+    let t = &a.theme;
+    let ascii = a.cfg.ui.glyphs == "ascii";
+    for (i, pane) in halves(r).into_iter().enumerate() {
+        let right = i == 1;
+        let fan = s.fans.value().and_then(|fans| fans.get(i));
+        let speed = fan.map_or_else(
+            || {
+                if s.fans.value().is_some() {
+                    "Not detected".into()
+                } else {
+                    s.fans.label().into()
+                }
+            },
+            |f| format!("{} rpm", f.rpm),
+        );
+        if r.height < 4 {
+            aligned(b, pane, 0, format!("FAN {i}: {speed}"), t.text, right);
+            continue;
+        }
+        aligned(b, pane, 0, format!("FAN {i}"), t.accent, right);
+        let art = Rect::new(
+            pane.x,
+            pane.y + 1,
+            pane.width,
+            pane.height.saturating_sub(4),
+        );
+        if let Some(fan) = fan {
+            let height = art.height.min(art.width.div_ceil(2));
+            let width = art.width.min(height.saturating_mul(2));
+            let bounds = Rect::new(
+                art.x + (art.width - width) / 2,
+                art.y + (art.height - height) / 2,
+                width,
+                height,
+            );
+            if !bounds.is_empty() {
+                let inside = housing(
+                    b,
+                    bounds,
+                    "",
+                    if fan.rpm > 0 { t.accent } else { t.wire },
+                    t,
+                    right,
+                    ascii,
+                );
+                let phase = if a.motion == Motion::Off {
+                    0.
+                } else {
+                    a.anim.phases.get(&fan.name).copied().unwrap_or(0.)
+                };
+                draw_impeller(
+                    b,
+                    inside,
+                    phase,
+                    fan,
+                    t,
+                    ImpellerStyle {
+                        mirror: right,
+                        ascii,
+                        readout: false,
+                    },
+                );
+            }
+        } else {
+            aligned(b, art, 0, &speed, t.muted, right);
+        }
+        aligned(b, pane, pane.height - 2, speed, t.text, right);
+        let maximum = fan
+            .and_then(|f| f.max)
+            .map_or("Max N/A".into(), |max| format!("Max {max} rpm"));
+        aligned(b, pane, pane.height - 1, maximum, t.muted, right);
+    }
+}
+
+pub fn inspector(b: &mut Buffer, r: Rect, a: &App, zoom: bool) {
+    Clear.render(r, b);
+    let t = &a.theme;
+    let inside = frame(
+        b,
+        r,
+        "FANS",
+        if zoom {
+            "ZOOM · Esc back"
+        } else {
+            "INSPECTOR · Esc back"
+        },
+        true,
+        t,
+    );
+    let s = a.sample();
+    let history_h = if inside.height >= 22 {
+        6
+    } else if inside.height >= 14 {
+        4
+    } else {
+        0
+    };
+    let note_h = u16::from(inside.height >= 18) * 2;
+    let gap = u16::from(history_h > 0);
+    let body_h = inside.height.saturating_sub(history_h + note_h + gap);
+    pair(b, row(inside, 0, body_h), &s, a);
+    if history_h > 0 {
+        let history_area = Rect::new(inside.x, inside.y + body_h + gap, inside.width, history_h);
+        for (i, pane) in halves(history_area).into_iter().enumerate() {
+            aligned(
+                b,
+                pane,
+                0,
+                format!("FAN {i} · {} history", ["1m", "5m", "15m", "1h"][a.window]),
+                t.muted,
+                i == 1,
+            );
+            let history: Vec<_> = a
+                .history
+                .iter()
+                .filter(|sample| {
+                    sample.at <= s.at && sample.at >= s.at - crate::app::WINDOWS[a.window] as f64
+                })
+                .filter_map(|sample| {
+                    sample
+                        .fans
+                        .value()
+                        .and_then(|fans| fans.get(i))
+                        .map(|fan| fan.rpm as f32)
+                })
+                .collect();
+            let graph = row(pane, 1, pane.height.saturating_sub(1));
+            if history.is_empty() {
+                aligned(b, graph, 0, "No recorded readings", t.muted, i == 1);
+            } else {
+                spark(
+                    b,
+                    graph,
+                    &history,
+                    history.iter().copied().fold(1., f32::max),
+                    t.accent,
+                    t,
+                    a.cfg.ui.glyphs == "ascii",
+                );
+            }
+        }
+    }
+    if note_h > 0 {
+        line(
+            b,
+            inside,
+            inside.height - 1,
+            truncate(Part::Fan0.note(), inside.width as usize),
+            t.muted,
+        );
     }
 }

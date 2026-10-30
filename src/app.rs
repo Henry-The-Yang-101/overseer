@@ -188,7 +188,7 @@ impl Part {
                 "The busiest physical interface. Receive/transmit rates use elapsed sample time. Wi-Fi signal and per-process network attribution are not exposed."
             }
             Self::Fan0 | Self::Fan1 => {
-                "Rotor speed is scaled and capped to prevent strobing. The RPM number is measured. SMC does not identify physical sides; fan placement is assumed."
+                "Rotor speed is scaled and capped to prevent strobing. The RPM number is measured."
             }
             Self::Thermal => {
                 "Pipe color follows the maximum measured CPU/GPU temperature. No spatial temperature gradient is inferred. Thermal state comes from macOS."
