@@ -536,6 +536,7 @@ pub struct App {
     pub last_click: Option<(Hit, Instant)>,
     pub hover: Option<(Hit, Instant)>,
     pub anim: Anim,
+    pub tesseract: std::cell::RefCell<crate::ui::tesseract::Renderer>,
     pub hitmap: HitMap,
     pub parts: Vec<(Part, Rect)>,
     pub rail: Rect,
@@ -636,6 +637,7 @@ impl App {
             last_click: None,
             hover: None,
             anim: Anim::default(),
+            tesseract: std::cell::RefCell::default(),
             hitmap: HitMap::default(),
             parts: vec![],
             rail: Rect::default(),
@@ -927,7 +929,8 @@ impl App {
                 ))
         {
             60.
-        } else if s.energy() > 0.08
+        } else if (self.screen == Screen::Systems && self.page == Page::Gpu)
+            || s.energy() > 0.08
             || s.fans.value().is_some_and(|v| v.iter().any(|f| f.rpm > 0))
             || self.fx.is_running()
         {

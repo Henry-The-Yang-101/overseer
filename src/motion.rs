@@ -165,6 +165,8 @@ impl Anim {
         // Decorative signal motion also runs at idle; it does not represent throughput.
         let ambient = self.phases.entry("ambient".into()).or_default();
         *ambient = (*ambient + dt / 8.).fract();
+        let fold = self.phases.entry("tesseract".into()).or_default();
+        *fold = (*fold + dt / 18.).fract();
         if s.gpu.value().is_some_and(|v| *v > 0.) {
             let p = self.phases.entry("gpu".into()).or_default();
             *p = (*p + s.gpu_mhz.value().copied().unwrap_or(0) as f32 / 1400. * dt)

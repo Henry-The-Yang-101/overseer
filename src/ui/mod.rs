@@ -6,6 +6,7 @@ pub mod ports;
 pub mod processes;
 pub mod systems;
 pub mod teardown;
+pub mod tesseract;
 pub mod theme;
 pub mod widgets;
 use crate::{
