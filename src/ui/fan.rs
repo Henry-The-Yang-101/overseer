@@ -241,7 +241,9 @@ pub fn pair(b: &mut Buffer, r: Rect, s: &Sample, a: &App) {
     }
     let t = &a.theme;
     let ascii = a.cfg.ui.glyphs == "ascii";
-    for (i, pane) in halves(r).into_iter().enumerate() {
+    let panes = halves(r);
+    let art_width = panes[0].width.min(panes[1].width);
+    for (i, pane) in panes.into_iter().enumerate() {
         let right = i == 1;
         let fan = s.fans.value().and_then(|fans| fans.get(i));
         let speed = fan.map_or_else(
@@ -266,8 +268,8 @@ pub fn pair(b: &mut Buffer, r: Rect, s: &Sample, a: &App) {
             pane.height.saturating_sub(4),
         );
         if let Some(fan) = fan {
-            let height = art.height.min(art.width.div_ceil(2));
-            let width = art.width.min(height.saturating_mul(2));
+            let height = art.height.min(art_width / 2);
+            let width = art_width.min(height.saturating_mul(2));
             let bounds = Rect::new(
                 art.x + (art.width - width) / 2,
                 art.y + (art.height - height) / 2,
@@ -275,15 +277,7 @@ pub fn pair(b: &mut Buffer, r: Rect, s: &Sample, a: &App) {
                 height,
             );
             if !bounds.is_empty() {
-                let inside = housing(
-                    b,
-                    bounds,
-                    "",
-                    if fan.rpm > 0 { t.accent } else { t.wire },
-                    t,
-                    right,
-                    ascii,
-                );
+                let inside = inner(bounds, 1, 1);
                 let phase = if a.motion == Motion::Off {
                     0.
                 } else {

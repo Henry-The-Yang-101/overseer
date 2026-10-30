@@ -9,17 +9,17 @@ TEARDOWN
  ╭ MACBOOK PRO 14 / M4 PRO ───────────────────────────────────── PHYSICAL [m] ╮
  │ COMPONENT NAVIGATOR                                                        │
  │  ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   · │
- │   Fan 0                                                                    │
+ │   Fans                                                                     │
  │   System on chip ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   · │
  │   Unified memory                                                           │
- │   Fan 1  ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   · │
- │   Storage                                                                  │
- │   Power rails·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   · │
- │   Battery pack                                                             │
- │   Thermal system ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   · │
- │   Network                                                                  │
- │   Left speaker   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   · │
- │   Right speaker                                                            │
+ │   Storage·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   · │
+ │   Power rails                                                              │
+ │   Battery pack   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   · │
+ │   Thermal system                                                           │
+ │   Network·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   · │
+ │   Left speaker                                                             │
+ │   Right speaker  ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   · │
+ │                                                                            │
  │  ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   · │
  │                                                                            │
  │  ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   · │
@@ -40,11 +40,11 @@ TELEMETRY CELLS
  │   Telemetry cell ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   · │
  │   Telemetry cell                                                           │
  │   Telemetry cell ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   · │
- │   Fan 0                                                                    │
+ │   Fans                                                                     │
  │   System on chip ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   · │
- │   Fan 1                                                                    │
- │   Left speaker   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   · │
- │   Right speaker                                                            │
+ │   Left speaker                                                             │
+ │   Right speaker  ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   · │
+ │                                                                            │
  │  ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   · │
  │                                                                            │
  │  ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   · │

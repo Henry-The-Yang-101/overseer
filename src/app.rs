@@ -129,6 +129,16 @@ pub enum Part {
     Cell(u8),
 }
 impl Part {
+    pub fn selection_group(self) -> Self {
+        if self == Self::Fan1 { Self::Fan0 } else { self }
+    }
+    pub fn selection_name(self) -> &'static str {
+        if self.selection_group() == Self::Fan0 {
+            "Fans"
+        } else {
+            self.name()
+        }
+    }
     pub fn name(self) -> &'static str {
         match self {
             Self::Cpu => "CPU complex",
@@ -217,7 +227,6 @@ pub const TEAR_PARTS: &[Part] = &[
     Part::Fan0,
     Part::Soc,
     Part::Memory,
-    Part::Fan1,
     Part::Disk,
     Part::Power,
     Part::Battery,
@@ -1033,7 +1042,7 @@ impl App {
             .collect()
     }
     pub fn select(&mut self, p: Part) {
-        self.selection = Some(p);
+        self.selection = Some(p.selection_group());
         self.selected_at = Instant::now();
     }
     pub fn part_order(&self) -> Vec<Part> {
@@ -1042,13 +1051,7 @@ impl App {
         } else if self.cells {
             (0..6)
                 .map(Part::Cell)
-                .chain([
-                    Part::Fan0,
-                    Part::Soc,
-                    Part::Fan1,
-                    Part::SpeakerLeft,
-                    Part::SpeakerRight,
-                ])
+                .chain([Part::Fan0, Part::Soc, Part::SpeakerLeft, Part::SpeakerRight])
                 .collect()
         } else {
             TEAR_PARTS.to_vec()
@@ -1068,7 +1071,13 @@ impl App {
     }
     pub fn move_part(&mut self, d: Dir) {
         if let Some((_, r)) = self.parts.iter().find(|(p, _)| Some(*p) == self.selection) {
-            if let Some(p) = neighbor(*r, d, &self.parts, self.cell_aspect) {
+            let candidates: Vec<_> = self
+                .parts
+                .iter()
+                .copied()
+                .filter(|(p, _)| Some(p.selection_group()) != self.selection)
+                .collect();
+            if let Some(p) = neighbor(*r, d, &candidates, self.cell_aspect) {
                 self.select(p);
             }
         } else {
@@ -1269,11 +1278,11 @@ impl App {
             }
             Action::InspectPart(p) => {
                 self.select(p);
-                self.layers.push(Layer::Inspector(p));
+                self.layers.push(Layer::Inspector(p.selection_group()));
             }
             Action::ZoomPart(p) => {
                 self.select(p);
-                self.zoom = Some(p);
+                self.zoom = self.selection;
                 self.transition = true;
             }
             Action::SetWindow(i) => {
@@ -1736,7 +1745,7 @@ impl App {
                         Hit::Part(p) => {
                             self.select(p);
                             if double {
-                                self.zoom = Some(p);
+                                self.zoom = self.selection;
                             }
                         }
                         Hit::Process(p) => {

@@ -324,6 +324,54 @@ fn teardown_flow_animations_follow_direction_and_motion_settings() {
     }
 }
 #[test]
+fn teardown_selects_both_fans_from_keyboard_and_mouse() {
+    use crossterm::event::{
+        KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
+    };
+    for cells in [false, true] {
+        for orientation in ["front", "back"] {
+            let mut a = app("balanced");
+            a.cells = cells;
+            a.cfg.teardown.orientation = orientation.into();
+            let mut term = Terminal::new(TestBackend::new(200, 55)).unwrap();
+            term.draw(|f| ui::draw(f, &mut a, Duration::ZERO)).unwrap();
+            if cells {
+                a.select(Part::Fan1);
+            } else {
+                a.on_key(KeyEvent::new(KeyCode::Up, KeyModifiers::NONE));
+            }
+            assert_eq!(a.selection, Some(Part::Fan0));
+            assert_eq!(
+                a.part_order()
+                    .iter()
+                    .filter(|p| p.selection_group() == Part::Fan0)
+                    .count(),
+                1
+            );
+            for mouse in [false, true] {
+                term.draw(|f| ui::draw(f, &mut a, Duration::ZERO)).unwrap();
+                if mouse {
+                    let r = a.parts.iter().find(|(p, _)| *p == Part::Fan1).unwrap().1;
+                    a.on_mouse(MouseEvent {
+                        kind: MouseEventKind::Down(MouseButton::Left),
+                        column: r.x + r.width / 2,
+                        row: r.y + r.height / 2,
+                        modifiers: KeyModifiers::NONE,
+                    });
+                    assert_eq!(a.selection, Some(Part::Fan0));
+                    term.draw(|f| ui::draw(f, &mut a, Duration::ZERO)).unwrap();
+                }
+                for part in [Part::Fan0, Part::Fan1] {
+                    let r = a.parts.iter().find(|(p, _)| *p == part).unwrap().1;
+                    assert_eq!(term.backend().buffer()[(r.x, r.y)].symbol(), "┏");
+                }
+            }
+            a.on_key(KeyEvent::new(KeyCode::Tab, KeyModifiers::NONE));
+            assert_ne!(a.selection, Some(Part::Fan0));
+        }
+    }
+}
+#[test]
 fn component_inspectors_have_no_sample_summary() {
     use ratatui::{buffer::Buffer, layout::Rect};
     let mut a = app("balanced");

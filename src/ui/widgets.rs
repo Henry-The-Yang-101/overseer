@@ -49,11 +49,14 @@ pub fn readout(p: Part, s: &Sample, a: &App) -> String {
                 }
             )
         }),
-        Part::Fan0 | Part::Fan1 => s
-            .fans
-            .value()
-            .and_then(|f| f.get(if p == Part::Fan0 { 0 } else { 1 }))
-            .map_or(s.fans.label().into(), |f| format!("{} rpm", f.rpm)),
+        Part::Fan0 | Part::Fan1 => s.fans.value().map_or(s.fans.label().into(), |fans| {
+            fans.iter()
+                .take(2)
+                .enumerate()
+                .map(|(i, fan)| format!("F{i} {} rpm", fan.rpm))
+                .collect::<Vec<_>>()
+                .join(" / ")
+        }),
         Part::Disk => s
             .disk
             .value()
@@ -80,11 +83,11 @@ pub fn panel(b: &mut Buffer, r: Rect, p: Part, a: &mut App) {
             Part::Memory => "MEM",
             Part::Thermal => "THERMAL",
             Part::Battery => "BATTERY",
-            _ => p.name(),
+            _ => p.selection_name(),
         }
         .to_uppercase()
     } else {
-        p.name().to_uppercase()
+        p.selection_name().to_uppercase()
     };
     let value = if p == Part::Memory && r.width < 48 {
         let base = if a.cfg.units.bytes == "si" {

@@ -591,7 +591,7 @@ fn physical(b: &mut Buffer, c: Rect, available: Rect, a: &mut App) {
     wiring(b, c, a, mirror, &layout);
     for (spec, r) in COMPONENTS.iter().zip(layout.components) {
         let p = spec.part;
-        let selected = a.selection == Some(p);
+        let selected = a.selection.map(Part::selection_group) == Some(p.selection_group());
         let activity = crate::app::metric(p, &s);
         let color = if p == Part::Disk {
             t.disk
@@ -1225,7 +1225,11 @@ fn navigator(b: &mut Buffer, r: Rect, a: &mut App) {
             b,
             rr,
             0,
-            format!("{} {}", if selected { "›" } else { " " }, p.name()),
+            format!(
+                "{} {}",
+                if selected { "›" } else { " " },
+                p.selection_name()
+            ),
             if selected { t.accent } else { t.muted },
         );
         a.parts.push((*p, rr));
@@ -1239,7 +1243,7 @@ fn navigator(b: &mut Buffer, r: Rect, a: &mut App) {
         r.width - left - 1,
         r.height.saturating_sub(1),
     );
-    let inside = frame(b, right, &p.name().to_uppercase(), "", true, &t);
+    let inside = frame(b, right, &p.selection_name().to_uppercase(), "", true, &t);
     line(b, inside, 0, widgets::readout(p, &s, a), t.text);
     if inside.height > 3 {
         let inner = Rect::new(inside.x, inside.y + 2, inside.width, inside.height - 2);
@@ -1252,34 +1256,54 @@ fn selected(b: &mut Buffer, r: Rect, a: &mut App, part: Part) {
     let s = a.sample();
     let card = Rect::new(r.x, r.y, r.width, (r.height * 43 / 100).max(8));
     let inner = frame(b, card, "SELECTED", "Enter / z", true, t);
-    line(b, inner, 1, p.name().to_uppercase(), widgets::tint(p, t));
-    line(b, inner, 3, widgets::readout(p, &s, a), t.text);
-    let h = (inner.height / 4).max(1);
-    let values = a.history_values(p);
-    spark(
+    line(
         b,
-        Rect::new(
-            inner.x,
-            inner.y + 5,
-            inner.width,
-            h.min(inner.height.saturating_sub(5)),
-        ),
-        &values,
-        values.iter().copied().fold(1., f32::max),
+        inner,
+        1,
+        p.selection_name().to_uppercase(),
         widgets::tint(p, t),
-        t,
-        a.cfg.ui.glyphs == "ascii",
     );
-    let text_rect = Rect::new(
-        inner.x,
-        inner.y + (6 + h).min(inner.height),
-        inner.width,
-        inner.height.saturating_sub(6 + h),
-    );
-    ratatui::widgets::Paragraph::new(p.note())
-        .wrap(ratatui::widgets::Wrap { trim: true })
-        .style(Style::new().fg(t.muted))
-        .render(text_rect, b);
+    if p.selection_group() == Part::Fan0 {
+        super::fan::pair(
+            b,
+            Rect::new(
+                inner.x,
+                inner.y + 3,
+                inner.width,
+                inner.height.saturating_sub(3),
+            ),
+            &s,
+            a,
+        );
+    } else {
+        line(b, inner, 3, widgets::readout(p, &s, a), t.text);
+        let h = (inner.height / 4).max(1);
+        let values = a.history_values(p);
+        spark(
+            b,
+            Rect::new(
+                inner.x,
+                inner.y + 5,
+                inner.width,
+                h.min(inner.height.saturating_sub(5)),
+            ),
+            &values,
+            values.iter().copied().fold(1., f32::max),
+            widgets::tint(p, t),
+            t,
+            a.cfg.ui.glyphs == "ascii",
+        );
+        let text_rect = Rect::new(
+            inner.x,
+            inner.y + (6 + h).min(inner.height),
+            inner.width,
+            inner.height.saturating_sub(6 + h),
+        );
+        ratatui::widgets::Paragraph::new(p.note())
+            .wrap(ratatui::widgets::Wrap { trim: true })
+            .style(Style::new().fg(t.muted))
+            .render(text_rect, b);
+    }
     let legend = Rect::new(r.x, card.bottom(), r.width, r.height - card.height);
     ports::card(b, legend, a);
     a.hitmap.add(legend, 3, Hit::Ports);
