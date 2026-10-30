@@ -91,8 +91,12 @@ pub fn impeller(
     if r.width < 2 || r.height < 2 {
         return;
     }
-    let left = (r.width - 2) / 2;
-    let label_x = if mirror { r.width - left - 2 } else { left };
+    let hub_left = (r.width - 2) / 2;
+    let label_x = if mirror {
+        r.width - hub_left - 2
+    } else {
+        hub_left
+    };
     let label_y = (r.height - 1) / 2;
     let cx = label_x as f32 * 2. + 1.5;
     let radius_at = |cy: f32| {
@@ -165,12 +169,11 @@ pub fn impeller(
             digits
         };
         let width = label.len() as u16;
-        let left = r.width.saturating_sub(width) / 2;
-        let x = if mirror {
-            r.width.saturating_sub(left + width)
-        } else {
-            left
-        };
+        let centered = r.width.saturating_sub(width) / 2;
+        // Keep the left fan's text offset within the hub on both sides. Mirroring
+        // the text's rounding separately shifts odd-width labels inside the circle.
+        let x = (label_x as i32 + centered as i32 - hub_left as i32)
+            .clamp(0, r.width.saturating_sub(width) as i32) as u16;
         text(b, r, x, label_y, label, theme.text);
     }
 }

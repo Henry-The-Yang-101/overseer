@@ -437,11 +437,26 @@ fn teardown_fan_hubs_center_readings_and_keep_them_upright() {
                                         assert_eq!(symbol, " ");
                                     }
                                 }
-                                assert!(
-                                    (x as i32 * 2 + label.len() as i32
-                                        - (r.x as i32 * 2 + r.width as i32))
-                                        .abs()
-                                        <= 1
+                                let inside = ui::kit::inner(r, 1, 1);
+                                let left = (inside.width - 2) / 2;
+                                let hub_x = inside.x
+                                    + if part == Part::Fan1 {
+                                        inside.width - left - 2
+                                    } else {
+                                        left
+                                    };
+                                let offset =
+                                    x as i32 * 2 + label.len() as i32 - (hub_x as i32 * 2 + 2);
+                                let expected = if label.len().is_multiple_of(2) {
+                                    0
+                                } else if inside.width.is_multiple_of(2) {
+                                    -1
+                                } else {
+                                    1
+                                };
+                                assert_eq!(
+                                    offset, expected,
+                                    "Both labels use the same offset within their circles"
                                 );
                             } else {
                                 assert_eq!(
