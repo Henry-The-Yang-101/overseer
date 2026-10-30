@@ -42,7 +42,12 @@ pub fn hook(provider: Provider, scope: &str, v: &Value, received: u64) -> Vec<Ev
         scope: scope.into(),
         id: child.clone().unwrap_or_else(|| session_id.clone()),
     };
-    let turn = text(v, "turn_id");
+    // These lifecycle hooks are delivered on the parent's turn, not the child's.
+    let turn = if matches!(name, "SubagentStart" | "SubagentStop") {
+        None
+    } else {
+        text(v, "turn_id")
+    };
     let make = |kind| event(&key, Transport::Hook, received, turn.clone(), false, kind);
     let mut events = vec![make(EventKind::Metadata(Metadata {
         cwd: text(v, "cwd"),
@@ -243,7 +248,7 @@ pub fn app_server(scope: &str, v: &Value, received: u64) -> Vec<Event> {
                     | "fileChange"
                     | "mcpToolCall"
                     | "dynamicToolCall"
-                    | "collabToolCall"
+                    | "collabAgentToolCall"
                     | "webSearch"
             ) {
                 let Some(id) = text(item, "id") else {
@@ -257,7 +262,16 @@ pub fn app_server(scope: &str, v: &Value, received: u64) -> Vec<Event> {
                 } else {
                     EventKind::ToolFinished {
                         id,
-                        failed: item.get("exitCode").and_then(Value::as_i64).map(|n| n != 0),
+                        failed: item
+                            .get("exitCode")
+                            .and_then(Value::as_i64)
+                            .map(|n| n != 0)
+                            .or_else(|| item.get("success").and_then(Value::as_bool).map(|ok| !ok))
+                            .or_else(|| match item["status"].as_str() {
+                                Some("failed" | "declined") => Some(true),
+                                Some("completed") => Some(false),
+                                _ => None,
+                            }),
                     }
                 }
             } else {

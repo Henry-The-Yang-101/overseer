@@ -14,7 +14,7 @@ struct Entry {
     ended: bool,
     boundary_ms: u64,
     closed_turns: VecDeque<String>,
-    calls: BTreeMap<String, bool>,
+    calls: BTreeMap<String, (bool, Option<bool>)>,
     call_order: VecDeque<String>,
 }
 
@@ -72,7 +72,8 @@ impl Reducer {
         }
         // Metadata and counters may enrich an older observation without rewinding lifecycle.
         let enrichment = matches!(event.kind, EventKind::Metadata(_) | EventKind::Usage(_));
-        if !enrichment
+        let out_of_order_safe = enrichment || matches!(event.kind, EventKind::ToolFinished { .. });
+        if !out_of_order_safe
             && (event.at_ms < e.boundary_ms
                 || event
                     .turn_id
@@ -81,7 +82,21 @@ impl Reducer {
         {
             return;
         }
+        if !out_of_order_safe
+            && !matches!(
+                event.kind,
+                EventKind::TurnStarted | EventKind::SessionStarted
+            )
+            && event
+                .turn_id
+                .as_ref()
+                .zip(e.session.turn_id.as_ref())
+                .is_some_and(|(incoming, current)| incoming != current)
+        {
+            return;
+        }
         let before = e.session.clone();
+        let mut completion_evidence = false;
         match &event.kind {
             EventKind::Metadata(m) => {
                 if m.cwd.is_some() {
@@ -125,14 +140,24 @@ impl Reducer {
             EventKind::TurnStarted => {
                 // A duplicate prompt/task_started must not clear tools or approval waits.
                 if !e.in_turn || (event.turn_id.is_some() && event.turn_id != e.session.turn_id) {
+                    if let Some(previous) = &e.session.turn_id
+                        && event.turn_id.as_ref().is_some_and(|id| id != previous)
+                    {
+                        e.closed_turns.push_back(previous.clone());
+                        while e.closed_turns.len() > 128 {
+                            e.closed_turns.pop_front();
+                        }
+                    }
                     e.session.tools.clear();
                     e.session.approval_requests.clear();
                     e.compacting = false;
                     e.input_requested = false;
                 }
+                if event.turn_id.is_some() || !e.in_turn {
+                    e.session.turn_id.clone_from(&event.turn_id);
+                }
                 e.in_turn = true;
                 e.ended = false;
-                e.session.turn_id.clone_from(&event.turn_id);
                 e.boundary_ms = event.at_ms;
             }
             EventKind::TurnEnded { outcome } => {
@@ -161,11 +186,11 @@ impl Reducer {
             }
             EventKind::ToolRequested { id, name } | EventKind::ToolStarted { id, name } => {
                 let key = call_key(&event, id);
-                if e.calls.get(&key) == Some(&true) || e.ended {
+                if e.calls.get(&key).is_some_and(|(done, _)| *done) || e.ended {
                     return;
                 }
                 if !e.calls.contains_key(&key) {
-                    e.remember_call(key, false);
+                    e.remember_call(key, false, None);
                     e.session.observed_tool_calls += 1;
                 }
                 if e.session.tools.len() < MAX_ACTIVE_TOOLS || e.session.tools.contains_key(id) {
@@ -174,7 +199,7 @@ impl Reducer {
                         started_at_ms: event.at_ms,
                         running: false,
                     });
-                    if !name.is_empty() {
+                    if t.name == "tool" && !name.is_empty() {
                         t.name.clone_from(name);
                     }
                     t.running |= matches!(event.kind, EventKind::ToolStarted { .. });
@@ -184,20 +209,27 @@ impl Reducer {
                     e.session.turn_id.clone_from(&event.turn_id);
                 }
             }
-            EventKind::ToolFinished { id, .. } => {
+            EventKind::ToolFinished { id, failed } => {
                 let key = call_key(&event, id);
-                if e.calls.get(&key) == Some(&true) {
+                if e.calls
+                    .get(&key)
+                    .is_some_and(|(done, known)| *done && (known.is_some() || failed.is_none()))
+                {
                     return;
                 }
                 if !e.calls.contains_key(&key) {
                     e.session.observed_tool_calls += 1;
                 }
-                e.remember_call(key, true);
+                e.remember_call(key, true, *failed);
+                completion_evidence = true;
                 e.session.tools.remove(id);
                 e.session.approval_requests.retain(|v| v != id);
             }
             EventKind::ApprovalRequested { id } => {
-                if e.calls.get(&call_key(&event, id)) == Some(&true) {
+                if e.calls
+                    .get(&call_key(&event, id))
+                    .is_some_and(|(done, _)| *done)
+                {
                     return;
                 }
                 if !e.session.approval_requests.contains(id)
@@ -218,7 +250,10 @@ impl Reducer {
                 // Cloud 'pending' does not distinguish queued work from running work.
             }
         }
-        e.session.phase = if e.session.cloud_status.is_some() {
+        e.session.phase = if enrichment {
+            // A title, model or usage record says nothing about whether a turn is active.
+            before.phase
+        } else if e.session.cloud_status.is_some() {
             Phase::Unknown
         } else if e.ended {
             Phase::Ended
@@ -238,7 +273,7 @@ impl Reducer {
         if !event.replayed && !enrichment {
             e.session.last_live_at_ms = Some(received_ms);
         }
-        if changed && !event.replayed {
+        if (changed || completion_evidence) && !event.replayed {
             self.events.push_back(event);
             while self.events.len() > MAX_HISTORY {
                 self.events.pop_front();
@@ -271,11 +306,11 @@ impl Reducer {
 }
 
 impl Entry {
-    fn remember_call(&mut self, key: String, complete: bool) {
+    fn remember_call(&mut self, key: String, complete: bool, failed: Option<bool>) {
         if !self.calls.contains_key(&key) {
             self.call_order.push_back(key.clone());
         }
-        self.calls.insert(key, complete);
+        self.calls.insert(key, (complete, failed));
         while self.call_order.len() > MAX_CALLS {
             if let Some(k) = self.call_order.pop_front() {
                 self.calls.remove(&k);

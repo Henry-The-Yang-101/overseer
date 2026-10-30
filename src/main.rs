@@ -19,6 +19,8 @@ use std::{
     about = "Overseer · a live hardware observatory for your terminal"
 )]
 struct Cli {
+    #[command(subcommand)]
+    command: Option<Command>,
     #[arg(long, help = "Use explicitly labelled synthetic telemetry")]
     demo: bool,
     #[arg(long,default_value="balanced",value_parser=clap::builder::PossibleValuesParser::new(metrics::SCENARIOS))]
@@ -53,8 +55,16 @@ struct Cli {
     #[arg(long, help = "Collect one real telemetry sample as JSON, then exit")]
     sample: bool,
 }
+#[derive(clap::Subcommand, Debug)]
+enum Command {
+    /// Agent collection and hook transport, independent of the hardware TUI.
+    Agents(overseer::agents::cli::Cli),
+}
 fn main() -> anyhow::Result<()> {
     let c = Cli::parse();
+    if let Some(Command::Agents(agents)) = c.command {
+        return overseer::agents::cli::run(agents);
+    }
     let mut cfg = Config::load()?;
     if let Some(t) = c.theme {
         cfg.ui.theme = t;

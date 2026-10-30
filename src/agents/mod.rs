@@ -1,6 +1,11 @@
 //! UI-independent agent observations. No prompts, arguments, or tool output are retained.
+pub mod cli;
 pub mod decode;
 pub mod reducer;
+mod runtime;
+mod tail;
+mod transport;
+pub use runtime::{Monitor, Options};
 
 use serde::{Deserialize, Serialize};
 use std::{
