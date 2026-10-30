@@ -237,6 +237,27 @@ impl Layout {
     fn part(&self, p: Part) -> Rect {
         self.components[COMPONENTS.iter().position(|s| s.part == p).unwrap()]
     }
+    fn cell_path(&self, i: usize, c: Rect) -> Vec<(u16, u16)> {
+        let r = self.cells[i];
+        let center = c.x + c.width / 2;
+        let mut path = if i == 1 || i == 5 {
+            // Reach the lower pair through the narrow gap beside the tall cells.
+            let left = i == 1;
+            let lane = if left {
+                self.cells[2].x - 1
+            } else {
+                self.cells[3].right()
+            };
+            let edge = if left { r.right() - 1 } else { r.x };
+            let y = r.y + r.height / 2;
+            vec![(edge, y), (lane, y), (lane, self.power_y)]
+        } else {
+            let x = center_x(r, c);
+            vec![(x, r.y), (x, self.power_y)]
+        };
+        path.extend([(center, self.power_y), (center, self.part(Part::Battery).y)]);
+        path
+    }
 }
 fn alignment(r: Rect, chassis: Rect) -> Alignment {
     let center = chassis.x + chassis.width / 2;
@@ -1235,22 +1256,11 @@ fn wiring(b: &mut Buffer, c: Rect, a: &App, mirror: bool, layout: &Layout) {
         );
     }
     let bms = layout.part(Part::Battery);
-    for r in [
-        layout.cells[0],
-        layout.cells[2],
-        layout.cells[3],
-        layout.cells[4],
-    ] {
-        let x = center_x(r, c);
+    for i in 0..CELLS.len() {
         trace(
             b,
             c,
-            &[
-                (x, r.y),
-                (x, layout.power_y),
-                (center, layout.power_y),
-                (center, bms.y),
-            ],
+            &layout.cell_path(i, c),
             wire,
             moving.then_some((phase, signal)),
         );
