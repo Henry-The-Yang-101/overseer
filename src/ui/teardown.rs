@@ -107,6 +107,34 @@ pub const CELLS: [NRect; 6] = [
     NRect::new(0.73, 0.60, 0.18, 0.15),
     NRect::new(0.73, 0.78, 0.18, 0.16),
 ];
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct CellFlow {
+    index: usize,
+    charging: bool,
+}
+fn cell_flow(battery: Option<&crate::metrics::Battery>) -> Option<CellFlow> {
+    let battery = battery?;
+    if !battery.percent.is_finite() {
+        return None;
+    }
+    let charge = battery.percent.clamp(0., 100.) / 100. * CELLS.len() as f32;
+    let discharging = battery.watts.value().is_some_and(|w| *w < -0.1)
+        || (!battery.ac && battery.watts.value().is_none());
+    // Follow the same equal-share boundary as the fill, not invented per-cell readings.
+    if battery.charging && charge < CELLS.len() as f32 {
+        Some(CellFlow {
+            index: charge.floor() as usize,
+            charging: true,
+        })
+    } else if !battery.charging && discharging && charge > 0. {
+        Some(CellFlow {
+            index: charge.ceil() as usize - 1,
+            charging: false,
+        })
+    } else {
+        None
+    }
+}
 pub fn fit_chassis(stage: Rect, aspect: f32, cell_aspect: f32) -> Rect {
     let aspect = aspect.max(0.1) * cell_aspect.max(0.1);
     let h = (stage.width as f32 / aspect)
@@ -1257,13 +1285,7 @@ fn wiring(b: &mut Buffer, c: Rect, a: &App, mirror: bool, layout: &Layout) {
     }
     let bms = layout.part(Part::Battery);
     for i in 0..CELLS.len() {
-        trace(
-            b,
-            c,
-            &layout.cell_path(i, c),
-            wire,
-            moving.then_some((phase, signal)),
-        );
+        trace(b, c, &layout.cell_path(i, c), wire, None);
     }
     let pmu = layout.part(Part::Power);
     let pmu_x = center_x(pmu, c);
@@ -1325,6 +1347,22 @@ fn wiring(b: &mut Buffer, c: Rect, a: &App, mirror: bool, layout: &Layout) {
             &path,
             blend(t.battery, t.panel, 0.70),
             moving.then_some((phase, blend(t.battery, t.panel, 0.35))),
+        );
+    }
+    if !a.cells
+        && let Some(flow) = cell_flow(s.battery.value())
+    {
+        let mut path = layout.cell_path(flow.index, c);
+        // Paths start at the cell; charging runs from the BMS toward that cell.
+        if flow.charging {
+            path.reverse();
+        }
+        trace(
+            b,
+            c,
+            &path,
+            blend(t.battery, t.panel, 0.30),
+            moving.then_some((phase, t.battery)),
         );
     }
 }
@@ -1404,5 +1442,47 @@ fn trace(
     {
         let i = (phase.fract() * cells.len() as f32) as usize % cells.len();
         text(b, c, cells[i].0 - c.x, cells[i].1 - c.y, "·", color);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{config::Config, metrics::Avail};
+
+    #[test]
+    fn battery_flow_tracks_one_fill_boundary_and_stops_when_idle() {
+        let app = App::new(Config::default(), Some("balanced".into()));
+        let mut battery = app.sample().battery.value().unwrap().clone();
+        for index in 0..6 {
+            battery.percent = (index as f32 + 0.5) / 6. * 100.;
+            for charging in [true, false] {
+                battery.charging = charging;
+                battery.ac = charging;
+                battery.watts = Avail::Ok(if charging { 20. } else { -10. });
+                assert_eq!(
+                    cell_flow(Some(&battery)),
+                    Some(CellFlow { index, charging })
+                );
+            }
+        }
+        battery.percent = 50.;
+        assert_eq!(cell_flow(Some(&battery)).unwrap().index, 2);
+        battery.charging = true;
+        assert_eq!(cell_flow(Some(&battery)).unwrap().index, 3);
+        battery.percent = 100.;
+        assert_eq!(cell_flow(Some(&battery)), None);
+        battery.charging = false;
+        battery.percent = 0.;
+        assert_eq!(cell_flow(Some(&battery)), None);
+        battery.percent = 82.;
+        battery.ac = true;
+        battery.watts = Avail::Ok(0.);
+        assert_eq!(cell_flow(Some(&battery)), None);
+        battery.watts = Avail::Ok(-5.); // Battery can supplement adapter power.
+        assert_eq!(cell_flow(Some(&battery)).unwrap().index, 4);
+        battery.percent = f32::NAN;
+        assert_eq!(cell_flow(Some(&battery)), None);
+        assert_eq!(cell_flow(None), None);
     }
 }
