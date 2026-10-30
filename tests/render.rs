@@ -251,6 +251,62 @@ fn pack_charge_fills_cells_in_order_from_bottom_to_top() {
     }
 }
 #[test]
+fn teardown_flow_animations_follow_direction_and_motion_settings() {
+    use overseer::{metrics::Avail, motion::Motion};
+    use ratatui::buffer::Buffer;
+    use std::sync::Arc;
+    fn frame(a: &mut App, w: u16, h: u16, ambient: f32, step: f32) -> Buffer {
+        a.anim.phases.insert("ambient".into(), ambient);
+        a.anim.phases.insert("bms".into(), step);
+        let mut term = Terminal::new(TestBackend::new(w, h)).unwrap();
+        term.draw(|f| ui::draw(f, a, Duration::ZERO)).unwrap();
+        term.backend().buffer().clone()
+    }
+    for (w, h) in [(120, 36), (200, 55)] {
+        let mut a = app("balanced");
+        a.motion = Motion::Full;
+        for charging in [true, false] {
+            if let Avail::Ok(battery) = &mut Arc::make_mut(a.history.back_mut().unwrap()).battery {
+                battery.percent = 82.;
+                battery.charging = charging;
+                battery.ac = charging;
+                battery.watts = Avail::Ok(if charging { 20. } else { -10. });
+            }
+            let first = frame(&mut a, w, h, 0., 0.);
+            let bms = a.parts.iter().find(|(p, _)| *p == Part::Battery).unwrap().1;
+            let x = bms.x + bms.width / 2;
+            let arrows = bms.y + 3..bms.bottom() - 1;
+            let gap = |b: &Buffer| arrows.clone().find(|y| b[(x, *y)].symbol() == " ").unwrap();
+            let second = frame(&mut a, w, h, 0.2, 1.);
+            assert_eq!(
+                gap(&second) as i32 - gap(&first) as i32,
+                if charging { 1 } else { -1 }
+            );
+            let cells: Vec<_> = a
+                .hitmap
+                .0
+                .iter()
+                .filter(|(_, priority, hit)| *priority == 2 && *hit == Hit::Part(Part::Battery))
+                .map(|(r, _, _)| *r)
+                .collect();
+            for (i, cell) in cells.into_iter().enumerate() {
+                let has_front = (cell.y + 1..cell.bottom() - 1).any(|y| {
+                    (cell.x + 1..cell.right() - 1).any(|x| second[(x, y)].symbol() == "↑")
+                });
+                assert_eq!(has_front, charging && i == 4);
+            }
+            let phases = a.anim.phases.clone();
+            a.anim.tick(&a.sample(), 1., Motion::Full, false, 60.);
+            assert_eq!(a.anim.phases, phases, "Pause freezes decorative motion");
+            for motion in [Motion::Reduced, Motion::Off] {
+                a.motion = motion;
+                assert_eq!(frame(&mut a, w, h, 0., 0.), frame(&mut a, w, h, 0.7, 5.));
+            }
+            a.motion = Motion::Full;
+        }
+    }
+}
+#[test]
 fn speaker_grilles_follow_channels_and_respect_motion_settings() {
     use overseer::{audio::Frame, motion::Motion};
     use ratatui::{buffer::Buffer, layout::Rect};

@@ -1705,6 +1705,34 @@ mod tests {
                             i == index
                         );
                     }
+                    for charging in [true, false] {
+                        if let Avail::Ok(battery) =
+                            &mut std::sync::Arc::make_mut(a.history.back_mut().unwrap()).battery
+                        {
+                            battery.charging = charging;
+                            battery.ac = charging;
+                            battery.watts = Avail::Ok(if charging { 20. } else { -10. });
+                        }
+                        a.motion = crate::motion::Motion::Full;
+                        for phase in [0., 0.9999] {
+                            a.anim.phases.insert("ambient".into(), phase);
+                            buffer.reset();
+                            wiring(&mut buffer, c, &a, mirror, &layout);
+                            let path = layout.cell_path(index, c);
+                            let endpoint = if charging == (phase == 0.) {
+                                *path.last().unwrap()
+                            } else {
+                                path[0]
+                            };
+                            assert_eq!(
+                                buffer[endpoint].symbol(),
+                                "·",
+                                "Pulse must travel from source to sink"
+                            );
+                            assert_eq!(buffer[endpoint].fg, a.theme.battery);
+                        }
+                    }
+                    a.motion = crate::motion::Motion::Off;
                 }
             }
         }
