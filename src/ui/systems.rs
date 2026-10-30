@@ -812,12 +812,11 @@ fn butterfly(b: &mut Buffer, r: Rect, a: &App, s: &Sample, network: bool) {
 }
 fn gpu(b: &mut Buffer, r: Rect, a: &App, s: &Sample) {
     let reserve = if r.height > 8 { 5 } else { 1 };
-    widgets::content(
+    gpu_fabric(
         b,
         Rect::new(r.x, r.y, r.width, r.height.saturating_sub(reserve)),
-        Part::Gpu,
-        s,
         a,
+        s,
     );
     if r.height > 8 {
         let data: Vec<_> = a
@@ -860,6 +859,91 @@ fn gpu(b: &mut Buffer, r: Rect, a: &App, s: &Sample) {
         ),
         a.theme.muted,
     );
+}
+
+fn gpu_fabric(b: &mut Buffer, r: Rect, a: &App, s: &Sample) {
+    if r.height == 0 || r.width == 0 {
+        return;
+    }
+    let footer = u16::from(r.height >= 5);
+    let labels = u16::from(r.height >= 8);
+    let art = Rect::new(
+        r.x,
+        r.y + labels,
+        r.width,
+        r.height.saturating_sub(footer + labels),
+    );
+    let (left, right) = fabric_halves(art);
+    super::tesseract::draw(b, right, a);
+    if labels > 0 {
+        text(b, r, 0, 0, "GPU ACTIVITY", a.theme.muted);
+        text(b, r, right.x - r.x, 0, "TESSERACT", a.theme.muted);
+    }
+    for y in art.y..art.bottom() {
+        text(b, r, left.width, y - r.y, "│", a.theme.wire);
+    }
+    if let Some(value) = s.gpu.value() {
+        let value = value.clamp(0., 1.);
+        let phase = if a.motion == Motion::Full {
+            a.anim.phases.get("gpu").copied().unwrap_or(0.)
+        } else {
+            0.
+        };
+        let visual = if a.motion == Motion::Full && a.cursor.is_none() {
+            a.anim.gpu.pos.clamp(0., 1.)
+        } else {
+            value
+        };
+        let ranks = widgets::tile_ranks(left.width as usize * left.height as usize);
+        let lit = (visual * ranks.len() as f32).round() as usize;
+        for y in 0..left.height {
+            for x in 0..left.width {
+                let on = ranks[y as usize * left.width as usize + x as usize] < lit;
+                let glyph = if on {
+                    if (phase - (x + y) as f32 / 12.).sin() > 0.3 {
+                        "█"
+                    } else {
+                        "▓"
+                    }
+                } else {
+                    "·"
+                };
+                text(
+                    b,
+                    left,
+                    x,
+                    y,
+                    glyph,
+                    if on { a.theme.gpu } else { a.theme.wire },
+                );
+            }
+        }
+    } else if left.height > 0 {
+        line(b, left, left.height / 2, s.gpu.label(), a.theme.muted);
+    }
+    if footer > 0 {
+        line(
+            b,
+            r,
+            r.height - 1,
+            format!(
+                "{} cores · {} · {} · aggregate utilization",
+                s.machine.gpu_cores,
+                avail(&s.gpu_mhz, |m| freq(*m)),
+                watts(&s.power[1])
+            ),
+            a.theme.muted,
+        );
+    }
+}
+
+fn fabric_halves(r: Rect) -> (Rect, Rect) {
+    let width = r.width.saturating_sub(1) / 2;
+    // The separator absorbs the spare column so both halves stay exactly equal.
+    (
+        Rect::new(r.x, r.y, width, r.height),
+        Rect::new(r.right() - width, r.y, width, r.height),
+    )
 }
 fn side_card(b: &mut Buffer, r: Rect, a: &App, s: &Sample) {
     let t = &a.theme;
@@ -1191,7 +1275,7 @@ fn side_card(b: &mut Buffer, r: Rect, a: &App, s: &Sample) {
             ),
             (format!("TEMP {}", temp(&s.gpu_temp, &a.cfg.units)), t.text),
             (format!("ANE ◇─◇─◇ {}", watts(&s.power[2])), t.ane),
-            ("Fabric / framebuffer symbolic".into(), t.muted),
+            ("Tiles: aggregate · fold: visual".into(), t.muted),
         ],
     };
     for (label, c) in rows {
@@ -1325,4 +1409,19 @@ fn inline_stats(b: &mut Buffer, r: Rect, a: &App, s: &Sample) {
     };
     line(b, r, 0, first, a.theme.text);
     line(b, r, 1, second, a.theme.muted);
+}
+
+#[cfg(test)]
+mod fabric_tests {
+    use super::*;
+    #[test]
+    fn fabric_halves_are_equal_and_inside_panel() {
+        for width in 0..240 {
+            let r = Rect::new(7, 3, width, 18);
+            let (left, right) = fabric_halves(r);
+            assert_eq!(left.width, right.width);
+            assert!(left.right() <= right.x);
+            assert!(right.right() <= r.right());
+        }
+    }
 }

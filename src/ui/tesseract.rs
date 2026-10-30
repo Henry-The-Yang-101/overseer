@@ -100,16 +100,28 @@ pub fn draw(b: &mut Buffer, r: Rect, a: &App) {
         }
     } else {
         let mut grid = BrailleGrid::new(r.width, r.height);
-        for y in 0..p.height {
-            for x in 0..p.width {
-                let v = pixels[(y * p.width + x) as usize];
-                if v > 0. {
-                    let color = if v > 0.7 {
-                        blend(a.theme.gpu, a.theme.text, (v - 0.7) / 0.3)
-                    } else {
-                        blend(a.theme.wire, a.theme.gpu, v / 0.7)
-                    };
-                    grid.set(x as i32, y as i32, color);
+        // All eight dots share one terminal foreground color. Use the strongest
+        // highlight, so a dim final sample cannot erase a lit foreground edge.
+        for y in 0..r.height as u32 {
+            for x in 0..r.width as u32 {
+                let mut brightness = 0_f32;
+                for dy in 0..4 {
+                    for dx in 0..2 {
+                        brightness =
+                            brightness.max(pixels[((y * 4 + dy) * p.width + x * 2 + dx) as usize]);
+                    }
+                }
+                let color = if brightness > 0.7 {
+                    blend(a.theme.gpu, a.theme.text, (brightness - 0.7) / 0.3)
+                } else {
+                    blend(a.theme.wire, a.theme.gpu, brightness / 0.7)
+                };
+                for dy in 0..4 {
+                    for dx in 0..2 {
+                        if pixels[((y * 4 + dy) * p.width + x * 2 + dx) as usize] > 0. {
+                            grid.set((x * 2 + dx) as i32, (y * 4 + dy) as i32, color);
+                        }
+                    }
                 }
             }
         }
