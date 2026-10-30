@@ -946,8 +946,8 @@ fn physical(b: &mut Buffer, c: Rect, available: Rect, a: &mut App) {
     }
     let audio = super::audio::frame(a);
     for (n, label) in [
-        (NRect::new(0.02, 0.62, 0.035, 0.30), "SPK"),
-        (NRect::new(0.945, 0.62, 0.035, 0.30), "SPK"),
+        (NRect::new(0.02, 0.62, 0.035, 0.30), "R"),
+        (NRect::new(0.945, 0.62, 0.035, 0.30), "L"),
     ] {
         let mut r = to_cells(n, c, mirror);
         let left = alignment(r, c) == Alignment::Left;
@@ -997,7 +997,7 @@ fn physical(b: &mut Buffer, c: Rect, available: Rect, a: &mut App) {
         text(
             b,
             available,
-            r.x - available.x + (r.width - 3) / 2,
+            r.x - available.x + r.width / 2,
             r.bottom() - available.y,
             label,
             t.muted,

@@ -69,6 +69,17 @@ fn representative_layouts() {
                 let fans = view.lines().find(|line| line.contains("FAN 0")).unwrap();
                 assert!(fans.find("FAN 0").unwrap() < fans.find("FAN 1").unwrap());
                 let rect = |part| a.parts.iter().find(|(p, _)| *p == part).unwrap().1;
+                for (part, label) in [(Part::SpeakerLeft, 'L'), (Part::SpeakerRight, 'R')] {
+                    let r = rect(part);
+                    assert_eq!(
+                        view.lines()
+                            .nth(r.bottom() as usize)
+                            .unwrap()
+                            .chars()
+                            .nth((r.x + r.width / 2) as usize),
+                        Some(label)
+                    );
+                }
                 let positions = [Part::Fan0, Part::Fan1]
                     .into_iter()
                     .chain((0..6).map(Part::Cell))
