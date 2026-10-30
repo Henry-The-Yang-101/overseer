@@ -916,7 +916,7 @@ fn physical(b: &mut Buffer, c: Rect, available: Rect, a: &mut App) {
                 battery_fill(b, inside, charge, i, a);
                 if cell_flow(s.battery.value()).is_some_and(|flow| flow.charging && flow.index == i)
                 {
-                    charging_cell(b, inside, a);
+                    charging_cell(b, inside, charge, a);
                 }
             } else {
                 let label = if s.battery.value().is_some() {
@@ -1102,14 +1102,20 @@ fn battery_fill(b: &mut Buffer, r: Rect, charge: f32, index: usize, a: &App) {
         }
     }
 }
-fn charging_cell(b: &mut Buffer, r: Rect, a: &App) {
+fn charging_cell(b: &mut Buffer, r: Rect, charge: f32, a: &App) {
     if r.width < 3 || r.height == 0 || (ambient_phase(a) * 4.).fract() >= 0.5 {
         return;
     }
     let ascii = a.cfg.ui.glyphs == "ascii";
-    // Flash a fixed top edge once every two seconds; preserve the capacity spine.
+    // Match the fill's eighth-row rounding, including the start of an empty cell.
+    let filled = (charge.clamp(0., 1.) * r.height as f32 * 8.).round() as u16;
+    let y = r
+        .height
+        .saturating_sub(filled.div_ceil(8))
+        .min(r.height - 1);
+    // Flash at the current capacity edge; preserve the capacity spine.
     for x in 1..r.width {
-        text(b, r, x, 0, if ascii { "=" } else { "━" }, a.theme.battery);
+        text(b, r, x, y, if ascii { "=" } else { "━" }, a.theme.battery);
     }
 }
 fn compact_rate(value: f64, a: &App, network: bool) -> String {

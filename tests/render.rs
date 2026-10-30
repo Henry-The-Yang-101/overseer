@@ -267,7 +267,7 @@ fn teardown_flow_animations_follow_direction_and_motion_settings() {
         a.motion = Motion::Full;
         for charging in [true, false] {
             if let Avail::Ok(battery) = &mut Arc::make_mut(a.history.back_mut().unwrap()).battery {
-                battery.percent = 82.;
+                battery.percent = 75.;
                 battery.charging = charging;
                 battery.ac = charging;
                 battery.watts = Avail::Ok(if charging { 20. } else { -10. });
@@ -291,13 +291,14 @@ fn teardown_flow_animations_follow_direction_and_motion_settings() {
                 .collect();
             for (i, cell) in cells.into_iter().enumerate() {
                 let x = cell.x + 2;
-                assert_eq!(first[(x, cell.y + 1)].symbol() == "━", charging && i == 4);
-                // The marker turns off, without moving through the interior.
+                let capacity_y = cell.bottom() - 1 - (cell.height - 2).div_ceil(2);
+                // Cell 5 is half full at 75% pack charge. Its pulse follows that edge.
                 for y in cell.y + 1..cell.bottom() - 1 {
+                    assert_eq!(
+                        first[(x, y)].symbol() == "━",
+                        charging && i == 4 && y == capacity_y
+                    );
                     assert_ne!(second[(x, y)].symbol(), "━");
-                    if y > cell.y + 1 {
-                        assert_ne!(first[(x, y)].symbol(), "━");
-                    }
                 }
             }
             let phases = a.anim.phases.clone();
