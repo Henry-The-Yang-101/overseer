@@ -856,31 +856,7 @@ fn physical(b: &mut Buffer, c: Rect, available: Rect, a: &mut App) {
                 alignment(r, c),
             );
             if let Some(charge) = charge {
-                // Six equal shares of pack charge, independent of silhouette size.
-                let fill = charge * inside.height as f32 * 8.;
-                let color = blend(t.battery, t.panel, 0.5);
-                for from_bottom in 0..inside.height {
-                    let eighths = (fill - from_bottom as f32 * 8.).round().clamp(0., 8.) as u32;
-                    if eighths == 0 {
-                        continue;
-                    }
-                    let glyph = if ascii {
-                        '#'
-                    } else {
-                        char::from_u32(0x2580 + eighths).unwrap()
-                    };
-                    let y = inside.height - 1 - from_bottom;
-                    if eighths == 8 {
-                        b.set_style(row(inside, y, 1), Style::new().bg(color));
-                    }
-                    line(
-                        b,
-                        inside,
-                        y,
-                        glyph.to_string().repeat(inside.width as usize),
-                        color,
-                    );
-                }
+                battery_fill(b, inside, charge, i, a);
             } else {
                 let label = if s.battery.value().is_some() {
                     "N/A"
@@ -959,6 +935,64 @@ fn physical(b: &mut Buffer, c: Rect, available: Rect, a: &mut App) {
     }
     edge_ports(b, c, a, mirror);
     device_labels(b, c, available, a, mirror);
+}
+fn ambient_phase(a: &App) -> f32 {
+    if a.motion == crate::motion::Motion::Full {
+        a.anim.phases.get("ambient").copied().unwrap_or(0.)
+    } else {
+        0.
+    }
+}
+fn battery_fill(b: &mut Buffer, r: Rect, charge: f32, index: usize, a: &App) {
+    let t = &a.theme;
+    let ascii = a.cfg.ui.glyphs == "ascii";
+    let phase = ambient_phase(a);
+    // A narrow level spine preserves exact eighth-row capacity beside electrode ribs.
+    let fill = charge * r.height as f32 * 8.;
+    for y in 0..r.height {
+        let eighths = (fill - (r.height - 1 - y) as f32 * 8.)
+            .round()
+            .clamp(0., 8.) as u32;
+        for x in 0..r.width {
+            if eighths == 0 {
+                if x > 0 && x % 4 == 2 {
+                    text(b, r, x, y, ".", blend(t.battery, t.panel, 0.88));
+                }
+                continue;
+            }
+            let color = blend(t.battery, t.panel, 0.50);
+            if eighths < 8 || x == 0 {
+                let glyph = if ascii {
+                    '#'
+                } else {
+                    char::from_u32(0x2580 + eighths).unwrap()
+                };
+                text(b, r, x, y, glyph.to_string(), color);
+                if eighths == 8 {
+                    b[(r.x + x, r.y + y)].set_bg(color);
+                }
+                continue;
+            }
+            let lane = (x - 1) % 4;
+            let glint = (phase - y as f32 * 0.055 - (x / 4) as f32 * 0.09 - index as f32 * 0.13)
+                .rem_euclid(1.);
+            let glow = (1. - (glint - 0.5).abs() * 7.).max(0.);
+            let glyph = if ascii {
+                ["-", "=", "-", " "][lane as usize]
+            } else {
+                ["╶", "─", "╴", " "][lane as usize]
+            };
+            text(
+                b,
+                r,
+                x,
+                y,
+                glyph,
+                blend(t.battery, t.panel, 0.67 - glow * 0.42),
+            );
+            b[(r.x + x, r.y + y)].set_bg(blend(t.battery, t.panel, 0.92));
+        }
+    }
 }
 fn compact_rate(value: f64, a: &App, network: bool) -> String {
     let bits = network && a.cfg.units.net == "bits";

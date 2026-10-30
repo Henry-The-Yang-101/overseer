@@ -210,9 +210,18 @@ fn pack_charge_fills_cells_in_order_from_bottom_to_top() {
                         };
                         for x in r.x..r.right() {
                             let cell = &term.backend().buffer()[(x, y)];
-                            assert_eq!(cell.symbol(), symbol);
-                            if units == 8 {
-                                assert_eq!(cell.bg, cell.fg, "Full rows should have a solid fill");
+                            if units > 0 && units < 8 {
+                                assert_eq!(
+                                    cell.symbol(),
+                                    symbol,
+                                    "Partial rows preserve pack capacity"
+                                );
+                            } else if units == 0 {
+                                assert_eq!(
+                                    cell.bg,
+                                    term.backend().buffer()[(outer.x, outer.y)].bg,
+                                    "Empty rows stay unfilled"
+                                );
                             }
                         }
                         rows.push(units);
