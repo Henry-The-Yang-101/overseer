@@ -286,6 +286,12 @@ impl Layout {
         let bms = self.part(Part::Battery);
         let bus_y = self.battery_top - 1;
         let left = i < 3;
+        let edge = if left { bms.x } else { bms.right() - 1 };
+        let y = bms.y + bms.height / 2;
+        if i == 2 || i == 3 {
+            // The tall central cells take the shortest route through their inward sides.
+            return vec![(if left { r.right() - 1 } else { r.x }, y), (edge, y)];
+        }
         let mut path = if i == 1 || i == 5 {
             // Reach the lower pair through the narrow gap beside the tall cells.
             let lane = if left {
@@ -301,8 +307,6 @@ impl Layout {
             vec![(x, r.y), (x, bus_y)]
         };
         let lane = if left { bms.x - 1 } else { bms.right() };
-        let edge = if left { bms.x } else { bms.right() - 1 };
-        let y = bms.y + bms.height / 2;
         path.extend([(lane, bus_y), (lane, y), (edge, y)]);
         path
     }
