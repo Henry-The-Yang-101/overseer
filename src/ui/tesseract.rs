@@ -137,15 +137,15 @@ fn vertices(phase: f32) -> [[f32; 4]; 16] {
     let angle = phase * std::f32::consts::TAU;
     std::array::from_fn(|i| {
         let mut v = std::array::from_fn(|axis| if i & (1 << axis) == 0 { -1. } else { 1. });
-        // XW rotation takes the inner cube through the outer one and back.
+        // A single XW rotation leaves the YZ plane fixed (diagonal in this view).
+        // Each quarter turn exchanges the inner and outer cubes seamlessly.
         rotate(&mut v, 0, 3, angle);
-        rotate(&mut v, 1, 3, 0.28 * angle.sin());
-        let perspective4 = 2.6 / (3.6 - v[3]);
+        let perspective4 = 2. / (3. - v[3]);
         for c in &mut v[..3] {
             *c *= perspective4;
         }
-        rotate(&mut v, 0, 2, 0.48 + 0.12 * angle.sin());
-        rotate(&mut v, 1, 2, -0.35);
+        rotate(&mut v, 0, 2, 0.55);
+        rotate(&mut v, 1, 2, 0.28);
         let perspective3 = 5. / (6. - v[2]);
         v[0] *= perspective3;
         v[1] *= perspective3;
@@ -153,15 +153,42 @@ fn vertices(phase: f32) -> [[f32; 4]; 16] {
         v
     })
 }
+fn fit(vertices: &[[f32; 4]; 16], p: Params) -> [f32; 4] {
+    let mut low = [f32::INFINITY; 2];
+    let mut high = [f32::NEG_INFINITY; 2];
+    for v in vertices {
+        for axis in 0..2 {
+            low[axis] = low[axis].min(v[axis]);
+            high[axis] = high[axis].max(v[axis]);
+        }
+    }
+    let extent = [high[0] - low[0], high[1] - low[1]];
+    // One column per side, less than half a row above/below. Keep a uniform
+    // physical scale and reserve space for both world- and pixel-sized tubes.
+    let available = [
+        (p.width as f32 / 2. - 2.).max(1.),
+        (p.height as f32 * p.aspect / 4. - 1.5).max(1.),
+    ];
+    let mut scale = f32::INFINITY;
+    for axis in 0..2 {
+        scale = scale.min(available[axis] / (extent[axis] + 0.14));
+        scale = scale.min((available[axis] - 0.96) / extent[axis]);
+    }
+    [
+        (low[0] + high[0]) / 2.,
+        (low[1] + high[1]) / 2.,
+        scale,
+        0.07_f32.max(0.48 / scale),
+    ]
+}
 fn software(p: Params) -> Vec<f32> {
     let vertices = vertices(p.phase);
-    let scale = (p.width as f32 / 2.).min(p.height as f32 * p.aspect / 4.) / 3.6;
-    let radius = 0.055_f32.max(0.48 / scale);
+    let [center_x, center_y, scale, radius] = fit(&vertices, p);
     let mut pixels = vec![0.; (p.width * p.height) as usize];
     for y in 0..p.height {
         for x in 0..p.width {
-            let px = (x as f32 + 0.5 - p.width as f32 / 2.) / (2. * scale);
-            let py = -(y as f32 + 0.5 - p.height as f32 / 2.) * p.aspect / (4. * scale);
+            let px = center_x + (x as f32 + 0.5 - p.width as f32 / 2.) / (2. * scale);
+            let py = center_y - (y as f32 + 0.5 - p.height as f32 / 2.) * p.aspect / (4. * scale);
             let mut depth = f32::NEG_INFINITY;
             let mut light = 0.;
             for i in 0..16 {
@@ -223,7 +250,8 @@ mod gpu {
                 let shade = device.new_compute_pipeline_state_with_function(&shade_function)?;
                 Ok(Self {
                     queue: device.new_command_queue(),
-                    vertices: device.new_buffer(16 * 16, MTLResourceOptions::StorageModeShared),
+                    // Sixteen projected vertices followed by the fitted camera parameters.
+                    vertices: device.new_buffer(17 * 16, MTLResourceOptions::StorageModeShared),
                     output: device.new_buffer(4, MTLResourceOptions::StorageModeShared),
                     device,
                     project,
@@ -242,7 +270,7 @@ mod gpu {
                 let command = self.queue.new_command_buffer();
                 command.set_label("Overseer tesseract projection + shading");
                 // Separate encoders establish the dependency on the projected vertices.
-                for (pipeline, count) in [(&self.project, 16), (&self.shade, count)] {
+                for (pipeline, count) in [(&self.project, 1), (&self.shade, count)] {
                     let encoder = command.new_compute_command_encoder();
                     encoder.set_compute_pipeline_state(pipeline);
                     encoder.set_bytes(
@@ -292,12 +320,29 @@ mod tests {
             }
         }
         for frame in 0..180 {
-            for v in vertices(frame as f32 / 180.) {
-                assert!(v.iter().all(|c| c.is_finite()));
-                assert!(
-                    v[0].abs() < 2.5 && v[1].abs() < 2.5,
-                    "clipped vertex: {v:?}"
-                );
+            let vertices = vertices(frame as f32 / 180.);
+            for (width, height, aspect) in [(120, 72, 2.), (240, 160, 2.), (40, 24, 1.)] {
+                let p = Params {
+                    width,
+                    height,
+                    aspect,
+                    phase: 0.,
+                };
+                let [cx, cy, scale, radius] = fit(&vertices, p);
+                assert!(scale.is_finite() && scale > 0.);
+                let half_width = width as f32 / 4.;
+                let half_height = height as f32 * aspect / 8.;
+                let mut coverage = 0_f32;
+                for v in vertices {
+                    let x = ((v[0] - cx).abs() + radius) * scale;
+                    let y = ((v[1] - cy).abs() + radius) * scale;
+                    assert!(
+                        x <= half_width - 0.99 && y <= half_height - 0.74,
+                        "stroke clipped at phase {frame}: {v:?}"
+                    );
+                    coverage = coverage.max(x / half_width).max(y / half_height);
+                }
+                assert!(coverage >= 0.74, "excessive whitespace: {coverage}");
             }
         }
         let p = Params {
@@ -310,6 +355,17 @@ mod tests {
         assert!(first.iter().any(|v| *v > 0.7));
         assert!(first.iter().any(|v| *v > 0. && *v < 0.4));
         assert_ne!(first, software(Params { phase: 0.2, ..p }));
+        let quarter_turn = software(Params { phase: 0.25, ..p });
+        let seam_error = first
+            .iter()
+            .zip(quarter_turn)
+            .map(|(a, b)| (a - b).abs())
+            .sum::<f32>()
+            / first.len() as f32;
+        assert!(
+            seam_error < 0.001,
+            "visible quarter-turn seam: {seam_error}"
+        );
         let mut anim = crate::motion::Anim::default();
         let s = crate::metrics::demo("idle", 0.);
         anim.tick(&s, 0.1, Motion::Full, true, 30.);

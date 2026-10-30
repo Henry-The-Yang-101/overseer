@@ -8,23 +8,34 @@ float4 rotate(float4 p, uint a, uint b, float angle) {
     return p;
 }
 kernel void project(constant Params &p [[buffer(0)]], device float4 *vertices [[buffer(1)]], uint i [[thread_position_in_grid]]) {
-    if (i >= 16) return;
+    if (i != 0) return;
     float angle = p.phase * 6.28318530718f;
-    float4 v;
-    for (uint axis = 0; axis < 4; ++axis) v[axis] = (i & (1 << axis)) ? 1.f : -1.f;
-    v = rotate(v, 0, 3, angle);
-    v = rotate(v, 1, 3, 0.28f * sin(angle));
-    v.xyz *= 2.6f / (3.6f - v.w);
-    v = rotate(v, 0, 2, 0.48f + 0.12f * sin(angle));
-    v = rotate(v, 1, 2, -0.35f);
-    v.xy *= 5.f / (6.f - v.z);
-    vertices[i] = v;
+    float2 low = float2(INFINITY), high = float2(-INFINITY);
+    for (uint vtx = 0; vtx < 16; ++vtx) {
+        float4 v;
+        for (uint axis = 0; axis < 4; ++axis) v[axis] = (vtx & (1 << axis)) ? 1.f : -1.f;
+        v = rotate(v, 0, 3, angle);
+        v.xyz *= 2.f / (3.f - v.w);
+        v = rotate(v, 0, 2, 0.55f);
+        v = rotate(v, 1, 2, 0.28f);
+        v.xy *= 5.f / (6.f - v.z);
+        vertices[vtx] = v;
+        low = min(low, v.xy);
+        high = max(high, v.xy);
+    }
+    float2 extent = high - low;
+    float2 available = max(float2(float(p.width) / 2.f - 2.f,
+                                  float(p.height) * p.aspect / 4.f - 1.5f), 1.f);
+    float2 fit = min(available / (extent + 0.14f), (available - 0.96f) / extent);
+    float scale = min(fit.x, fit.y);
+    vertices[16] = float4((low + high) / 2.f, scale, max(0.07f, 0.48f / scale));
 }
+
 kernel void shade(constant Params &p [[buffer(0)]], device const float4 *vertices [[buffer(1)]], device float *output [[buffer(2)]], uint i [[thread_position_in_grid]]) {
     if (i >= p.width * p.height) return;
-    float scale = min(float(p.width) / 2.f, float(p.height) * p.aspect / 4.f) / 3.6f;
-    float radius = max(0.055f, 0.48f / scale);
-    float2 pixel = float2((float(i % p.width) + 0.5f - float(p.width) / 2.f) / (2.f * scale),
+    float4 camera = vertices[16];
+    float scale = camera.z, radius = camera.w;
+    float2 pixel = camera.xy + float2((float(i % p.width) + 0.5f - float(p.width) / 2.f) / (2.f * scale),
                          -(float(i / p.width) + 0.5f - float(p.height) / 2.f) * p.aspect / (4.f * scale));
     float depth = -INFINITY, light = 0.f;
     for (uint vtx = 0; vtx < 16; ++vtx) {
