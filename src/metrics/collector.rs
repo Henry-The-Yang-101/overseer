@@ -6,6 +6,44 @@ use std::{
 };
 use sysinfo::{Disks, Networks, ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind, Users};
 
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+fn cpu_channels() -> HashMap<(String, usize, usize), String> {
+    let Ok(report) =
+        macmon::sources::IOReport::new(vec![("CPU Stats", Some("CPU Core Performance States"))])
+    else {
+        return HashMap::new();
+    };
+    report
+        .get_sample(0)
+        .filter_map(|item| {
+            let name = item.channel;
+            let (die, suffix) = if let Some(rest) = name.strip_prefix("DIE_") {
+                let (die, suffix) = rest.split_once('_')?;
+                (die.parse().ok()?, suffix)
+            } else {
+                (0, name.as_str())
+            };
+            let (label, digits) = ["E", "P", "M"].into_iter().find_map(|label| {
+                suffix
+                    .strip_prefix(&format!("{label}CPU"))
+                    .map(|digits| (label, digits))
+            })?;
+            // Only match direct numeric IDs; macmon flattens newer clustered channel names.
+            let id = digits.parse::<usize>().ok()?;
+            Some(((label.to_owned(), die, id), name))
+        })
+        .collect()
+}
+
+fn m4_pro_cluster(channel: &str) -> Option<usize> {
+    let suffix = channel
+        .strip_prefix("ECPU")
+        .or_else(|| channel.strip_prefix("PCPU"))?;
+    let bytes = suffix.as_bytes();
+    (bytes.len() == 3 && bytes.iter().all(u8::is_ascii_digit) && bytes[2] == b'0')
+        .then(|| (bytes[0] - b'0') as usize)
+}
+
 pub fn spawn_collector() -> Receiver<Sample> {
     let (tx, rx) = mpsc::sync_channel(2);
     std::thread::spawn(move || {
@@ -49,6 +87,8 @@ fn collect(tx: &mpsc::SyncSender<Sample>) -> anyhow::Result<()> {
     let mut last_power_mode = Instant::now() - Duration::from_secs(20);
     #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
     let mut sampler = macmon::Sampler::new().ok();
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    let channels = cpu_channels();
     loop {
         let began = Instant::now();
         let mut s = Sample::default();
@@ -92,6 +132,18 @@ fn collect(tx: &mpsc::SyncSender<Sample>) -> anyhow::Result<()> {
                                 .map(|c| Core {
                                     id: c.core_id,
                                     die: c.die_id,
+                                    channel: channels
+                                        .get(&(t.label.clone(), c.die_id, c.core_id))
+                                        .cloned()
+                                        .unwrap_or_else(|| format!("{}CPU{}", t.label, c.core_id)),
+                                    cluster: if info.chip_name == "Apple M4 Pro" {
+                                        // M4 Pro channel suffix: cluster, core, thread (e.g. PCPU130).
+                                        channels
+                                            .get(&(t.label.clone(), c.die_id, c.core_id))
+                                            .and_then(|name| m4_pro_cluster(name))
+                                    } else {
+                                        None
+                                    },
                                     active: c.active_ratio,
                                     scaled: c.scaled_ratio,
                                     mhz: c.freq_mhz,
@@ -190,6 +242,8 @@ fn collect(tx: &mpsc::SyncSender<Sample>) -> anyhow::Result<()> {
                     .map(|(i, c)| Core {
                         id: i,
                         die: 0,
+                        channel: format!("CPU{i}"),
+                        cluster: None,
                         active: c.usage() / 100.,
                         scaled: c.usage() / 100.,
                         mhz: 0,
@@ -755,4 +809,35 @@ fn process_usage(pid: u32) -> Option<(u64, u64)> {
 #[cfg(not(target_os = "macos"))]
 fn process_usage(_: u32) -> Option<(u64, u64)> {
     None
+}
+
+#[cfg(test)]
+mod topology_tests {
+    use super::*;
+    #[test]
+    fn m4_pro_channels_preserve_cluster_boundaries() {
+        for (name, expected) in [
+            ("ECPU000", Some(0)),
+            ("ECPU030", Some(0)),
+            ("PCPU000", Some(0)),
+            ("PCPU030", Some(0)),
+            ("PCPU100", Some(1)),
+            ("PCPU130", Some(1)),
+            ("PCPU1_CPU0", None),
+            ("PCPU0", None),
+            ("PCPUxyz", None),
+        ] {
+            assert_eq!(m4_pro_cluster(name), expected);
+        }
+        let s = demo("balanced", 10.);
+        let clusters = s.cpu_clusters();
+        assert_eq!(
+            clusters
+                .iter()
+                .map(|c| (c.tier.label.as_str(), c.id, c.cores.len()))
+                .collect::<Vec<_>>(),
+            [("P", Some(0), 4), ("P", Some(1), 4), ("E", Some(0), 4)]
+        );
+        assert_eq!(clusters[1].cores[0].channel, "PCPU100");
+    }
 }

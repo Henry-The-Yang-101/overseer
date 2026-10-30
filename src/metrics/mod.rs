@@ -68,6 +68,8 @@ pub struct Machine {
 pub struct Core {
     pub id: usize,
     pub die: usize,
+    pub channel: String,
+    pub cluster: Option<usize>,
     pub active: f32,
     pub scaled: f32,
     pub mhz: u32,
@@ -81,6 +83,45 @@ pub struct Tier {
     pub active: f32,
     pub scaled: f32,
     pub cores: Vec<Core>,
+}
+pub struct CpuCluster<'a> {
+    pub tier: &'a Tier,
+    pub die: usize,
+    pub id: Option<usize>,
+    pub cores: Vec<&'a Core>,
+}
+impl CpuCluster<'_> {
+    pub fn title(&self) -> String {
+        let kind = match self.tier.label.as_str() {
+            "P" => "PERFORMANCE",
+            "E" => "EFFICIENCY",
+            "S" => "SUPER",
+            label => label,
+        };
+        let id = self.id.map_or(String::new(), |id| format!(" {id}"));
+        let die = if self.die > 0 {
+            format!(" · DIE {}", self.die)
+        } else {
+            String::new()
+        };
+        format!("{kind}{id}{die} · ×{}", self.cores.len())
+    }
+    pub fn active(&self) -> f32 {
+        self.cores.iter().map(|c| c.active).sum::<f32>() / self.cores.len().max(1) as f32
+    }
+    pub fn mhz(&self) -> u32 {
+        let active = self.cores.iter().map(|c| c.active).sum::<f32>();
+        if active > 0. {
+            (self
+                .cores
+                .iter()
+                .map(|c| c.mhz as f32 * c.active)
+                .sum::<f32>()
+                / active) as u32
+        } else {
+            0
+        }
+    }
 }
 #[derive(Clone, Debug, Serialize)]
 pub struct Fan {
@@ -192,6 +233,25 @@ pub struct Sample {
     pub error: Option<String>,
 }
 impl Sample {
+    pub fn cpu_clusters(&self) -> Vec<CpuCluster<'_>> {
+        let mut clusters = Vec::new();
+        for tier in &self.tiers {
+            let mut groups = std::collections::BTreeMap::new();
+            for core in &tier.cores {
+                groups
+                    .entry((core.die, core.cluster))
+                    .or_insert_with(Vec::new)
+                    .push(core);
+            }
+            clusters.extend(groups.into_iter().map(|((die, id), cores)| CpuCluster {
+                tier,
+                die,
+                id,
+                cores,
+            }));
+        }
+        clusters
+    }
     pub fn total_power(&self) -> Avail<f32> {
         match (
             self.power[0].value(),

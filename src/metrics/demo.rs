@@ -31,8 +31,18 @@ pub fn demo(scenario: &str, t: f64) -> Sample {
                         * (if ti == 0 { 1. } else { 0.55 })
                 };
                 Core {
-                    id: i,
+                    id: if scenario == "three-tier-cpu" {
+                        i
+                    } else {
+                        i / 4 * 100 + i % 4 * 10
+                    },
                     die: 0,
+                    channel: if scenario == "three-tier-cpu" {
+                        format!("{label}CPU{i}")
+                    } else {
+                        format!("{label}CPU{}{}0", i / 4, i % 4)
+                    },
+                    cluster: (scenario != "three-tier-cpu").then_some(i / 4),
                     active,
                     scaled: active * 0.82,
                     mhz: (972. + (*max as f32 - 972.) * active) as u32,
