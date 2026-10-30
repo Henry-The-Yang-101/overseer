@@ -312,6 +312,63 @@ fn teardown_flow_animations_follow_direction_and_motion_settings() {
     }
 }
 #[test]
+fn teardown_fan_hubs_keep_stacked_readings_upright() {
+    use overseer::{metrics::Avail, motion::Motion};
+    use std::sync::Arc;
+    for (w, h) in [(100, 32), (120, 36), (160, 46), (200, 55)] {
+        let mut a = app("balanced");
+        a.motion = Motion::Full;
+        for orientation in ["front", "back"] {
+            a.cfg.teardown.orientation = orientation.into();
+            for glyphs in ["unicode", "ascii"] {
+                a.cfg.ui.glyphs = glyphs.into();
+                for speeds in [[0, 7200], [273, 9999]] {
+                    if let Avail::Ok(fans) = &mut Arc::make_mut(a.history.back_mut().unwrap()).fans
+                    {
+                        for (fan, rpm) in fans.iter_mut().zip(speeds) {
+                            fan.rpm = rpm;
+                        }
+                    }
+                    let mut positions = None;
+                    for phase in [0., 0.21] {
+                        for fan in a.sample().fans.value().unwrap() {
+                            a.anim.phases.insert(fan.name.clone(), phase);
+                        }
+                        let mut term = Terminal::new(TestBackend::new(w, h)).unwrap();
+                        term.draw(|f| ui::draw(f, &mut a, Duration::ZERO)).unwrap();
+                        let mut hubs = Vec::new();
+                        for (part, rpm) in [Part::Fan0, Part::Fan1].into_iter().zip(speeds) {
+                            let r = a.parts.iter().find(|(p, _)| *p == part).unwrap().1;
+                            let mut digits = Vec::new();
+                            let mut value = String::new();
+                            for y in r.y + 1..r.bottom() - 1 {
+                                for x in r.x + 1..r.right() - 1 {
+                                    let symbol = term.backend().buffer()[(x, y)].symbol();
+                                    if symbol.chars().any(|c| c.is_ascii_digit()) {
+                                        digits.push((x, y));
+                                        value.push_str(symbol);
+                                    }
+                                }
+                            }
+                            assert_eq!(value, format!("{rpm:04}"));
+                            let (x, y) = digits[0];
+                            assert_eq!(digits, [(x, y), (x + 1, y), (x, y + 1), (x + 1, y + 1)]);
+                            hubs.push(digits);
+                        }
+                        if let Some(previous) = &positions {
+                            assert_eq!(
+                                previous, &hubs,
+                                "The readout must not rotate with the vanes"
+                            );
+                        }
+                        positions = Some(hubs);
+                    }
+                }
+            }
+        }
+    }
+}
+#[test]
 fn speaker_grilles_follow_channels_and_respect_motion_settings() {
     use overseer::{audio::Frame, motion::Motion};
     use ratatui::{buffer::Buffer, layout::Rect};

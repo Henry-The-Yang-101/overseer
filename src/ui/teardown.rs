@@ -614,33 +614,19 @@ fn physical(b: &mut Buffer, c: Rect, available: Rect, a: &mut App) {
                     .value()
                     .and_then(|f| f.get(if p == Part::Fan0 { 0 } else { 1 }))
                 {
-                    let rotor_area = Rect::new(
-                        inside.x,
-                        inside.y,
-                        inside.width,
-                        inside.height.saturating_sub(1),
-                    );
                     let phase = if a.motion != crate::motion::Motion::Off {
                         a.anim.phases.get(&fan.name).copied().unwrap_or(0.)
                     } else {
                         0.
                     };
-                    rotor_mirrored(
-                        b,
-                        rotor_area,
-                        phase,
-                        if fan.rpm > 0 { t.accent } else { t.wire },
-                        ascii,
-                        alignment(r, c) == Alignment::Right,
-                    );
-                    let rpm = format!("{} rpm", fan.rpm);
-                    text(
+                    super::fan::impeller(
                         b,
                         inside,
-                        inside.width.saturating_sub(rpm.len() as u16) / 2,
-                        inside.height.saturating_sub(1),
-                        rpm,
-                        t.text,
+                        phase,
+                        fan,
+                        &t,
+                        alignment(r, c) == Alignment::Right,
+                        ascii,
                     );
                 } else {
                     side_text(b, inside, c, 0, s.fans.label(), t.muted);
