@@ -46,7 +46,7 @@ pub fn draw(b: &mut Buffer, r: Rect, a: &mut App, size: SizeClass) {
     let title = if page == Page::Network {
         "TOP NETWORK TASKS · TRAFFIC".into()
     } else {
-        format!("TOP {} TASKS", page.name().to_uppercase())
+        format!("TOP {} TASKS", page.label().to_uppercase())
     };
     let held = a.last_input.elapsed().as_millis() < 1500;
     let right = if page == Page::Gpu {

@@ -80,7 +80,7 @@ cpu
  O V E R S E E R  Apple M4 Pro  /  12 cores  /  24.0 GiB                                           SYNTHETIC / balanced
 
   1 Teardown   2 Systems                                                                 THERMAL NOMINAL   SYS 19.90 W
- ‹  CPU  40.0%         MEMORY 14.0G       ENERGY 19.90 W     DISK 222.2 MiB/s   NETWORK 1.1 MiB/s  GPU  23.9%         ›
+ ‹  CPU  40.0%         MEMORY 14.0G       ENERGY 19.90 W     STORAGE 222.2 MiB… NETWORK 1.1 MiB/s  GPU  23.9%         ›
 
  ╭ CPU · EXECUTION FLOOR · AUTOMATIC ─────────────────────────────────────────────────────────── i details · z expand ╮
  │ PERFORMANCE 0 · ×4                       PERFORMANCE 1 · ×4                       EFFICIENCY 0 · ×4                │
@@ -117,7 +117,7 @@ memory
  O V E R S E E R  Apple M4 Pro  /  12 cores  /  24.0 GiB                                           SYNTHETIC / balanced
 
   1 Teardown   2 Systems                                                                 THERMAL NOMINAL   SYS 19.90 W
- ‹  CPU  40.0%         MEMORY 14.0G       ENERGY 19.90 W     DISK 222.2 MiB/s   NETWORK 1.1 MiB/s  GPU  23.9%         ›
+ ‹  CPU  40.0%         MEMORY 14.0G       ENERGY 19.90 W     STORAGE 222.2 MiB… NETWORK 1.1 MiB/s  GPU  23.9%         ›
 
  ╭ MEMORY · ADDRESS MATRIX ───────────────────────────────────────────────────────────────────── i details · z expand ╮
  │ 14.0 GiB of 24.0 GiB · 1 cell ≈ 71.9 MiB · aggregate VM categories                                                 │
@@ -154,7 +154,7 @@ energy
  O V E R S E E R  Apple M4 Pro  /  12 cores  /  24.0 GiB                                           SYNTHETIC / balanced
 
   1 Teardown   2 Systems                                                                 THERMAL NOMINAL   SYS 19.90 W
- ‹  CPU  40.0%         MEMORY 14.0G       ENERGY 19.90 W     DISK 222.2 MiB/s   NETWORK 1.1 MiB/s  GPU  23.9%         ›
+ ‹  CPU  40.0%         MEMORY 14.0G       ENERGY 19.90 W     STORAGE 222.2 MiB… NETWORK 1.1 MiB/s  GPU  23.9%         ›
 
  ╭ ENERGY · POWER FLOW ───────────────────────────────────────────────────────────────────────── i details · z expand ╮
  │                                                                                                                    │
@@ -191,9 +191,9 @@ disk
  O V E R S E E R  Apple M4 Pro  /  12 cores  /  24.0 GiB                                           SYNTHETIC / balanced
 
   1 Teardown   2 Systems                                                                 THERMAL NOMINAL   SYS 19.90 W
- ‹  CPU  40.0%         MEMORY 14.0G       ENERGY 19.90 W     DISK 222.2 MiB/s   NETWORK 1.1 MiB/s  GPU  23.9%         ›
+ ‹  CPU  40.0%         MEMORY 14.0G       ENERGY 19.90 W     STORAGE 222.2 MiB… NETWORK 1.1 MiB/s  GPU  23.9%         ›
 
- ╭ DISK · NAND ARRAY ─────────────────────────────────────────────────────────────────────────── i details · z expand ╮
+ ╭ STORAGE · NAND ARRAY ──────────────────────────────────────────────────────────────────────── i details · z expand ╮
  │ READ 209.2 MiB/s  →   WRITE 13.0 MiB/s  ←                                                                          │
  │ ╭ NAND 01 ─────╮  ╭ NAND 02 ─────╮  ╭ NAND 03 ─────╮  ╭ NAND 04 ─────╮  ╭ NAND 05 ─────╮                           │
  │ │ ▥ ▥ ▥ ▥ ▥ ▥  │  │ ▥ ▥ ▥ ▥ ▥ ▥  │  │ ▥ ▥ ▥ ▥ ▥ ▥  │  │ ▥ ▥ ▥ ▥ ▥ ▥  │  │ ▥ ▥ ▥ ▥ ▥ ▥  │                           │
@@ -207,7 +207,7 @@ disk
  │ Macintosh HD / · 383.7 GiB / 925.7 GiB                                                                             │
  │ disk0 IOPS R 840 / W 120 · 1 volumes · i operation sizes                                                           │
  ╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
- ╭ TOP DISK TASKS ───────────────────────────────────────────────────────────────────────────────────────── 20 · IO ↓ ╮
+ ╭ TOP STORAGE TASKS ────────────────────────────────────────────────────────────────────────────────────── 20 · IO ↓ ╮
  │ READ + WRITE · bars relative to top task · sampled every 5s                                                        │
  │  #  PID     NAME                         READ + WRITE               2 MIN            READ/s       WRITE/s       RE │
  │ 01     400  WindowServer                  22.2 MiB/s  ▰▰▰▰▰▰│▰────  ⣀⣠⣶⣿⣦⣀⣀⣠⣾⣷⣦⣀⣀⣴   20.9 MiB/s   1.3 MiB/s    953 │
@@ -228,7 +228,7 @@ network
  O V E R S E E R  Apple M4 Pro  /  12 cores  /  24.0 GiB                                           SYNTHETIC / balanced
 
   1 Teardown   2 Systems                                                                 THERMAL NOMINAL   SYS 19.90 W
- ‹  CPU  40.0%         MEMORY 14.0G       ENERGY 19.90 W     DISK 222.2 MiB/s   NETWORK 1.1 MiB/s  GPU  23.9%         ›
+ ‹  CPU  40.0%         MEMORY 14.0G       ENERGY 19.90 W     STORAGE 222.2 MiB… NETWORK 1.1 MiB/s  GPU  23.9%         ›
 
  ╭ NETWORK · SIGNAL TRACES ───────────────────────────────────────────────────────────────────── i details · z expand ╮
  │ en0      ◂ •────────•────────•────────•────────•─── ┤ NIC ├─ SoC     ↓ 390.7 KiB/s  ↑ 784.6 KiB/s                  │
@@ -265,7 +265,7 @@ gpu
  O V E R S E E R  Apple M4 Pro  /  12 cores  /  24.0 GiB                                           SYNTHETIC / balanced
 
   1 Teardown   2 Systems                                                                 THERMAL NOMINAL   SYS 19.90 W
- ‹  CPU  40.0%         MEMORY 14.0G       ENERGY 19.90 W     DISK 222.2 MiB/s   NETWORK 1.1 MiB/s  GPU  23.9%         ›
+ ‹  CPU  40.0%         MEMORY 14.0G       ENERGY 19.90 W     STORAGE 222.2 MiB… NETWORK 1.1 MiB/s  GPU  23.9%         ›
 
  ╭ GPU · SHADER FABRIC ───────────────────────────────────────────────────────────────────────── i details · z expand ╮
  │ ····▓▓·▓▓···········▓·····▓▓▓···▓····▓·▓▓···█········█·█│                          #**!**                          │

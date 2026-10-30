@@ -50,7 +50,7 @@ pub fn draw(b: &mut Buffer, r: Rect, a: &mut App, size: SizeClass) {
             avail(&s.power_mode, |mode| mode.label().into())
         )
     } else {
-        format!("{} · {}", a.page.name().to_uppercase(), a.page.title())
+        format!("{} · {}", a.page.label().to_uppercase(), a.page.title())
     };
     let subtitle = if a.expanded {
         "i details · z restore tasks"
@@ -157,7 +157,7 @@ fn strip(b: &mut Buffer, r: Rect, a: &mut App, size: SizeClass) {
             0,
             format!(
                 "{} {}  ›",
-                a.page.name().to_uppercase(),
+                a.page.label().to_uppercase(),
                 headline(a.page, &s, a)
             ),
             widgets::tint(a.page.part(), t),
@@ -184,7 +184,7 @@ fn strip(b: &mut Buffer, r: Rect, a: &mut App, size: SizeClass) {
                 || (*p == Page::Energy && s.thermal.value().is_some_and(|v| v != "NOMINAL"));
             let label = format!(
                 " {} {}{} ",
-                p.name().to_uppercase(),
+                p.label().to_uppercase(),
                 headline(*p, &s, a),
                 if warning { " !" } else { "" }
             );

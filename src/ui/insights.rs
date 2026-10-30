@@ -71,7 +71,7 @@ pub fn growth(p: &crate::metrics::Proc, s: &Sample, a: &App, seconds: f64) -> St
 fn details(a: &App, s: &Sample) -> Vec<String> {
     let mut lines = vec![format!(
         "{} · extended sample age {:.1}s",
-        a.page.name().to_uppercase(),
+        a.page.label().to_uppercase(),
         (s.at - s.extra.at).max(0.)
     )];
     if matches!(a.page, Page::Network | Page::Disk | Page::Energy) && s.extra.stale(s.at) {

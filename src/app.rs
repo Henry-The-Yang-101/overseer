@@ -58,6 +58,12 @@ impl Page {
     pub fn name(self) -> &'static str {
         ["cpu", "memory", "energy", "disk", "network", "gpu"][self.index()]
     }
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Disk => "storage",
+            _ => self.name(),
+        }
+    }
     pub fn title(self) -> &'static str {
         [
             "EXECUTION FLOOR",
@@ -334,7 +340,7 @@ pub fn commands() -> Vec<Command> {
     }
     for page in Page::ALL {
         c.push(Command {
-            name: format!("Systems: {}", page.name().to_uppercase()),
+            name: format!("Systems: {}", page.label().to_uppercase()),
             key: "← →",
             action: Action::GoPage(page),
         });

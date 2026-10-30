@@ -131,16 +131,16 @@ disk
  O V E R S E E R  M4 Pro                                              SYNTHETIC
 
   1 Teardown   2 Systems
- ‹  DISK 222.2 MiB/s  ›                                          ○ ○ ○ ● ○ ○
+ ‹  STORAGE 222.2 MiB/s  ›                                       ○ ○ ○ ● ○ ○
 
- ╭ DISK · NAND ARRAY ─────────────────────────────────── i details · z expand ╮
+ ╭ STORAGE · NAND ARRAY ──────────────────────────────── i details · z expand ╮
  │ Macintosh HD   READ 209.2 MiB/s   WRITE 13.0 MiB/s                         │
  │ disk0 IOPS R 840 / W 120                                                   │
  │ READ ▲      ⣀       ⢀⣠⣤⣶⣶⣶⣦⣤⣀       ⢀⣀⣤⣶⣶⣶⣦⣤⣀        ⣀⣤⣶⣶⣶⣶⣤⣀        ⣀⣤⣴   │
  │             ⠿⠿⠶⠶⠶⠶⠶⠿⠿⠿⠿⠿⠿⠿⠿⠿⠿⠿⠶⠶⠶⠶⠶⠾⠿⠿⠿⠿⠿⠿⠿⠿⠿⠿⠷⠶⠶⠶⠶⠾⠿⠿⠿⠿⠿⠿⠿⠿⠿⠿⠷⠶⠶⠶⠶⠾⠿⠿⠿⠿   │
  │ WRITE▼                                                                     │
  ╰────────────────────────────────────────────────────────────────────────────╯
- ╭ TOP DISK TASKS ───────────────────────────────────────────────── 20 · IO ↓ ╮
+ ╭ TOP STORAGE TASKS ────────────────────────────────────────────── 20 · IO ↓ ╮
  │ READ + WRITE · bars relative to top task · sampled every 5s                │
  │  #  NAME                               READ + WRITE          WRITE/s       │
  │ 01  WindowServer                        22.2 MiB/s  ▰▰▰▰│▰── 1.3 MiB/s     │
