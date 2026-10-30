@@ -312,7 +312,7 @@ fn teardown_flow_animations_follow_direction_and_motion_settings() {
     }
 }
 #[test]
-fn teardown_fan_hubs_keep_stacked_readings_upright() {
+fn teardown_fan_hubs_center_readings_and_keep_them_upright() {
     use overseer::{metrics::Avail, motion::Motion};
     use std::sync::Arc;
     for (w, h) in [(100, 32), (120, 36), (160, 46), (200, 55)] {
@@ -350,9 +350,41 @@ fn teardown_fan_hubs_keep_stacked_readings_upright() {
                                     }
                                 }
                             }
-                            assert_eq!(value, format!("{rpm:04}"));
+                            let inline = w >= 160;
+                            assert_eq!(
+                                value,
+                                if inline {
+                                    rpm.to_string()
+                                } else {
+                                    format!("{rpm:04}")
+                                }
+                            );
                             let (x, y) = digits[0];
-                            assert_eq!(digits, [(x, y), (x + 1, y), (x, y + 1), (x + 1, y + 1)]);
+                            if inline {
+                                assert_eq!(
+                                    digits,
+                                    (0..value.len() as u16)
+                                        .map(|i| (x + i, y))
+                                        .collect::<Vec<_>>()
+                                );
+                                for neighbor in [x - 1, x + value.len() as u16] {
+                                    assert_eq!(
+                                        term.backend().buffer()[(neighbor, y)].symbol(),
+                                        " "
+                                    );
+                                }
+                                assert!(
+                                    (x as i32 * 2 + value.len() as i32
+                                        - (r.x as i32 * 2 + r.width as i32))
+                                        .abs()
+                                        <= 1
+                                );
+                            } else {
+                                assert_eq!(
+                                    digits,
+                                    [(x, y), (x + 1, y), (x, y + 1), (x + 1, y + 1)]
+                                );
+                            }
                             hubs.push(digits);
                         }
                         if let Some(previous) = &positions {

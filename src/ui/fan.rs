@@ -94,15 +94,25 @@ pub fn impeller(
     let left = (r.width - 2) / 2;
     let label_x = if mirror { r.width - left - 2 } else { left };
     let label_y = (r.height - 1) / 2;
-    // Align the hub to the two-by-two readout, keeping text upright when mirrored.
     let cx = label_x as f32 * 2. + 1.5;
-    let cy = label_y as f32 * 4. + 3.5;
-    let radius = (cx
-        .min(r.width as f32 * 2. - 1. - cx)
-        .min(cy)
-        .min(r.height as f32 * 4. - 1. - cy)
-        - 1.)
-        .max(1.);
+    let radius_at = |cy: f32| {
+        (cx.min(r.width as f32 * 2. - 1. - cx)
+            .min(cy)
+            .min(r.height as f32 * 4. - 1. - cy)
+            - 1.)
+            .max(1.)
+    };
+    let hub_radius = |radius: f32| (radius * 0.46).max(5.5).min(radius * 0.75);
+    let number = fan.rpm.to_string();
+    let inline_cy = label_y as f32 * 4. + 1.5;
+    let inline_radius = radius_at(inline_cy);
+    // Reserve at least four digits, a blank column on each side, and vertical
+    // clearance inside the circle. The layout stays stable as the speed changes.
+    let padded_half_width = number.len().max(4) as f32 + 2.;
+    let inline = inline_radius >= 5. && hub_radius(inline_radius) >= padded_half_width.hypot(3.);
+    // Center the circle on either one row or the compact two-by-two readout.
+    let cy = if inline { inline_cy } else { inline_cy + 2. };
+    let radius = radius_at(cy);
     let color = if fan.rpm > 0 {
         theme.accent
     } else {
@@ -110,7 +120,7 @@ pub fn impeller(
     };
     let mut grid = BrailleGrid::new(r.width, r.height);
     if radius >= 5. {
-        let hub = (radius * 0.46).max(5.5).min(radius * 0.75);
+        let hub = hub_radius(radius);
         grid.circle(cx, cy, radius, blend(color, theme.panel, 0.35));
         grid.circle(cx, cy, hub, color);
         // Short, closely spaced vanes match a centrifugal intake. Halve the visual
@@ -134,22 +144,26 @@ pub fn impeller(
         }
         grid.flush(r, b, ascii);
     }
-    let digits = format!("{:04}", fan.rpm);
-    if digits.len() == 4 {
+    let digits = if inline {
+        number
+    } else {
+        format!("{:04}", fan.rpm)
+    };
+    if !inline && digits.len() == 4 {
         for (row, value) in [&digits[..2], &digits[2..]].into_iter().enumerate() {
             let label = Rect::new(r.x + label_x, r.y + label_y + row as u16, 2, 1);
             b.set_style(label, Style::new().bg(theme.panel));
             text(b, r, label_x, label_y + row as u16, value, theme.text);
         }
     } else {
-        // Preserve an unexpected larger reading rather than truncating telemetry.
-        text(
-            b,
-            r,
-            r.width.saturating_sub(digits.len() as u16) / 2,
-            label_y,
-            digits,
-            theme.text,
-        );
+        // Keep the number upright and centered, including unexpected longer readings.
+        let width = digits.len() as u16;
+        let left = r.width.saturating_sub(width) / 2;
+        let x = if mirror {
+            r.width.saturating_sub(left + width)
+        } else {
+            left
+        };
+        text(b, r, x, label_y, digits, theme.text);
     }
 }
