@@ -1,3 +1,5 @@
+![Overseer terminal demo](assets/overseer-demo.gif)
+
 # Overseer
 
 A keyboard-first hardware observatory for the terminal. Rust, Ratatui, and real Apple Silicon telemetry from macmon. Everything stays on your machine.
