@@ -1,5 +1,4 @@
 //! Small projections of official hook/app-server fields. Unknown fields are ignored.
-//! Rollout decoding is deliberately isolated: persisted JSONL is not a stable API.
 use super::*;
 use serde_json::Value;
 
@@ -19,13 +18,6 @@ fn event(
         replayed,
         kind,
     }
-}
-
-pub fn timestamp(v: &Value, fallback: u64) -> u64 {
-    v.as_str()
-        .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
-        .and_then(|d| u64::try_from(d.timestamp_millis()).ok())
-        .unwrap_or(fallback)
 }
 
 /// Official command-hook JSON input. Raw prompts, arguments and responses never leave this function.
@@ -106,95 +98,6 @@ pub fn hook(provider: Provider, scope: &str, v: &Value, received: u64) -> Vec<Ev
     };
     events.push(make(kind));
     events
-}
-
-pub fn metadata(v: &Value) -> Metadata {
-    Metadata {
-        cwd: text(v, "cwd"),
-        title: text(v, "thread_name"),
-        model: text(v, "model"),
-        version: text(v, "cli_version"),
-        parent_id: text(v, "parent_thread_id").or_else(|| {
-            v.pointer("/source/subagent/thread_spawn/parent_thread_id")
-                .and_then(Value::as_str)
-                .map(clean)
-        }),
-    }
-}
-
-fn usage(v: &Value) -> Usage {
-    Usage {
-        input: v.get("input_tokens").and_then(Value::as_u64),
-        cached_input: v.get("cached_input_tokens").and_then(Value::as_u64),
-        output: v.get("output_tokens").and_then(Value::as_u64),
-        ..Usage::default()
-    }
-}
-
-/// A rollout's session identity comes from its session_meta header, never its working directory.
-pub fn codex_line(
-    key: &SessionKey,
-    v: &Value,
-    current_turn: &mut Option<String>,
-    received: u64,
-    replayed: bool,
-) -> Vec<Event> {
-    let p = &v["payload"];
-    let typ = v["type"].as_str().unwrap_or_default();
-    let at = timestamp(&v["timestamp"], received).min(received.saturating_add(5000));
-    if typ == "turn_context" || (typ == "event_msg" && p["type"] == "task_started") {
-        *current_turn = text(p, "turn_id");
-    }
-    let turn = text(p, "turn_id").or_else(|| current_turn.clone());
-    let make = |kind| event(key, Transport::Jsonl, at, turn.clone(), replayed, kind);
-    let kind = match typ {
-        "session_meta" | "turn_context" => EventKind::Metadata(metadata(p)),
-        "token_usage_record" => EventKind::Usage(usage(&p["thread_token_usage"])),
-        "event_msg" => match p["type"].as_str().unwrap_or_default() {
-            "task_started" => EventKind::TurnStarted,
-            "task_complete" => EventKind::TurnEnded {
-                outcome: Outcome::Completed,
-            },
-            "turn_aborted" => EventKind::TurnEnded {
-                outcome: Outcome::Interrupted,
-            },
-            "token_count" if p["info"].is_object() => {
-                let info = &p["info"];
-                let mut u = usage(&info["total_token_usage"]);
-                u.context_used = info["last_token_usage"]["total_tokens"].as_u64();
-                u.context_limit = info["model_context_window"].as_u64();
-                EventKind::Usage(u)
-            }
-            "context_compacted" => EventKind::CompactFinished,
-            _ => return vec![],
-        },
-        "response_item" => {
-            let id = text(p, "call_id").or_else(|| text(p, "id"));
-            match (p["type"].as_str().unwrap_or_default(), id) {
-                ("function_call" | "custom_tool_call", Some(id)) => EventKind::ToolRequested {
-                    id,
-                    name: text(p, "name").unwrap_or_else(|| "tool".into()),
-                },
-                ("function_call_output" | "custom_tool_call_output", Some(id)) => {
-                    EventKind::ToolFinished { id, failed: None }
-                }
-                // Hosted web search bypasses command hooks, but has a structured rollout item.
-                ("web_search_call", Some(id)) if p["status"] == "completed" => {
-                    EventKind::ToolFinished {
-                        id,
-                        failed: Some(false),
-                    }
-                }
-                ("web_search_call", Some(id)) => EventKind::ToolStarted {
-                    id,
-                    name: "web_search".into(),
-                },
-                _ => return vec![],
-            }
-        }
-        _ => return vec![],
-    };
-    vec![make(kind)]
 }
 
 /// Adapter seam for a future connection to an explicitly selected app-server.

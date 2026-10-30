@@ -3,7 +3,6 @@ pub mod cli;
 pub mod decode;
 pub mod reducer;
 mod runtime;
-mod tail;
 mod transport;
 pub use runtime::{Monitor, Options};
 
@@ -41,7 +40,6 @@ pub struct SessionKey {
 #[serde(rename_all = "snake_case")]
 pub enum Transport {
     Hook,
-    Jsonl,
     AppServer,
     Cloud,
 }
@@ -151,10 +149,7 @@ pub struct Session {
 
 #[derive(Clone, Debug, Default, Serialize)]
 pub struct Health {
-    pub bytes_read: u64,
     pub malformed_records: u64,
-    pub skipped_bytes: u64,
-    pub scan_limited: bool,
     pub cloud_truncated: bool,
     pub last_cloud_poll_ms: Option<u64>,
     pub errors: Vec<String>,

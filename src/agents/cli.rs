@@ -29,15 +29,10 @@ pub enum AgentCommand {
 
 #[derive(Clone, Debug, Args)]
 pub struct Sources {
-    /// Codex home directories to observe. Repeat for alternate homes.
-    #[arg(long)]
-    pub codex_home: Vec<PathBuf>,
     #[arg(long)]
     pub socket: Option<PathBuf>,
     #[arg(long)]
     pub no_hooks: bool,
-    #[arg(long)]
-    pub no_logs: bool,
     /// Opt in to lower-fidelity Codex Cloud status polling.
     #[arg(long)]
     pub cloud: bool,
@@ -48,12 +43,6 @@ pub struct Sources {
 impl Sources {
     fn options(self) -> Options {
         let mut options = Options::default();
-        if !self.codex_home.is_empty() {
-            options.codex_homes = self.codex_home;
-        }
-        if self.no_logs {
-            options.codex_homes.clear();
-        }
         if self.no_hooks {
             options.socket = None;
         } else if self.socket.is_some() {

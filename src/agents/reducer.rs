@@ -320,6 +320,6 @@ impl Entry {
 }
 
 fn call_key(event: &Event, id: &str) -> String {
-    // Codex and Claude call ids are session-scoped. JSONL echoes can omit turn ids.
+    // Codex and Claude call ids are session-scoped; hook deliveries can omit turn ids.
     format!("{}:{id}", event.session.id)
 }

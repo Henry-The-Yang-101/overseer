@@ -50,7 +50,7 @@ fn duplicate_and_reordered_transports_preserve_parallel_calls_and_terminal_turns
                 name: "exec_command".into(),
             },
         );
-        echo.transport = Transport::Jsonl;
+        echo.transport = Transport::Hook;
         echo.turn_id = None;
         r.apply(echo, 3);
         r.apply(event(3, EventKind::ApprovalRequested { id: id.into() }), 3);
@@ -59,7 +59,7 @@ fn duplicate_and_reordered_transports_preserve_parallel_calls_and_terminal_turns
     prompt_echo.turn_id = None;
     r.apply(prompt_echo, 3);
     assert_eq!(snapshot(&r).sessions[0].turn_id.as_deref(), Some("turn"));
-    // A transcript completion still matters when the post-tool hook was lost.
+    // Repeated and delayed hook deliveries must preserve completion.
     let mut end = event(
         4,
         EventKind::ToolFinished {
@@ -67,7 +67,7 @@ fn duplicate_and_reordered_transports_preserve_parallel_calls_and_terminal_turns
             failed: None,
         },
     );
-    end.transport = Transport::Jsonl;
+    end.transport = Transport::Hook;
     r.apply(end.clone(), 4);
     r.apply(end, 5);
     r.apply(
@@ -167,17 +167,18 @@ fn hook_identity_privacy_and_usage_are_shared_without_mixing_homes_or_children()
             .all(|s| s.key.id == "child" && s.metadata.parent_id.as_deref() == Some("root"))
     );
     assert!(!serde_json::to_string(&snap).unwrap().contains("SECRET"));
-    let mut turn = None;
-    let usage = json!({"type":"event_msg","payload":{"type":"token_count","info":{
-        "total_token_usage":{"input_tokens":100,"output_tokens":20}, "last_token_usage":{"total_tokens":60}, "model_context_window":128000}}});
-    apply(
-        &mut r,
-        decode::codex_line(&key(), &usage, &mut turn, 10, true),
-    );
-    apply(
-        &mut r,
-        decode::codex_line(&key(), &usage, &mut turn, 10, true),
-    );
+    for _ in 0..2 {
+        let mut observation = event(
+            10,
+            EventKind::Usage(Usage {
+                input: Some(100),
+                context_used: Some(60),
+                ..Usage::default()
+            }),
+        );
+        observation.replayed = true;
+        r.apply(observation, 10);
+    }
     let s = snapshot(&r)
         .sessions
         .into_iter()
@@ -286,7 +287,6 @@ fn real_hook_transport_is_fail_open_exclusive_and_publishes_immutable_snapshots(
     use std::os::unix::fs::PermissionsExt;
     std::fs::set_permissions(directory.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
     let options = Options {
-        codex_homes: Vec::new(),
         socket: Some(socket.clone()),
         ..Options::default()
     };
@@ -351,7 +351,6 @@ fn cloud_adapter_paginates_structured_statuses_without_blocking_or_leaving_logs(
     fs::write(&binary, "#!/bin/sh\nprintf 'private diagnostics' > error.log\ncase \"$*\" in\n  *--cursor*) printf '%s' '{\"tasks\":[{\"id\":\"second\",\"status\":\"ready\"}],\"cursor\":null}' ;;\n  *) printf '%s' '{\"tasks\":[{\"id\":\"first\",\"status\":\"pending\"}],\"cursor\":\"next\"}' ;;\nesac\n").unwrap();
     fs::set_permissions(&binary, fs::Permissions::from_mode(0o700)).unwrap();
     let monitor = Monitor::start(Options {
-        codex_homes: Vec::new(),
         socket: None,
         cloud: true,
         cloud_executable: binary,
