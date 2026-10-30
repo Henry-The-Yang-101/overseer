@@ -324,6 +324,35 @@ fn teardown_flow_animations_follow_direction_and_motion_settings() {
     }
 }
 #[test]
+fn teardown_ssd_border_keeps_its_storage_color() {
+    use overseer::metrics::Avail;
+    use std::sync::Arc;
+    let mut a = app("balanced");
+    for read in [0., 1_000_000.] {
+        if let Avail::Ok(disk) = &mut Arc::make_mut(a.history.back_mut().unwrap()).disk {
+            disk.read = read;
+            disk.write = 0.;
+        }
+        for highlight in [false, true] {
+            a.cfg.teardown.highlight_active = highlight;
+            for selected in [false, true] {
+                a.selection = selected.then_some(Part::Disk);
+                a.follow = a.sample().processes.first().cloned();
+                let mut term = Terminal::new(TestBackend::new(200, 55)).unwrap();
+                term.draw(|f| ui::draw(f, &mut a, Duration::ZERO)).unwrap();
+                let r = a
+                    .parts
+                    .iter()
+                    .find(|(part, _)| *part == Part::Disk)
+                    .unwrap()
+                    .1;
+                let color = term.backend().buffer()[(r.x, r.y + 1)].fg;
+                assert!(color == a.theme.disk || color == ui::theme::quantize(a.theme.disk));
+            }
+        }
+    }
+}
+#[test]
 fn teardown_memory_pressure_colors_both_readouts_without_a_notice() {
     use overseer::metrics::{self, Avail};
     use ratatui::style::Color;

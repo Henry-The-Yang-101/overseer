@@ -593,7 +593,9 @@ fn physical(b: &mut Buffer, c: Rect, available: Rect, a: &mut App) {
         let p = spec.part;
         let selected = a.selection == Some(p);
         let activity = crate::app::metric(p, &s);
-        let color = if selected {
+        let color = if p == Part::Disk {
+            t.disk
+        } else if selected {
             t.accent
         } else if a.cfg.teardown.highlight_active && activity > 0.02 {
             widgets::tint(p, &t)
@@ -835,7 +837,7 @@ fn physical(b: &mut Buffer, c: Rect, available: Rect, a: &mut App) {
             }
             _ => {}
         }
-        if a.follow.is_some() && !matches!(p, Part::Soc | Part::Memory) {
+        if a.follow.is_some() && !matches!(p, Part::Soc | Part::Memory | Part::Disk) {
             for y in r.y..r.bottom() {
                 for x in r.x..r.right() {
                     let cell = &mut b[(x, y)];
