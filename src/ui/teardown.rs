@@ -704,7 +704,11 @@ fn physical(b: &mut Buffer, c: Rect, available: Rect, a: &mut App) {
                     } else {
                         format!("{:.0}G", s.memory_used as f64 / 1024f64.powi(3))
                     },
-                    t.text,
+                    match s.pressure.value().map(String::as_str) {
+                        Some("WARN") => Color::Rgb(255, 215, 95),
+                        Some("CRITICAL") => Color::Rgb(255, 95, 95),
+                        _ => t.text,
+                    },
                 );
             }
             Part::Power => {

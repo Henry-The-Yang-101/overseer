@@ -715,21 +715,6 @@ impl App {
             }
         }
         if matches!(
-            s.pressure.value().map(String::as_str),
-            Some("WARN" | "CRITICAL")
-        ) {
-            self.toast(
-                "memory",
-                format!(
-                    "Memory pressure {} · Enter on Memory to inspect",
-                    s.pressure.value().unwrap()
-                ),
-                s.pressure.value().unwrap() == "CRITICAL",
-            );
-        } else {
-            self.toasts.retain(|t| t.key != "memory");
-        }
-        if matches!(
             s.thermal.value().map(String::as_str),
             Some("SERIOUS" | "CRITICAL")
         ) {

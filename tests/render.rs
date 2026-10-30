@@ -312,6 +312,51 @@ fn teardown_flow_animations_follow_direction_and_motion_settings() {
     }
 }
 #[test]
+fn teardown_memory_pressure_colors_both_readouts_without_a_notice() {
+    use overseer::metrics::{self, Avail};
+    use ratatui::style::Color;
+    for theme in ["mono", "holo"] {
+        let mut a = app("balanced");
+        a.theme = ui::theme::Theme::get(theme);
+        for (pressure, color) in [
+            (Some("NORMAL"), a.theme.text),
+            (Some("WARN"), Color::Rgb(255, 215, 95)),
+            (Some("CRITICAL"), Color::Rgb(255, 95, 95)),
+            (Some("NORMAL"), a.theme.text),
+            (None, a.theme.text),
+        ] {
+            let mut sample = metrics::demo("balanced", a.latest_time() + 1.);
+            sample.memory_used = (20.3 * 1024f64.powi(3)) as u64;
+            sample.pressure = pressure.map_or_else(
+                || Avail::Unsupported("Unavailable".into()),
+                |value| Avail::Ok(value.into()),
+            );
+            a.ingest(sample);
+            assert!(a.toasts.iter().all(|toast| toast.key != "memory"));
+            let mut term = Terminal::new(TestBackend::new(200, 55)).unwrap();
+            term.draw(|f| ui::draw(f, &mut a, Duration::ZERO)).unwrap();
+            let mut modules = 0;
+            for (_, r) in a.parts.iter().filter(|(part, _)| *part == Part::Memory) {
+                let cells = (r.x + 1..r.right() - 1)
+                    .map(|x| &term.backend().buffer()[(x, r.bottom() - 2)])
+                    .filter(|cell| cell.symbol() != " ")
+                    .collect::<Vec<_>>();
+                assert_eq!(
+                    cells.iter().map(|cell| cell.symbol()).collect::<String>(),
+                    "20.3G"
+                );
+                assert!(
+                    cells
+                        .iter()
+                        .all(|cell| { cell.fg == color || cell.fg == ui::theme::quantize(color) })
+                );
+                modules += 1;
+            }
+            assert_eq!(modules, 2);
+        }
+    }
+}
+#[test]
 fn teardown_fan_hubs_center_readings_and_keep_them_upright() {
     use overseer::{metrics::Avail, motion::Motion};
     use std::sync::Arc;
