@@ -1,4 +1,5 @@
 pub mod audio;
+pub mod donut;
 pub mod insights;
 pub mod kit;
 pub mod overlays;
@@ -6,7 +7,6 @@ pub mod ports;
 pub mod processes;
 pub mod systems;
 pub mod teardown;
-pub mod tesseract;
 pub mod theme;
 pub mod widgets;
 use crate::{

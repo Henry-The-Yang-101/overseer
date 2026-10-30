@@ -831,10 +831,10 @@ fn gpu_fabric(b: &mut Buffer, r: Rect, a: &App, s: &Sample) {
         r.height.saturating_sub(footer + labels),
     );
     let (left, right) = fabric_halves(art);
-    super::tesseract::draw(b, right, a);
+    super::donut::draw(b, right, a);
     if labels > 0 {
         text(b, r, 0, 0, "GPU ACTIVITY", a.theme.muted);
-        text(b, r, right.x - r.x, 0, "TESSERACT", a.theme.muted);
+        text(b, r, right.x - r.x, 0, "DONUT", a.theme.muted);
     }
     for y in art.y..art.bottom() {
         text(b, r, left.width, y - r.y, "│", a.theme.wire);
@@ -1232,7 +1232,7 @@ fn side_card(b: &mut Buffer, r: Rect, a: &App, s: &Sample) {
             ),
             (format!("TEMP {}", temp(&s.gpu_temp, &a.cfg.units)), t.text),
             (format!("ANE ◇─◇─◇ {}", watts(&s.power[2])), t.ane),
-            ("Tiles: aggregate · fold: visual".into(), t.muted),
+            ("Tiles: aggregate · donut: visual".into(), t.muted),
         ],
     };
     for (label, c) in rows {
