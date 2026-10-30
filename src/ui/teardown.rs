@@ -708,15 +708,22 @@ fn physical(b: &mut Buffer, c: Rect, available: Rect, a: &mut App) {
                     alignment(r, c) == Alignment::Right,
                     a,
                 );
+                let used = s.memory_used as f64 / 1024f64.powi(3);
+                let value = if inside.width >= 5 {
+                    format!("{used:.1}")
+                } else {
+                    format!("{used:.0}")
+                };
+                let full = format!("{value}GiB");
                 side_text(
                     b,
                     inside,
                     c,
                     inside.height.saturating_sub(1),
-                    if inside.width >= 5 {
-                        format!("{:.1}G", s.memory_used as f64 / 1024f64.powi(3))
+                    if full.width() <= inside.width as usize {
+                        full
                     } else {
-                        format!("{:.0}G", s.memory_used as f64 / 1024f64.powi(3))
+                        format!("{value}G")
                     },
                     match s.pressure.value().map(String::as_str) {
                         Some("WARN") => Color::Rgb(255, 215, 95),
