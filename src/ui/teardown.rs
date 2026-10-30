@@ -1484,9 +1484,11 @@ fn wiring(b: &mut Buffer, c: Rect, a: &App, mirror: bool, layout: &Layout) {
                 (lane, y),
                 (lane, layout.power_y),
                 (center, layout.power_y),
+                (center, bms.y),
             ]);
         }
     }
+    let flow = cell_flow(s.battery.value());
     // Paint the active input last so another port sharing the trunk cannot hide it.
     if let Some(path) = power_path {
         trace(
@@ -1496,30 +1498,24 @@ fn wiring(b: &mut Buffer, c: Rect, a: &App, mirror: bool, layout: &Layout) {
             blend(t.battery, t.panel, 0.70),
             moving.then_some((phase, blend(t.battery, t.panel, 0.35))),
         );
+    } else {
+        // Keep the battery's rail connection when an input cannot be identified.
+        let mut branch = [(center, layout.power_y), (center, bms.y)];
+        if flow.is_some_and(|f| !f.charging) {
+            branch.reverse();
+        }
+        trace(
+            b,
+            c,
+            &branch,
+            if flow.is_some() {
+                blend(t.battery, t.panel, 0.30)
+            } else {
+                wire
+            },
+            (moving && flow.is_some()).then_some((phase, t.battery)),
+        );
     }
-    let flow = cell_flow(s.battery.value());
-    let battery_color = blend(t.battery, t.panel, 0.30);
-    let powered = s.battery.value().is_some_and(|v| v.ac) || flow.is_some();
-    let mut battery_branch = [(center, layout.power_y), (center, bms.y)];
-    if flow.is_some_and(|f| !f.charging) {
-        battery_branch.reverse();
-    }
-    trace(
-        b,
-        c,
-        &battery_branch,
-        if flow.is_some() { battery_color } else { wire },
-        (moving && flow.is_some()).then_some((phase, t.battery)),
-    );
-    // Mark the BMS connection on the system rail without another component box.
-    text(
-        b,
-        c,
-        center - c.x,
-        layout.power_y - c.y,
-        "●",
-        if powered { battery_color } else { wire },
-    );
     if !a.cells
         && let Some(flow) = flow
     {
@@ -1620,6 +1616,44 @@ fn trace(
 mod tests {
     use super::*;
     use crate::{config::Config, metrics::Avail};
+
+    #[test]
+    fn power_input_trace_curves_into_bms_with_one_continuous_pulse() {
+        for mirror in [false, true] {
+            let c = Rect::new(2, 3, 107, 38);
+            let layout = Layout::new(c, mirror);
+            let center = c.x + c.width / 2;
+            let bms = layout.part(Part::Battery);
+            let mut a = App::new(Config::default(), Some("balanced".into()));
+            assert!(
+                crate::metrics::ports::power_input(&a.sample())
+                    .value()
+                    .is_some()
+            );
+            a.motion = crate::motion::Motion::Off;
+            let mut buffer = Buffer::empty(Rect::new(0, 0, c.right(), c.bottom()));
+            wiring(&mut buffer, c, &a, mirror, &layout);
+            assert!(matches!(
+                buffer[(center, layout.power_y)].symbol(),
+                "╭" | "╮"
+            ));
+            let wire_color = blend(a.theme.battery, a.theme.panel, 0.70);
+            for y in layout.power_y..=bms.y {
+                assert_eq!(buffer[(center, y)].fg, wire_color);
+            }
+            a.motion = crate::motion::Motion::Full;
+            for phase in [0., 0.9999] {
+                a.anim.phases.insert("ambient".into(), phase);
+                buffer.reset();
+                wiring(&mut buffer, c, &a, mirror, &layout);
+                assert_eq!(buffer[(center, bms.y)].symbol() == "·", phase > 0.);
+                assert_eq!(
+                    buffer[(center, layout.power_y)].symbol(),
+                    if mirror { "╭" } else { "╮" }
+                );
+            }
+        }
+    }
 
     #[test]
     fn battery_flow_tracks_one_fill_boundary_and_stops_when_idle() {
