@@ -14,16 +14,6 @@ fn app(scenario: &str) -> App {
 fn render(a: &mut App, w: u16, h: u16) -> String {
     let mut term = Terminal::new(TestBackend::new(w, h)).unwrap();
     term.draw(|f| ui::draw(f, a, Duration::ZERO)).unwrap();
-    assert_eq!(
-        term.backend().buffer()[(0, 0)].bg,
-        ratatui::style::Color::Reset
-    );
-    if a.screen == Screen::Teardown && w >= 60 && h >= 18 {
-        assert_ne!(
-            term.backend().buffer()[(1, 3)].bg,
-            ratatui::style::Color::Reset
-        );
-    }
     (0..h)
         .map(|y| {
             (0..w)

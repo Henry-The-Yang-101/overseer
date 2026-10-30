@@ -43,7 +43,7 @@ pub fn draw(f: &mut Frame, a: &mut App, dt: std::time::Duration) {
     let area = f.area();
     let b = f.buffer_mut();
     let t = a.theme.clone();
-    b.set_style(area, Style::new().bg(Color::Reset).fg(t.text));
+    b.set_style(area, Style::new().bg(t.void).fg(t.text));
     a.hitmap.0.clear();
     a.parts.clear();
     let size = SizeClass::of(area);
@@ -259,7 +259,7 @@ fn chrome(b: &mut ratatui::buffer::Buffer, r: Rect, a: &mut App, size: SizeClass
             &label,
             Style::new()
                 .fg(if selected { t.void } else { t.muted })
-                .bg(if selected { t.accent } else { Color::Reset }),
+                .bg(if selected { t.accent } else { t.void }),
         );
         a.hitmap.add(Rect::new(x, 2, w, 1), 10, Hit::Screen(screen));
         x += w + 1;
@@ -529,7 +529,7 @@ pub fn export_svg(b: &ratatui::buffer::Buffer) -> String {
         b.area.height as usize * 18 + 32,
     );
     let mut out = format!(
-        "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{w}\" height=\"{h}\" viewBox=\"0 0 {w} {h}\"><g font-family=\"JetBrains Mono,Menlo,monospace\" font-size=\"14\">"
+        "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{w}\" height=\"{h}\" viewBox=\"0 0 {w} {h}\"><rect width=\"100%\" height=\"100%\" fill=\"#070c10\"/><g font-family=\"JetBrains Mono,Menlo,monospace\" font-size=\"14\">"
     );
     for y in 0..b.area.height {
         for x in 0..b.area.width {
