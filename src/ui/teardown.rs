@@ -229,14 +229,13 @@ impl Layout {
             .bottom()
             .max(components[6].bottom())
             .max(components[7].bottom());
-        // At the shortest physical layout, share a trunk so the six battery outlines
-        // still have useful interiors. Wider layouts give power its own lane.
-        let power_y = data_y + u16::from(c.height >= 28);
-        let battery_top = power_y + 1;
+        // Keep data, system power, and the two BMS output banks on separate rows.
+        let power_y = data_y + 1;
+        let battery_top = power_y + 2;
         let battery_h = c.bottom().saturating_sub(battery_top + 1);
         components[8].y = battery_top + 1;
         components[8].height = battery_h.saturating_sub(1);
-        let cells = std::array::from_fn(|i| {
+        let mut cells = std::array::from_fn(|i| {
             // Cell numbers and configured telemetry slots follow screen order as well.
             let mut r = to_cells(CELLS[i], c, false);
             let upper_h = battery_h.saturating_sub(1) / 2;
@@ -254,6 +253,23 @@ impl Layout {
             };
             r
         });
+        // Integer rounding must still leave one visible wiring column between cells.
+        cells[2].width = cells[2]
+            .width
+            .min(components[8].x.saturating_sub(cells[2].x + 1));
+        let right = cells[3].right();
+        cells[3].x = cells[3].x.max(components[8].right() + 1);
+        cells[3].width = right.saturating_sub(cells[3].x);
+        for i in [0, 1] {
+            cells[i].width = cells[i]
+                .width
+                .min(cells[2].x.saturating_sub(cells[i].x + 1));
+        }
+        for i in [4, 5] {
+            let right = cells[i].right();
+            cells[i].x = cells[i].x.max(cells[3].right() + 1);
+            cells[i].width = right.saturating_sub(cells[i].x);
+        }
         Self {
             components,
             cells,
@@ -267,10 +283,11 @@ impl Layout {
     }
     fn cell_path(&self, i: usize, c: Rect) -> Vec<(u16, u16)> {
         let r = self.cells[i];
-        let center = c.x + c.width / 2;
+        let bms = self.part(Part::Battery);
+        let bus_y = self.battery_top - 1;
+        let left = i < 3;
         let mut path = if i == 1 || i == 5 {
             // Reach the lower pair through the narrow gap beside the tall cells.
-            let left = i == 1;
             let lane = if left {
                 self.cells[2].x - 1
             } else {
@@ -278,12 +295,15 @@ impl Layout {
             };
             let edge = if left { r.right() - 1 } else { r.x };
             let y = r.y + r.height / 2;
-            vec![(edge, y), (lane, y), (lane, self.power_y)]
+            vec![(edge, y), (lane, y), (lane, bus_y)]
         } else {
             let x = center_x(r, c);
-            vec![(x, r.y), (x, self.power_y)]
+            vec![(x, r.y), (x, bus_y)]
         };
-        path.extend([(center, self.power_y), (center, self.part(Part::Battery).y)]);
+        let lane = if left { bms.x - 1 } else { bms.right() };
+        let edge = if left { bms.x } else { bms.right() - 1 };
+        let y = bms.y + bms.height / 2;
+        path.extend([(lane, bus_y), (lane, y), (edge, y)]);
         path
     }
 }
@@ -1363,15 +1383,9 @@ fn wiring(b: &mut Buffer, c: Rect, a: &App, mirror: bool, layout: &Layout) {
     }
     let pmu = layout.part(Part::Power);
     let pmu_x = center_x(pmu, c);
-    trace(
-        b,
-        c,
-        &[(pmu_x, pmu.bottom() - 1), (pmu_x, layout.power_y)],
-        wire,
-        moving.then_some((phase, signal)),
-    );
     let power_input = crate::metrics::ports::power_input(&s);
     let mut power_path = None;
+    let mut rail_entry = center;
     for (i, (kind, left, y, label)) in PORTS.iter().enumerate() {
         let left = *left != mirror;
         let y = c.y + (y * c.height as f32).round() as u16;
@@ -1404,12 +1418,17 @@ fn wiring(b: &mut Buffer, c: Rect, a: &App, mirror: bool, layout: &Layout) {
             (moving && connected).then_some((phase + i as f32 * 0.17, signal)),
         );
         if power_input.value() == Some(kind) {
+            // Split at the first load: never animate opposing flows over the same rail.
+            rail_entry = if left == (pmu_x < center) {
+                pmu_x
+            } else {
+                center
+            };
             power_path = Some([
                 (edge, y),
                 (lane, y),
                 (lane, layout.power_y),
-                (center, layout.power_y),
-                (center, bms.y),
+                (rail_entry, layout.power_y),
             ]);
         }
     }
@@ -1423,8 +1442,47 @@ fn wiring(b: &mut Buffer, c: Rect, a: &App, mirror: bool, layout: &Layout) {
             moving.then_some((phase, blend(t.battery, t.panel, 0.35))),
         );
     }
+    let flow = cell_flow(s.battery.value());
+    let battery_color = blend(t.battery, t.panel, 0.30);
+    let powered = s.battery.value().is_some_and(|v| v.ac) || flow.is_some();
+    // The system rail feeds the PMU independently of whether the pack is charging.
+    trace(
+        b,
+        c,
+        &[
+            (rail_entry, layout.power_y),
+            (pmu_x, layout.power_y),
+            (pmu_x, pmu.bottom() - 1),
+        ],
+        if powered { battery_color } else { wire },
+        (moving && powered).then_some((phase, t.battery)),
+    );
+    let mut battery_branch = [
+        (rail_entry, layout.power_y),
+        (center, layout.power_y),
+        (center, bms.y),
+    ];
+    if flow.is_some_and(|f| !f.charging) {
+        battery_branch.reverse();
+    }
+    trace(
+        b,
+        c,
+        &battery_branch,
+        if flow.is_some() { battery_color } else { wire },
+        (moving && flow.is_some()).then_some((phase, t.battery)),
+    );
+    // A compact junction marker makes the split visible without another component box.
+    text(
+        b,
+        c,
+        rail_entry - c.x,
+        layout.power_y - c.y,
+        "●",
+        if powered { battery_color } else { wire },
+    );
     if !a.cells
-        && let Some(flow) = cell_flow(s.battery.value())
+        && let Some(flow) = flow
     {
         let mut path = layout.cell_path(flow.index, c);
         // Paths start at the cell; charging runs from the BMS toward that cell.
@@ -1558,5 +1616,54 @@ mod tests {
         battery.percent = f32::NAN;
         assert_eq!(cell_flow(Some(&battery)), None);
         assert_eq!(cell_flow(None), None);
+    }
+
+    #[test]
+    fn cell_leads_reach_only_the_bms_and_highlight_one_terminal() {
+        for (width, height) in [(65, 22), (79, 27), (107, 38), (133, 47)] {
+            let c = Rect::new(2, 3, width, height);
+            for mirror in [false, true] {
+                let layout = Layout::new(c, mirror);
+                let bms = layout.part(Part::Battery);
+                for i in 0..6 {
+                    let path = layout.cell_path(i, c);
+                    assert!(layout.cells[i].contains(path[0].into()));
+                    assert!(bms.contains((*path.last().unwrap()).into()));
+                    for pair in path.windows(2) {
+                        assert!(pair[0].0 == pair[1].0 || pair[0].1 == pair[1].1);
+                        for x in pair[0].0.min(pair[1].0)..=pair[0].0.max(pair[1].0) {
+                            for y in pair[0].1.min(pair[1].1)..=pair[0].1.max(pair[1].1) {
+                                assert!(y > layout.power_y, "Battery leads must not bypass BMS");
+                                for (j, other) in layout.cells.iter().enumerate() {
+                                    if i != j {
+                                        assert!(
+                                            !other.contains((x, y).into()),
+                                            "{width}x{height}, cell {i} crosses {j}"
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                let mut a = App::new(Config::default(), Some("balanced".into()));
+                a.motion = crate::motion::Motion::Off;
+                for index in 0..6 {
+                    let sample = std::sync::Arc::make_mut(a.history.back_mut().unwrap());
+                    if let Avail::Ok(battery) = &mut sample.battery {
+                        battery.percent = (index as f32 + 0.5) / 6. * 100.;
+                    }
+                    let mut buffer = Buffer::empty(Rect::new(0, 0, c.right(), c.bottom()));
+                    wiring(&mut buffer, c, &a, mirror, &layout);
+                    for i in 0..6 {
+                        let terminal = layout.cell_path(i, c)[0];
+                        assert_eq!(
+                            buffer[terminal].fg == blend(a.theme.battery, a.theme.panel, 0.30),
+                            i == index
+                        );
+                    }
+                }
+            }
+        }
     }
 }

@@ -174,6 +174,8 @@ fn pack_charge_fills_cells_in_order_from_bottom_to_top() {
                     &mut Arc::make_mut(a.history.back_mut().unwrap()).battery
                 {
                     battery.percent = percent;
+                    battery.charging = false; // Inspect capacity independently of the charge front.
+                    battery.watts = Avail::Ok(0.);
                 }
                 term.draw(|f| ui::draw(f, &mut a, Duration::ZERO)).unwrap();
                 let cells: Vec<_> = a
