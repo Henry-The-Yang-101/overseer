@@ -223,8 +223,8 @@ impl Layout {
             } else {
                 chip.x.saturating_sub(components[i].right())
             };
-            // Widen inward while keeping two visible columns for the RAM bus.
-            let extra = gap.saturating_sub(2).min(2);
+            // Widen inward while retaining a visible bus even in compact layouts.
+            let extra = gap.saturating_sub(1).min(2);
             components[i].width += extra;
             if right {
                 components[i].x -= extra;
