@@ -461,6 +461,7 @@ pub fn draw(b: &mut Buffer, r: Rect, a: &mut App, size: SizeClass) {
             .height
             .saturating_sub(u16::from(disclaimer.is_some())),
     );
+    dotted_background(b, available, &t, a.cfg.ui.glyphs == "ascii");
     let chassis = fit_chassis(available, 312.6 / 221.2, a.cell_aspect);
     if chassis.width < 64 || chassis.height < 22 {
         navigator(b, available, a);
@@ -484,6 +485,18 @@ pub fn draw(b: &mut Buffer, r: Rect, a: &mut App, size: SizeClass) {
         let rail = Rect::new(content.right() + 1, r.y, sidebar, r.height);
         selected(b, rail, a, part);
     }
+}
+fn dotted_background(b: &mut Buffer, r: Rect, t: &Theme, ascii: bool) {
+    let color = blend(t.wire, t.panel, 0.60);
+    for y in (1..r.height).step_by(2) {
+        for x in (1..r.width).step_by(4) {
+            text(b, r, x, y, if ascii { "." } else { "·" }, color);
+        }
+    }
+}
+fn clear_panel(b: &mut Buffer, r: Rect, color: Color) {
+    Clear.render(r, b);
+    b.set_style(r, Style::new().bg(color));
 }
 fn chassis_outline(b: &mut Buffer, c: Rect, color: Color, cell_aspect: f32, ascii: bool) {
     Block::bordered()
@@ -531,6 +544,7 @@ fn physical(b: &mut Buffer, c: Rect, available: Rect, a: &mut App) {
     let mirror = a.cfg.teardown.orientation != "back";
     let ascii = a.cfg.ui.glyphs == "ascii";
     let layout = Layout::new(c, mirror);
+    clear_panel(b, c, t.panel);
     chassis_outline(b, c, t.wire, a.cell_aspect, ascii);
     let heat = s
         .cpu_temp
@@ -1343,7 +1357,6 @@ fn device_labels(b: &mut Buffer, c: Rect, area: Rect, a: &mut App, mirror: bool)
                 port.devices.join(" · ")
             };
             let title = format!("{} {}", if left { "→" } else { "←" }, kind.label());
-            line(b, r, 0, title, a.theme.ok);
             let mut rows = vec![String::new()];
             for word in names.split_whitespace() {
                 let last = rows.last_mut().unwrap();
@@ -1357,6 +1370,22 @@ fn device_labels(b: &mut Buffer, c: Rect, area: Rect, a: &mut App, mirror: bool)
                 last.push_str(word);
             }
             let count = (rows.len() as u16).min(5).min(r.height.saturating_sub(2)) + 1;
+            let label_width = rows
+                .iter()
+                .take(count.saturating_sub(1) as usize)
+                .map(|value| value.width())
+                .chain([title.width()])
+                .chain((rows.len() >= count as usize).then_some("… p for details".width()))
+                .max()
+                .unwrap_or(0)
+                .min(width as usize) as u16;
+            // Give wrapped device names a quiet margin without clearing the audio pane.
+            clear_panel(
+                b,
+                Rect::new(r.x.saturating_sub(1), r.y, label_width + 2, count),
+                a.theme.panel,
+            );
+            line(b, r, 0, title, a.theme.ok);
             for (i, value) in rows
                 .iter()
                 .take(count.saturating_sub(1) as usize)

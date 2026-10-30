@@ -545,7 +545,11 @@ fn speaker_bars_keep_a_mirrored_bell_envelope_at_high_levels() {
                     channels: vec![vec![amplitude; 64], vec![0.; 64]],
                 };
                 for left in [false, true] {
-                    let mut buffer = Buffer::empty(bounds);
+                    let mut backdrop = Buffer::empty(bounds);
+                    for cell in &mut backdrop.content {
+                        cell.set_symbol(".").set_fg(a.theme.wire);
+                    }
+                    let mut buffer = backdrop.clone();
                     ui::audio::bars(&mut buffer, bounds, Part::SpeakerLeft, &a, left, &audio);
                     let widths = (bounds.y..bounds.bottom())
                         .map(|y| {
@@ -559,6 +563,12 @@ fn speaker_bars_keep_a_mirrored_bell_envelope_at_high_levels() {
                                     x < width
                                 };
                                 assert_eq!(buffer[(bounds.x + x, y)].symbol() == glyph, filled);
+                                if !filled {
+                                    assert_eq!(
+                                        buffer[(bounds.x + x, y)],
+                                        backdrop[(bounds.x + x, y)]
+                                    );
+                                }
                             }
                             width
                         })
@@ -574,9 +584,9 @@ fn speaker_bars_keep_a_mirrored_bell_envelope_at_high_levels() {
                     if height >= 3 {
                         assert_eq!(widths[0], (peak * 0.5).round() as u16);
                     }
-                    let mut silent = Buffer::empty(bounds);
+                    let mut silent = backdrop.clone();
                     ui::audio::bars(&mut silent, bounds, Part::SpeakerRight, &a, left, &audio);
-                    assert_eq!(silent, Buffer::empty(bounds));
+                    assert_eq!(silent, backdrop);
                 }
             }
         }

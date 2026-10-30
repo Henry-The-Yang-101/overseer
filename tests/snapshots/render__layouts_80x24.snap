@@ -8,21 +8,21 @@ TEARDOWN
   1 Teardown   2 Systems
  ╭ MACBOOK PRO 14 / M4 PRO ───────────────────────────────────── PHYSICAL [m] ╮
  │ COMPONENT NAVIGATOR                                                        │
- │                                                                            │
+ │  ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   · │
  │   Fan 0                                                                    │
- │   System on chip                                                           │
+ │   System on chip ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   · │
  │   Unified memory                                                           │
- │   Fan 1                                                                    │
+ │   Fan 1  ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   · │
  │   Storage                                                                  │
- │   Power rails                                                              │
+ │   Power rails·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   · │
  │   Battery pack                                                             │
- │   Thermal system                                                           │
+ │   Thermal system ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   · │
  │   Network                                                                  │
- │   Left speaker                                                             │
+ │   Left speaker   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   · │
  │   Right speaker                                                            │
+ │  ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   · │
  │                                                                            │
- │                                                                            │
- │                                                                            │
+ │  ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   · │
  ╰────────────────────────────────────────────────────────────────────────────╯
  5m  ⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤◆ NOW
 
@@ -33,21 +33,21 @@ TELEMETRY CELLS
   1 Teardown   2 Systems
  ╭ MACBOOK PRO 14 / M4 PRO ──────────────────────────────────── TELEMETRY [m] ╮
  │ COMPONENT NAVIGATOR                                                        │
- │                                                                            │
+ │  ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   · │
  │   Telemetry cell                                                           │
+ │   Telemetry cell ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   · │
  │   Telemetry cell                                                           │
+ │   Telemetry cell ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   · │
  │   Telemetry cell                                                           │
- │   Telemetry cell                                                           │
- │   Telemetry cell                                                           │
- │   Telemetry cell                                                           │
+ │   Telemetry cell ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   · │
  │   Fan 0                                                                    │
- │   System on chip                                                           │
+ │   System on chip ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   · │
  │   Fan 1                                                                    │
- │   Left speaker                                                             │
+ │   Left speaker   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   · │
  │   Right speaker                                                            │
+ │  ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   · │
  │                                                                            │
- │                                                                            │
- │                                                                            │
+ │  ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   · │
  ╰────────────────────────────────────────────────────────────────────────────╯
  5m  ⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤◆ NOW
 
