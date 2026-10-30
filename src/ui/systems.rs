@@ -823,19 +823,9 @@ fn gpu_fabric(b: &mut Buffer, r: Rect, a: &App, s: &Sample) {
         return;
     }
     let footer = u16::from(r.height >= 5);
-    let labels = u16::from(r.height >= 8);
-    let art = Rect::new(
-        r.x,
-        r.y + labels,
-        r.width,
-        r.height.saturating_sub(footer + labels),
-    );
+    let art = Rect::new(r.x, r.y, r.width, r.height.saturating_sub(footer));
     let (left, right) = fabric_halves(art);
     super::donut::draw(b, right, a);
-    if labels > 0 {
-        text(b, r, 0, 0, "GPU ACTIVITY", a.theme.muted);
-        text(b, r, right.x - r.x, 0, "DONUT", a.theme.muted);
-    }
     for y in art.y..art.bottom() {
         text(b, r, left.width, y - r.y, "│", a.theme.wire);
     }
