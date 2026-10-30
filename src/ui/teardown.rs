@@ -1424,11 +1424,8 @@ fn wiring(b: &mut Buffer, c: Rect, a: &App, mirror: bool, layout: &Layout) {
     for i in 0..CELLS.len() {
         trace(b, c, &layout.cell_path(i, c), wire, None);
     }
-    let pmu = layout.part(Part::Power);
-    let pmu_x = center_x(pmu, c);
     let power_input = crate::metrics::ports::power_input(&s);
     let mut power_path = None;
-    let mut rail_entry = center;
     for (i, (kind, left, y, label)) in PORTS.iter().enumerate() {
         let left = *left != mirror;
         let y = c.y + (y * c.height as f32).round() as u16;
@@ -1461,17 +1458,11 @@ fn wiring(b: &mut Buffer, c: Rect, a: &App, mirror: bool, layout: &Layout) {
             (moving && connected).then_some((phase + i as f32 * 0.17, signal)),
         );
         if power_input.value() == Some(kind) {
-            // Split at the first load: never animate opposing flows over the same rail.
-            rail_entry = if left == (pmu_x < center) {
-                pmu_x
-            } else {
-                center
-            };
             power_path = Some([
                 (edge, y),
                 (lane, y),
                 (lane, layout.power_y),
-                (rail_entry, layout.power_y),
+                (center, layout.power_y),
             ]);
         }
     }
@@ -1488,23 +1479,7 @@ fn wiring(b: &mut Buffer, c: Rect, a: &App, mirror: bool, layout: &Layout) {
     let flow = cell_flow(s.battery.value());
     let battery_color = blend(t.battery, t.panel, 0.30);
     let powered = s.battery.value().is_some_and(|v| v.ac) || flow.is_some();
-    // The system rail feeds the PMU independently of whether the pack is charging.
-    trace(
-        b,
-        c,
-        &[
-            (rail_entry, layout.power_y),
-            (pmu_x, layout.power_y),
-            (pmu_x, pmu.bottom() - 1),
-        ],
-        if powered { battery_color } else { wire },
-        (moving && powered).then_some((phase, t.battery)),
-    );
-    let mut battery_branch = [
-        (rail_entry, layout.power_y),
-        (center, layout.power_y),
-        (center, bms.y),
-    ];
+    let mut battery_branch = [(center, layout.power_y), (center, bms.y)];
     if flow.is_some_and(|f| !f.charging) {
         battery_branch.reverse();
     }
@@ -1515,11 +1490,11 @@ fn wiring(b: &mut Buffer, c: Rect, a: &App, mirror: bool, layout: &Layout) {
         if flow.is_some() { battery_color } else { wire },
         (moving && flow.is_some()).then_some((phase, t.battery)),
     );
-    // A compact junction marker makes the split visible without another component box.
+    // Mark the BMS connection on the system rail without another component box.
     text(
         b,
         c,
-        rail_entry - c.x,
+        center - c.x,
         layout.power_y - c.y,
         "●",
         if powered { battery_color } else { wire },
