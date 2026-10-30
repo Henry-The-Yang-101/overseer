@@ -324,6 +324,42 @@ fn teardown_flow_animations_follow_direction_and_motion_settings() {
     }
 }
 #[test]
+fn component_inspectors_have_no_sample_summary() {
+    use ratatui::{buffer::Buffer, layout::Rect};
+    let mut a = app("balanced");
+    for (w, h, zoom) in [(60, 18, false), (112, 32, false), (200, 50, true)] {
+        for p in [
+            Part::Cpu,
+            Part::Gpu,
+            Part::Ane,
+            Part::Memory,
+            Part::Power,
+            Part::Disk,
+            Part::Network,
+            Part::Thermal,
+            Part::Battery,
+            Part::Fan0,
+            Part::Fan1,
+            Part::SpeakerLeft,
+            Part::SpeakerRight,
+        ] {
+            for replay in [false, true] {
+                a.cursor = replay.then_some(a.latest_time());
+                let bounds = Rect::new(0, 0, w, h);
+                let mut buffer = Buffer::empty(bounds);
+                ui::overlays::detail(&mut buffer, bounds, &mut a, p, zoom);
+                let text = buffer
+                    .content
+                    .iter()
+                    .map(|cell| cell.symbol())
+                    .collect::<String>();
+                assert!(!text.contains("CURRENT SAMPLE"));
+                assert!(!text.contains("T-SNAPSHOT"));
+            }
+        }
+    }
+}
+#[test]
 fn teardown_ssd_border_keeps_its_storage_color() {
     use overseer::metrics::Avail;
     use std::sync::Arc;
@@ -384,7 +420,7 @@ fn teardown_memory_pressure_colors_both_readouts_without_a_notice() {
                     .collect::<Vec<_>>();
                 assert_eq!(
                     cells.iter().map(|cell| cell.symbol()).collect::<String>(),
-                    "20.3G"
+                    "20.3GiB"
                 );
                 assert!(
                     cells

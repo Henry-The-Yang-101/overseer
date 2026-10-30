@@ -530,12 +530,12 @@ pub fn detail(b: &mut Buffer, r: Rect, a: &mut App, part: Part, zoom: bool) {
     } else {
         inside.height * 45 / 100
     };
-    let left_w = if wide {
-        inside.width * 60 / 100
-    } else {
-        inside.width
-    };
-    let widget = Rect::new(inside.x, inside.y + 1, left_w, header_h.saturating_sub(1));
+    let widget = Rect::new(
+        inside.x,
+        inside.y + 1,
+        inside.width,
+        header_h.saturating_sub(1),
+    );
     if matches!(p, Part::Cpu | Part::Soc) && wide {
         let ring_w = 24.min(widget.width / 2);
         arc(
@@ -572,64 +572,6 @@ pub fn detail(b: &mut Buffer, r: Rect, a: &mut App, part: Part, zoom: bool) {
         text(b, widget, ring_w + 3, 8, watts(&s.power[0]), t.text);
     } else {
         widgets::content(b, widget, p, &s, a);
-    }
-    if wide {
-        let snap = Rect::new(
-            inside.x + left_w + 3,
-            inside.y + 1,
-            inside.width - left_w - 3,
-            header_h,
-        );
-        line(
-            b,
-            snap,
-            0,
-            if a.cursor.is_some() {
-                format!("T-SNAPSHOT / −{}", duration(a.latest_time() - s.at))
-            } else {
-                "CURRENT SAMPLE".into()
-            },
-            t.accent,
-        );
-        for (i, value) in [
-            format!(
-                "CPU {}  GPU {}",
-                percent(s.cpu),
-                avail(&s.gpu, |v| percent(*v))
-            ),
-            format!(
-                "MEM {} / {}",
-                bytes(s.memory_used, &a.cfg.units),
-                bytes(s.machine.memory, &a.cfg.units)
-            ),
-            format!(
-                "CPU {}   GPU {}",
-                temp(&s.cpu_temp, &a.cfg.units),
-                temp(&s.gpu_temp, &a.cfg.units)
-            ),
-            format!(
-                "Σ {}   SYS {}",
-                watts(&s.total_power()),
-                watts(&s.system_power)
-            ),
-            format!(
-                "BAT {}",
-                avail(&s.battery, |v| format!("{:.0}%", v.percent))
-            ),
-            format!(
-                "FANS {}",
-                s.fans.value().map_or(s.fans.label().into(), |fs| fs
-                    .iter()
-                    .map(|f| format!("{} rpm", f.rpm))
-                    .collect::<Vec<_>>()
-                    .join(" / "))
-            ),
-        ]
-        .iter()
-        .enumerate()
-        {
-            line(b, snap, i as u16 + 2, value, t.muted);
-        }
     }
     let hist_y = header_h + 1;
     let hist_h = inside.height.saturating_sub(header_h + 7).max(1);
