@@ -166,7 +166,7 @@ pub fn grille(b: &mut Buffer, r: Rect, p: Part, a: &App, frame: &Frame) -> Rect 
     pill
 }
 
-/// Mirrored amplitude bars: each row summarizes a short slice of system output.
+/// Mirrored amplitude bars with a bell envelope, half-width at the outer rows.
 pub fn bars(b: &mut Buffer, r: Rect, p: Part, a: &App, left: bool, frame: &Frame) {
     if r.is_empty() {
         return;
@@ -174,15 +174,21 @@ pub fn bars(b: &mut Buffer, r: Rect, p: Part, a: &App, left: bool, frame: &Frame
     let Some(samples) = frame.channels.get(usize::from(p == Part::SpeakerRight)) else {
         return;
     };
+    let half_height = r.height.saturating_sub(1) / 2;
     for y in 0..r.height {
         let start = y as usize * samples.len() / r.height as usize;
         let end = (((y + 1) as usize * samples.len() / r.height as usize).max(start + 1))
             .min(samples.len());
         let level =
             (samples[start..end].iter().map(|v| v * v).sum::<f32>() / (end - start) as f32).sqrt();
-        let width = (level * 4. * r.width as f32)
-            .round()
-            .clamp(0., r.width as f32) as u16;
+        let distance = if half_height == 0 {
+            0.
+        } else {
+            1. - y.min(r.height - 1 - y) as f32 / half_height as f32
+        };
+        let envelope = (-std::f32::consts::LN_2 * distance * distance).exp();
+        // Limit the audio level first so loud signals retain the bell shape.
+        let width = ((level * 4.).clamp(0., 1.) * envelope * r.width as f32).round() as u16;
         for x in 0..width {
             text(
                 b,

@@ -362,6 +362,59 @@ fn speaker_grilles_follow_channels_and_respect_motion_settings() {
     }
 }
 #[test]
+fn speaker_bars_keep_a_mirrored_bell_envelope_at_high_levels() {
+    use overseer::audio::Frame;
+    use ratatui::{buffer::Buffer, layout::Rect};
+    let mut a = app("balanced");
+    for ascii in [false, true] {
+        a.cfg.ui.glyphs = if ascii { "ascii" } else { "unicode" }.into();
+        let glyph = if ascii { "=" } else { "▬" };
+        for height in [1, 2, 9, 10] {
+            let bounds = Rect::new(3, 5, 20, height);
+            for amplitude in [0., 0.125, 0.25, 1.] {
+                let audio = Frame {
+                    status: String::new(),
+                    channels: vec![vec![amplitude; 64], vec![0.; 64]],
+                };
+                for left in [false, true] {
+                    let mut buffer = Buffer::empty(bounds);
+                    ui::audio::bars(&mut buffer, bounds, Part::SpeakerLeft, &a, left, &audio);
+                    let widths = (bounds.y..bounds.bottom())
+                        .map(|y| {
+                            let width = (bounds.x..bounds.right())
+                                .filter(|&x| buffer[(x, y)].symbol() == glyph)
+                                .count() as u16;
+                            for x in 0..bounds.width {
+                                let filled = if left {
+                                    x >= bounds.width - width
+                                } else {
+                                    x < width
+                                };
+                                assert_eq!(buffer[(bounds.x + x, y)].symbol() == glyph, filled);
+                            }
+                            width
+                        })
+                        .collect::<Vec<_>>();
+                    assert!(widths.iter().eq(widths.iter().rev()));
+                    assert!(
+                        widths[..=height as usize / 2]
+                            .windows(2)
+                            .all(|w| w[0] <= w[1])
+                    );
+                    let peak = (amplitude * 4.).clamp(0., 1.) * bounds.width as f32;
+                    assert_eq!(widths[height as usize / 2], peak.round() as u16);
+                    if height >= 3 {
+                        assert_eq!(widths[0], (peak * 0.5).round() as u16);
+                    }
+                    let mut silent = Buffer::empty(bounds);
+                    ui::audio::bars(&mut silent, bounds, Part::SpeakerRight, &a, left, &audio);
+                    assert_eq!(silent, Buffer::empty(bounds));
+                }
+            }
+        }
+    }
+}
+#[test]
 fn unavailable_sensors_and_small_resizes_stay_usable() {
     for scenario in [
         "missing-sensors",
