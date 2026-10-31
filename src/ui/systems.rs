@@ -57,19 +57,29 @@ pub fn draw(b: &mut Buffer, r: Rect, a: &mut App, size: SizeClass) {
     } else {
         "i details · z expand"
     };
-    let mut inner = frame(b, main, &title, subtitle, false, &t);
-    if size == SizeClass::Regular && inner.height > 7 {
-        let stats = Rect::new(inner.x, inner.bottom() - 2, inner.width, 2);
-        inner.height -= 2;
-        inline_stats(b, stats, a, &s);
-    }
-    match a.page {
-        Page::Cpu => cpu(b, inner, a, &s),
-        Page::Memory => memory(b, inner, a, &s),
-        Page::Energy => energy(b, inner, a, &s),
-        Page::Disk | Page::Network => flow(b, inner, a, &s),
-        Page::Gpu => gpu(b, inner, a, &s),
-    }
+    let (inner, panel) = if a.page == Page::Gpu {
+        let (fabric, donut) = gpu_panels(main, a.cell_aspect);
+        let inner = frame(b, fabric, &title, subtitle, false, &t);
+        gpu(b, inner, a, &s);
+        let donut_inner = frame(b, donut, "DONUT", "", false, &t);
+        super::donut::draw(b, donut_inner, a);
+        (inner, fabric)
+    } else {
+        let mut inner = frame(b, main, &title, subtitle, false, &t);
+        if size == SizeClass::Regular && inner.height > 7 {
+            let stats = Rect::new(inner.x, inner.bottom() - 2, inner.width, 2);
+            inner.height -= 2;
+            inline_stats(b, stats, a, &s);
+        }
+        match a.page {
+            Page::Cpu => cpu(b, inner, a, &s),
+            Page::Memory => memory(b, inner, a, &s),
+            Page::Energy => energy(b, inner, a, &s),
+            Page::Disk | Page::Network => flow(b, inner, a, &s),
+            Page::Gpu => unreachable!(),
+        }
+        (inner, main)
+    };
     if side_width > 0 {
         let side = Rect::new(main.right() + 1, visual.y, side_width, visual.height);
         let rr = frame(
@@ -101,7 +111,7 @@ pub fn draw(b: &mut Buffer, r: Rect, a: &mut App, size: SizeClass) {
         a.task_rect = Rect::default();
     }
     if let Some(p) = a.selected_proc().or_else(|| a.displayed_follow())
-        && main.width > 95
+        && panel.width > 95
         && inner.height > 4
     {
         let label = format!(
@@ -115,9 +125,9 @@ pub fn draw(b: &mut Buffer, r: Rect, a: &mut App, size: SizeClass) {
         );
         text(
             b,
-            main,
-            main.width.saturating_sub(29),
-            main.height.saturating_sub(1),
+            panel,
+            panel.width.saturating_sub(29),
+            panel.height.saturating_sub(1),
             truncate(&label, 25),
             color,
         );
@@ -768,24 +778,32 @@ fn butterfly(b: &mut Buffer, r: Rect, a: &App, s: &Sample, network: bool) {
     }
 }
 fn gpu(b: &mut Buffer, r: Rect, a: &App, s: &Sample) {
-    let reserve = if r.height > 8 { 5 } else { 1 };
+    if r.is_empty() {
+        return;
+    }
+    let reserve = if r.height > 8 { 5 } else { 2 };
     gpu_fabric(
         b,
         Rect::new(r.x, r.y, r.width, r.height.saturating_sub(reserve)),
         a,
         s,
     );
-    if r.height > 8 {
+    if r.height >= 3 {
         let data: Vec<_> = a
             .history
             .iter()
             .filter(|h| h.at <= s.at && h.at >= s.at - 300.)
             .filter_map(|h| h.gpu.value().copied())
             .collect();
-        text(b, r, 0, r.height - 4, "UTIL 5m", a.theme.muted);
+        let y = if r.height > 8 {
+            r.height - 4
+        } else {
+            r.height - 2
+        };
+        text(b, r, 0, y, "UTIL 5m", a.theme.muted);
         spark(
             b,
-            Rect::new(r.x + 9, r.y + r.height - 4, r.width.saturating_sub(9), 1),
+            Rect::new(r.x + 9, r.y + y, r.width.saturating_sub(9), 1),
             &data,
             1.,
             a.theme.gpu,
@@ -824,12 +842,6 @@ fn gpu_fabric(b: &mut Buffer, r: Rect, a: &App, s: &Sample) {
     }
     let footer = u16::from(r.height >= 5);
     let art = Rect::new(r.x, r.y, r.width, r.height.saturating_sub(footer));
-    let (mut left, right) = fabric_panes(art, a.cell_aspect);
-    let right = super::donut::draw(b, right, a);
-    left.width = right.x.saturating_sub(art.x).saturating_sub(1);
-    for y in art.y..art.bottom() {
-        text(b, r, left.width, y - r.y, "│", a.theme.wire);
-    }
     if let Some(value) = s.gpu.value() {
         let value = value.clamp(0., 1.);
         let phase = if a.motion == Motion::Full {
@@ -842,11 +854,11 @@ fn gpu_fabric(b: &mut Buffer, r: Rect, a: &App, s: &Sample) {
         } else {
             value
         };
-        let ranks = widgets::tile_ranks(left.width as usize * left.height as usize);
+        let ranks = widgets::tile_ranks(art.width as usize * art.height as usize);
         let lit = (visual * ranks.len() as f32).round() as usize;
-        for y in 0..left.height {
-            for x in 0..left.width {
-                let on = ranks[y as usize * left.width as usize + x as usize] < lit;
+        for y in 0..art.height {
+            for x in 0..art.width {
+                let on = ranks[y as usize * art.width as usize + x as usize] < lit;
                 let glyph = if on {
                     if (phase - (x + y) as f32 / 12.).sin() > 0.3 {
                         "█"
@@ -858,7 +870,7 @@ fn gpu_fabric(b: &mut Buffer, r: Rect, a: &App, s: &Sample) {
                 };
                 text(
                     b,
-                    left,
+                    art,
                     x,
                     y,
                     glyph,
@@ -866,8 +878,8 @@ fn gpu_fabric(b: &mut Buffer, r: Rect, a: &App, s: &Sample) {
                 );
             }
         }
-    } else if left.height > 0 {
-        line(b, left, left.height / 2, s.gpu.label(), a.theme.muted);
+    } else if art.height > 0 {
+        line(b, art, art.height / 2, s.gpu.label(), a.theme.muted);
     }
     if footer > 0 {
         line(
@@ -885,14 +897,15 @@ fn gpu_fabric(b: &mut Buffer, r: Rect, a: &App, s: &Sample) {
     }
 }
 
-fn fabric_panes(r: Rect, cell_aspect: f32) -> (Rect, Rect) {
-    // A 3:2 ratio in screen pixels, accounting for tall terminal cells.
-    // On narrow layouts keep at least half the area for the measured fabric.
-    let width = ((r.height as f32 * cell_aspect.clamp(1., 3.) * 1.5).round() as u16)
-        .min(r.width.saturating_sub(1) / 2);
+fn gpu_panels(r: Rect, cell_aspect: f32) -> (Rect, Rect) {
+    let aspect = cell_aspect.clamp(1., 3.);
+    // Size the bordered donut window in screen pixels, independently of its pose.
+    // Keep room for telemetry on narrow terminals and shrink both dimensions together.
+    let width = ((r.height as f32 * aspect).round() as u16).min(r.width.saturating_sub(1) / 2);
+    let height = ((width as f32 / aspect).round() as u16).min(r.height);
     (
         Rect::new(r.x, r.y, r.width.saturating_sub(width + 1), r.height),
-        Rect::new(r.right() - width, r.y, width, r.height),
+        Rect::new(r.right() - width, r.y, width, height),
     )
 }
 fn side_card(b: &mut Buffer, r: Rect, a: &App, s: &Sample) {
@@ -1365,18 +1378,16 @@ fn inline_stats(b: &mut Buffer, r: Rect, a: &App, s: &Sample) {
 mod fabric_tests {
     use super::*;
     #[test]
-    fn donut_pane_uses_screen_ratio_and_leaves_the_rest_for_fabric() {
+    fn donut_window_is_square_and_leaves_the_rest_for_telemetry() {
         for aspect in [1., 1.6, 2.05, 3.] {
             for width in 0..240 {
                 let r = Rect::new(7, 3, width, 18);
-                let (left, right) = fabric_panes(r, aspect);
+                let (left, right) = gpu_panels(r, aspect);
                 assert!(left.width >= right.width);
                 assert!(left.right() <= right.x);
                 assert_eq!(right.right(), r.right());
-                assert_eq!(right.height, r.height);
-                if right.width < r.width.saturating_sub(1) / 2 {
-                    assert!((right.width as f32 - 18. * aspect * 1.5).abs() <= 0.5);
-                }
+                assert!(right.height <= r.height);
+                assert!((right.width as f32 / aspect - right.height as f32).abs() <= 0.5);
             }
         }
     }

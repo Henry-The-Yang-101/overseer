@@ -135,7 +135,7 @@ fn gpu_tasks_sort_and_render_measured_zero_warmup_and_missing_counters() {
     ]) {
         p.name = Arc::from(name);
         p.gpu = gpu;
-        if name == "gpu-restricted" {
+        if matches!(name, "gpu-restricted" | "gpu-busy") {
             p.cpu = 0.;
             p.memory = 0;
             p.threads = Avail::Permission("task info restricted".into());
@@ -170,6 +170,11 @@ fn gpu_tasks_sort_and_render_measured_zero_warmup_and_missing_counters() {
         if w >= 120 {
             assert!(restricted.contains("???    ???B"));
         }
+        let busy = view.lines().find(|line| line.contains("gpu-busy")).unwrap();
+        assert!(busy.contains("150.0%") && busy.contains("???%"));
+        if w >= 120 {
+            assert!(busy.contains("???    ???B"));
+        }
     }
     a.search = Some("gpu-busy".into());
     a.refresh_rows(true);
@@ -183,6 +188,50 @@ fn gpu_tasks_sort_and_render_measured_zero_warmup_and_missing_counters() {
     a.refresh_rows(true);
     assert!(a.rows.is_empty());
     assert!(render(&mut a, 120, 36).contains("GPU registry enumeration failed"));
+}
+#[test]
+fn gpu_windows_stay_square_and_fixed_across_rotation() {
+    let mut a = app("balanced");
+    a.act(Action::GoPage(Page::Gpu));
+    a.motion = overseer::motion::Motion::Full;
+    for (w, h) in [(80, 24), (120, 36), (200, 55)] {
+        for expanded in [false, true] {
+            a.expanded = expanded;
+            let mut previous = None;
+            for phase in [0., 0.37, 0.71] {
+                a.anim.phases.insert("donut".into(), phase);
+                let view = render(&mut a, w, h);
+                let lines: Vec<Vec<char>> = view.lines().map(|s| s.chars().collect()).collect();
+                let (top, header) = view
+                    .lines()
+                    .enumerate()
+                    .find(|(_, line)| line.contains("╭ DONUT"))
+                    .unwrap();
+                let title = header.find("╭ DONUT").unwrap();
+                let x = header[..title].chars().count();
+                let right = (x + 1..lines[top].len())
+                    .find(|&i| lines[top][i] == '╮')
+                    .unwrap();
+                let bottom = (top + 1..lines.len())
+                    .find(|&y| lines[y].get(x) == Some(&'╰'))
+                    .unwrap();
+                let bounds = (x, top, right - x + 1, bottom - top + 1);
+                assert!((bounds.2 as f32 / a.cell_aspect - bounds.3 as f32).abs() <= 0.5);
+                if let Some(previous) = previous {
+                    assert_eq!(bounds, previous, "donut window moved with its rotation");
+                }
+                previous = Some(bounds);
+                let history = view.lines().find(|line| line.contains("UTIL 5m")).unwrap();
+                assert!(
+                    history
+                        .chars()
+                        .take(x)
+                        .collect::<String>()
+                        .contains("UTIL 5m")
+                );
+            }
+        }
+    }
 }
 #[test]
 fn cpu_clusters_keep_channel_ids_and_size_performance_cores_larger() {
