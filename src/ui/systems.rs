@@ -61,7 +61,7 @@ pub fn draw(b: &mut Buffer, r: Rect, a: &mut App, size: SizeClass) {
         let (fabric, donut) = gpu_panels(main, a.cell_aspect);
         let inner = frame(b, fabric, &title, subtitle, false, &t);
         gpu(b, inner, a, &s);
-        let donut_inner = frame(b, donut, "DONUT", "", false, &t);
+        let donut_inner = frame(b, donut, "VISUAL", "", false, &t);
         super::donut::draw(b, donut_inner, a);
         (inner, fabric)
     } else {

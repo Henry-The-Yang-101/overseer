@@ -205,9 +205,9 @@ fn gpu_windows_stay_square_and_fixed_across_rotation() {
                 let (top, header) = view
                     .lines()
                     .enumerate()
-                    .find(|(_, line)| line.contains("╭ DONUT"))
+                    .find(|(_, line)| line.contains("╭ VISUAL"))
                     .unwrap();
-                let title = header.find("╭ DONUT").unwrap();
+                let title = header.find("╭ VISUAL").unwrap();
                 let x = header[..title].chars().count();
                 let right = (x + 1..lines[top].len())
                     .find(|&i| lines[top][i] == '╮')

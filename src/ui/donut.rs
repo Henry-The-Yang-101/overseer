@@ -26,6 +26,7 @@ impl Params {
         let (sin_b, cos_b) = (0.35 + TAU * phase).sin_cos();
         // Perspective silhouette of a radius-3 bounding sphere at distance 6.
         // Reserve one column at each side and one row above/below.
+        // Allow an extra 6% for visible clearance through the entire rotation.
         // This envelope stays fixed for every rotation; only a resize changes scale.
         let diameter = (width as f32 - 2.)
             .min((height as f32 - 2.) * aspect)
@@ -34,7 +35,7 @@ impl Params {
             width: width as u32,
             height: height as u32,
             aspect,
-            scale: diameter * 3_f32.sqrt() / 2.,
+            scale: diameter * 3_f32.sqrt() / 2. * 0.94,
             sin_a,
             cos_a,
             sin_b,
@@ -281,6 +282,26 @@ mod tests {
         );
         assert!(front.iter().any(|v| v & 255 >= 10));
         assert!(front.iter().any(|v| v & 255 == 1));
+        // Check geometry before either renderer can silently discard clipped samples.
+        let envelope_points = surface(160);
+        for (w, h, aspect) in [(10, 5, 2.05), (23, 11, 2.05), (49, 24, 2.05), (80, 40, 1.6)] {
+            let mut scale = None;
+            for step in 0..360 {
+                let p = Params::new(w, h, aspect, step as f32 / 360.);
+                assert_eq!(*scale.get_or_insert(p.scale), p.scale);
+                for point in &envelope_points {
+                    let v = rotate(point.position, p);
+                    let depth = 6. + v[2];
+                    let x = (p.width as f32 / 2. + p.scale * v[0] / depth).floor();
+                    let y = (p.height as f32 / 2. - p.scale * v[1] / depth / p.aspect).floor();
+                    assert!(
+                        x >= 1. && x < w as f32 - 1.,
+                        "horizontal clipping at {step}°"
+                    );
+                    assert!(y >= 1. && y < h as f32 - 1., "vertical clipping at {step}°");
+                }
+            }
+        }
         for (w, h) in [(0, 0), (1, 1), (28, 4), (31, 11), (80, 40), (180, 70)] {
             let mut renderer = Renderer::default();
             for step in 0..16 {
