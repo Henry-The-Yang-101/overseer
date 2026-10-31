@@ -509,6 +509,7 @@ fn component_inspectors_have_no_sample_summary() {
     for (w, h, zoom) in [(60, 18, false), (112, 32, false), (200, 50, true)] {
         for p in [
             Part::Cpu,
+            Part::Soc,
             Part::Gpu,
             Part::Ane,
             Part::Memory,
@@ -540,7 +541,7 @@ fn component_inspectors_have_no_sample_summary() {
                     Part::Fan0 | Part::Fan1 | Part::SpeakerLeft | Part::SpeakerRight
                 ) {
                     let lower = match p {
-                        Part::Cpu | Part::Gpu | Part::Memory | Part::Battery => "0% ┤",
+                        Part::Cpu | Part::Soc | Part::Gpu | Part::Memory | Part::Battery => "0% ┤",
                         Part::Ane | Part::Power => "0.0 W ┤",
                         Part::Disk | Part::Network => "0.0 B/s ┤",
                         Part::Thermal => "0°C ┤",
@@ -593,6 +594,38 @@ fn component_inspectors_have_no_sample_summary() {
                     );
                 }
             }
+        }
+    }
+}
+#[test]
+fn soc_inspector_uses_total_cpu_and_ignores_core_navigation() {
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+    use overseer::app::Layer;
+    use std::sync::Arc;
+    let mut a = app("balanced");
+    for sample in &mut a.history {
+        let sample = Arc::make_mut(sample);
+        sample.cpu = 0.73;
+        for tier in &mut sample.tiers {
+            for core in &mut tier.cores {
+                core.active = 0.11;
+            }
+        }
+    }
+    a.inspect_core = 3;
+    a.select(Part::Soc);
+    a.on_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
+    assert!(matches!(a.layers.last(), Some(Layer::Inspector(Part::Soc))));
+    for (w, h) in [(60, 18), (120, 36), (200, 55)] {
+        let before = render(&mut a, w, h);
+        assert!(before.contains("% TOTAL CPU UTILIZATION"));
+        assert!(before.contains("peak 73%"));
+        assert!(!before.contains("← → core"));
+        assert!(!before.contains(" / PCPU"));
+        for key in [KeyCode::Left, KeyCode::Right, KeyCode::Up, KeyCode::Down] {
+            a.on_key(KeyEvent::new(key, KeyModifiers::NONE));
+            assert_eq!(a.inspect_core, 3);
+            assert_eq!(render(&mut a, w, h), before);
         }
     }
 }

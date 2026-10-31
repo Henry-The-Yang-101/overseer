@@ -516,7 +516,7 @@ pub fn detail(b: &mut Buffer, r: Rect, a: &mut App, part: Part, zoom: bool) {
         .iter()
         .flat_map(|t| t.cores.iter().map(move |c| (t, c)))
         .collect();
-    let core = if matches!(p, Part::Cpu | Part::Soc) && !zoom {
+    let core = if p == Part::Cpu && !zoom {
         cores.get(a.inspect_core % cores.len().max(1)).copied()
     } else {
         None
@@ -554,7 +554,7 @@ pub fn detail(b: &mut Buffer, r: Rect, a: &mut App, part: Part, zoom: bool) {
         inside.width,
         header_h.saturating_sub(1),
     );
-    if matches!(p, Part::Cpu | Part::Soc) && wide {
+    if p == Part::Soc || (p == Part::Cpu && wide) {
         let ring_w = 24.min(widget.width / 2);
         arc(
             b,
@@ -575,7 +575,22 @@ pub fn detail(b: &mut Buffer, r: Rect, a: &mut App, part: Part, zoom: bool) {
             (active * 100.).round() as u32,
             t.cpu,
         );
-        text(b, widget, ring_w + 3, 5, "% ACTIVE RESIDENCY", t.muted);
+        text(
+            b,
+            widget,
+            ring_w + 3,
+            if p == Part::Soc && widget.height <= 5 {
+                0
+            } else {
+                5
+            },
+            if p == Part::Soc {
+                "% TOTAL CPU UTILIZATION"
+            } else {
+                "% ACTIVE RESIDENCY"
+            },
+            t.muted,
+        );
         text(
             b,
             widget,
@@ -660,6 +675,9 @@ pub fn detail(b: &mut Buffer, r: Rect, a: &mut App, part: Part, zoom: bool) {
         );
     }
     let note_y = inside.height.saturating_sub(4);
+    if p == Part::Soc && note_y <= hist_y + hist_h {
+        return;
+    }
     line(b, inside, note_y, "WHAT THIS SHOWS", t.accent);
     paragraph(
         b,

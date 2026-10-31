@@ -1696,7 +1696,7 @@ impl App {
                         self.audio
                             .update(self.cfg.teardown.audio_enabled && self.demo.is_none());
                     }
-                    if matches!(p, Part::Cpu | Part::Soc) {
+                    if *p == Part::Cpu {
                         match k.code {
                             KeyCode::Left
                             | KeyCode::Up
