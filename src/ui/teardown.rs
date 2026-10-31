@@ -1296,6 +1296,19 @@ fn selected(b: &mut Buffer, r: Rect, a: &mut App, part: Part) {
             &s,
             a,
         );
+    } else if matches!(p, Part::SpeakerLeft | Part::SpeakerRight) {
+        super::audio::waveform(
+            b,
+            Rect::new(
+                inner.x,
+                inner.y + 3,
+                inner.width,
+                inner.height.saturating_sub(3),
+            ),
+            p,
+            a,
+            false,
+        );
     } else {
         line(b, inner, 3, widgets::readout(p, &s, a), t.text);
         let h = (inner.height / 4).max(1);

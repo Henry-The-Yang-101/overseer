@@ -989,8 +989,32 @@ fn unavailable_audio_shows_an_idle_waveform_without_status_text() {
                     && !text.contains("waiting")
                     && !text.contains("starting audio")
             );
+            a.select(part);
+            let view = render(&mut a, 200, 55);
+            let waveform_rows = speaker_sidebar_waveform_rows(&view);
+            assert_eq!(
+                waveform_rows, 1,
+                "the selected speaker must show its idle waveform"
+            );
         }
     }
+    a.demo = Some("balanced".into());
+    a.cursor = None;
+    a.cfg.teardown.audio_enabled = true;
+    for part in [Part::SpeakerLeft, Part::SpeakerRight] {
+        a.select(part);
+        assert!(speaker_sidebar_waveform_rows(&render(&mut a, 200, 55)) > 1);
+    }
+}
+fn speaker_sidebar_waveform_rows(view: &str) -> usize {
+    view.lines()
+        .filter_map(|line| {
+            let (before_right_border, _) = line.rsplit_once('┃')?;
+            let (_, inside) = before_right_border.rsplit_once('┃')?;
+            Some(inside)
+        })
+        .filter(|line| line.chars().any(|c| ('\u{2801}'..='\u{28ff}').contains(&c)))
+        .count()
 }
 #[test]
 fn speaker_grilles_follow_channels_and_respect_motion_settings() {
