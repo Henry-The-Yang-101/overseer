@@ -155,7 +155,7 @@ impl Part {
             Self::Disk => "Storage",
             Self::Network => "Network",
             Self::Thermal => "Thermal system",
-            Self::Battery => "Battery pack",
+            Self::Battery => "Battery",
             Self::Fan0 => "Fan 0",
             Self::Fan1 => "Fan 1",
             Self::Soc => "System on chip",
