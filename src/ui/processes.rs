@@ -329,7 +329,14 @@ fn draw_row(
                 true
             ))
         ),
-        Page::Gpu => format!("{:>10}", avail(&p.gpu, |v| format!("{v:.1}%"))),
+        Page::Gpu => format!(
+            "{:>10}",
+            if matches!(p.gpu, Avail::Permission(_)) {
+                "???%".into()
+            } else {
+                avail(&p.gpu, |v| format!("{v:.1}%"))
+            }
+        ),
     };
     text(b, r, value_x, 0, value, fg);
     if rank <= 3 {
@@ -344,7 +351,8 @@ fn draw_row(
         }
         _ => primary(p, page, &s) / top,
     };
-    if bar_x + bar_w < r.width {
+    let gpu_readable = page != Page::Gpu || p.gpu.value().is_some();
+    if gpu_readable && bar_x + bar_w < r.width {
         if page == Page::Disk {
             let half = bar_w / 2;
             for x in 0..bar_w {
@@ -374,7 +382,7 @@ fn draw_row(
             );
         }
     }
-    if !compact && history_x + 14 < r.width {
+    if gpu_readable && !compact && history_x + 14 < r.width {
         let hist = a.task_values(p, page);
         let max = hist.iter().copied().fold(1., f32::max);
         spark(
@@ -411,13 +419,29 @@ fn draw_row(
             avail(&p.gpu, |v| format!("{v:.1}%")),
             avail(&p.wakeups, |v| format!("{v:.0}/s"))
         ),
-        Page::Gpu if compact => format!("{:.1}%", p.cpu),
-        Page::Gpu => format!(
-            "{:>5.1}%   {:>5}    {}",
-            p.cpu,
-            avail(&p.threads, |v| v.to_string()),
-            bytes(p.memory, &a.cfg.units)
-        ),
+        Page::Gpu => {
+            let restricted = matches!(p.threads, Avail::Permission(_));
+            let cpu = if restricted {
+                "???%".into()
+            } else {
+                format!("{:.1}%", p.cpu)
+            };
+            if compact {
+                cpu
+            } else {
+                let threads = if restricted {
+                    "???".into()
+                } else {
+                    avail(&p.threads, |v| v.to_string())
+                };
+                let memory = if restricted {
+                    "???B".into()
+                } else {
+                    bytes(p.memory, &a.cfg.units)
+                };
+                format!("{cpu:>6}   {threads:>5}    {memory}")
+            }
+        }
         Page::Disk if compact => rate(p.write, &a.cfg.units, false),
         Page::Disk => format!(
             "{:<12} {:<12} {} / {}",

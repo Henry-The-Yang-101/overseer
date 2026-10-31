@@ -122,20 +122,29 @@ fn gpu_tasks_sort_and_render_measured_zero_warmup_and_missing_counters() {
     let mut a = app("balanced");
     let s = Arc::make_mut(a.history.back_mut().unwrap());
     let processes = Arc::make_mut(&mut s.processes);
-    processes.truncate(4);
+    processes.truncate(5);
     for (p, (name, gpu)) in processes.iter_mut().zip([
         ("gpu-zero", Avail::Ok(0.)),
         ("gpu-busy", Avail::Ok(150.)),
         ("gpu-wait", Avail::Acquiring),
         ("gpu-hidden", Avail::Unsupported("no counters".into())),
+        (
+            "gpu-restricted",
+            Avail::Permission("GPU time restricted".into()),
+        ),
     ]) {
         p.name = Arc::from(name);
         p.gpu = gpu;
+        if name == "gpu-restricted" {
+            p.cpu = 0.;
+            p.memory = 0;
+            p.threads = Avail::Permission("task info restricted".into());
+        }
     }
     s.process_gpu = Avail::Ok(3);
     a.act(Action::GoPage(Page::Gpu));
     assert_eq!(a.sort, 8);
-    assert_eq!(a.rows.len(), 3);
+    assert_eq!(a.rows.len(), 4);
     assert_eq!(a.rows[0].process.name.as_ref(), "gpu-busy");
     assert_eq!(a.rows[1].process.name.as_ref(), "gpu-zero");
     for (w, h) in [(80, 24), (120, 36), (200, 55)] {
@@ -151,6 +160,16 @@ fn gpu_tasks_sort_and_render_measured_zero_warmup_and_missing_counters() {
             assert!(view.contains(label), "{w}x{h}: missing {label}\n{view}");
         }
         assert!(!view.contains("gpu-hidden"));
+        let restricted = view
+            .lines()
+            .find(|line| line.contains("gpu-restricted"))
+            .unwrap();
+        assert!(restricted.contains("???%"));
+        assert!(!restricted.contains("PERMISSION"));
+        assert!(!restricted.contains("0.0%"));
+        if w >= 120 {
+            assert!(restricted.contains("???    ???B"));
+        }
     }
     a.search = Some("gpu-busy".into());
     a.refresh_rows(true);

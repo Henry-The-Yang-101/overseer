@@ -1844,7 +1844,9 @@ impl App {
         }
         let mut all: Vec<Proc> = s.processes.as_ref().clone();
         if self.page == Page::Gpu {
-            all.retain(|p| p.gpu.value().is_some() || matches!(p.gpu, Avail::Acquiring));
+            all.retain(|p| {
+                p.gpu.value().is_some() || matches!(p.gpu, Avail::Acquiring | Avail::Permission(_))
+            });
         }
         if self.page == Page::Network {
             all.retain(|p| s.extra.traffic(p, s.at).is_some());
