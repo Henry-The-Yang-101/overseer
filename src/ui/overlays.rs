@@ -449,7 +449,7 @@ pub fn boot(b: &mut Buffer, r: Rect, a: &App) {
         ("FAN CONTROLLER", s.fans.reason().into()),
         ("BATTERY", s.battery.reason().into()),
         ("MEMORY PRESSURE", s.pressure.reason().into()),
-        ("PER-PROCESS GPU", "not exposed".into()),
+        ("PER-PROCESS GPU", s.process_gpu.reason().into()),
     ];
     let visible = if a.motion == Motion::Full {
         (a.started.elapsed().as_secs_f32() * 10.) as usize

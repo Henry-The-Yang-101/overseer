@@ -222,6 +222,9 @@ mod native {
             if matching.is_null() || IOServiceGetMatchingServices(0, matching, &mut handle) != 0 {
                 return Avail::Failed("GPU registry enumeration failed".into());
             }
+            if handle == 0 {
+                return Avail::Unsupported("no GPU accelerator counters".into());
+            }
             let accelerators = Object(handle);
             let mut found = false;
             let mut clients = vec![];
@@ -238,6 +241,9 @@ mod native {
                 ) != 0
                 {
                     return Avail::Failed("GPU client enumeration failed".into());
+                }
+                if handle == 0 {
+                    continue;
                 }
                 let children = Object(handle);
                 while let Some(entry) = children.next() {

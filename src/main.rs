@@ -104,6 +104,7 @@ fn main() -> anyhow::Result<()> {
                     format!("{} cores / {} tiers", s.core_count(), s.tiers.len()),
                 ),
                 ("GPU", s.gpu.reason().into()),
+                ("Per-process GPU", s.process_gpu.reason().into()),
                 ("Temperature", s.cpu_temp.reason().into()),
                 ("System power", s.system_power.reason().into()),
                 ("Fans", s.fans.reason().into()),

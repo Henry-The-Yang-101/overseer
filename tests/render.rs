@@ -115,6 +115,57 @@ fn representative_layouts() {
     }
 }
 #[test]
+fn gpu_tasks_sort_and_render_measured_zero_warmup_and_missing_counters() {
+    use overseer::metrics::Avail;
+    use std::sync::Arc;
+
+    let mut a = app("balanced");
+    let s = Arc::make_mut(a.history.back_mut().unwrap());
+    let processes = Arc::make_mut(&mut s.processes);
+    processes.truncate(4);
+    for (p, (name, gpu)) in processes.iter_mut().zip([
+        ("gpu-zero", Avail::Ok(0.)),
+        ("gpu-busy", Avail::Ok(150.)),
+        ("gpu-wait", Avail::Acquiring),
+        ("gpu-hidden", Avail::Unsupported("no counters".into())),
+    ]) {
+        p.name = Arc::from(name);
+        p.gpu = gpu;
+    }
+    s.process_gpu = Avail::Ok(3);
+    a.act(Action::GoPage(Page::Gpu));
+    assert_eq!(a.sort, 8);
+    assert_eq!(a.rows.len(), 3);
+    assert_eq!(a.rows[0].process.name.as_ref(), "gpu-busy");
+    assert_eq!(a.rows[1].process.name.as_ref(), "gpu-zero");
+    for (w, h) in [(80, 24), (120, 36), (200, 55)] {
+        let view = render(&mut a, w, h);
+        for label in [
+            "TOP GPU TASKS",
+            "GPU%",
+            "150.0%",
+            "0.0%",
+            "ACQUIRING",
+            "gpu-busy",
+        ] {
+            assert!(view.contains(label), "{w}x{h}: missing {label}\n{view}");
+        }
+        assert!(!view.contains("gpu-hidden"));
+    }
+    a.search = Some("gpu-busy".into());
+    a.refresh_rows(true);
+    assert_eq!(a.rows.len(), 1);
+    a.search = None;
+    let s = Arc::make_mut(a.history.back_mut().unwrap());
+    s.process_gpu = Avail::Failed("GPU registry enumeration failed".into());
+    for p in Arc::make_mut(&mut s.processes) {
+        p.gpu = Avail::Failed("GPU registry enumeration failed".into());
+    }
+    a.refresh_rows(true);
+    assert!(a.rows.is_empty());
+    assert!(render(&mut a, 120, 36).contains("GPU registry enumeration failed"));
+}
+#[test]
 fn cpu_clusters_keep_channel_ids_and_size_performance_cores_larger() {
     let names = [
         "PCPU000", "PCPU010", "PCPU020", "PCPU030", "PCPU100", "PCPU110", "PCPU120", "PCPU130",

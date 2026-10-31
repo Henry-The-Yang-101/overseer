@@ -17,6 +17,12 @@ pub fn app_groups(s: &Sample, page: Page) -> Vec<insights::AppGroup<'_>> {
         Page::Memory => g.memory as f64,
         Page::Disk => g.read + g.write,
         Page::Network => g.download + g.upload,
+        Page::Gpu => g
+            .processes
+            .iter()
+            .filter_map(|p| p.gpu.value())
+            .map(|v| *v as f64)
+            .sum(),
         _ => g.cpu as f64,
     };
     groups.sort_by(|a, b| score(b).total_cmp(&score(a)).then(a.key.cmp(&b.key)));
@@ -265,7 +271,25 @@ fn details(a: &App, s: &Sample) -> Vec<String> {
             lines.push("History: time-weighted averages, peaks, and threshold durations.".into());
             lines.push("Apps: expandable application totals, sorted by this resource.".into());
             if a.page == Page::Gpu {
-                lines.push("Per-app GPU counters remain unavailable; Apps sorts by CPU.".into());
+                lines.push(format!(
+                    "PROCESS GPU · {} · ~5s samples",
+                    s.process_gpu.reason()
+                ));
+                lines.push(
+                    "Driver GPU time / elapsed time × 100. Overlapping work may exceed 100%."
+                        .into(),
+                );
+                lines.push(
+                    "Only reporting processes appear in the table; this is not device utilization."
+                        .into(),
+                );
+                lines.push(
+                    "New/reset queues need two samples. Missing counters never mean zero.".into(),
+                );
+                lines.push(
+                    "Undocumented driver fields may change. Work between samples can be missed."
+                        .into(),
+                );
             }
             lines.push(
                 "Use ← / → to switch tabs. The snapshot stays pinned while this panel is open."
@@ -452,6 +476,19 @@ pub fn modal(b: &mut Buffer, rect: Rect, a: &mut App) {
                 bytes(g.memory, &a.cfg.units),
                 rate(g.read + g.write, &a.cfg.units, false)
             ));
+            if a.page == Page::Gpu {
+                let measured: Vec<_> = g.processes.iter().filter_map(|p| p.gpu.value()).collect();
+                lines.push(if measured.is_empty() {
+                    "    GPU N/A · waiting or no readable GPU time counters".into()
+                } else {
+                    format!(
+                        "    GPU {:.1}% · reporting {}/{} tasks",
+                        measured.iter().map(|v| **v).sum::<f32>(),
+                        measured.len(),
+                        g.processes.len()
+                    )
+                });
+            }
             lines.push(if g.traffic_count == 0 {
                 "    NET N/A".into()
             } else {
@@ -472,6 +509,12 @@ pub fn modal(b: &mut Buffer, rect: Rect, a: &mut App) {
                         p.cpu,
                         bytes(p.memory, &a.cfg.units)
                     ));
+                    if a.page == Page::Gpu {
+                        lines.push(format!(
+                            "        GPU {}",
+                            avail(&p.gpu, |v| format!("{v:.1}%"))
+                        ));
+                    }
                 }
             }
         }

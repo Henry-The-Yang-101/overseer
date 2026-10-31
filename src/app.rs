@@ -1,6 +1,6 @@
 use crate::{
     config::Config,
-    metrics::{self, Proc, Sample},
+    metrics::{self, Avail, Proc, Sample},
     motion::{Anim, Motion},
     ui::{
         kit::{Hit, HitMap},
@@ -186,7 +186,7 @@ impl Part {
                 "Instruction lanes are symbolic: density follows active residency, speed follows clock frequency. Process-to-core mapping is not measurable."
             }
             Self::Gpu => {
-                "Lit tiles encode aggregate GPU residency. Tiles and the framebuffer are symbolic, not individual GPU cores or screen contents. Per-process GPU is not exposed."
+                "Lit tiles encode aggregate GPU residency. Tiles and the framebuffer are symbolic, not individual GPU cores or screen contents. Process GPU rates use driver-reported GPU time and may exceed 100%."
             }
             Self::Ane => {
                 "The lattice encodes measured ANE watts, not individual neural-engine operations."
@@ -969,6 +969,7 @@ impl App {
             .max(1) as f32;
         let score = |p: &Proc| {
             (p.cpu / (s.core_count() as f32 * 100.))
+                .max(p.gpu.value().copied().unwrap_or(0.) / 100.)
                 .max(p.memory as f32 / s.machine.memory.max(1) as f32)
                 .max(((p.read + p.write) / max_io) as f32)
                 .max(p.connections.value().copied().unwrap_or(0) as f32 / max_net)
@@ -985,7 +986,13 @@ impl App {
             candidates.push(f);
         }
         for p in candidates {
-            let values = std::array::from_fn(|i| crate::ui::processes::primary(p, Page::ALL[i], s));
+            let values = std::array::from_fn(|i| {
+                if Page::ALL[i] == Page::Gpu {
+                    p.gpu.value().copied().unwrap_or(f32::NAN)
+                } else {
+                    crate::ui::processes::primary(p, Page::ALL[i], s)
+                }
+            });
             let points = self.task_history.entry(p.key()).or_default();
             points.push_back((s.process_at, values));
             while points.len() > 24 {
@@ -1002,6 +1009,7 @@ impl App {
                 .iter()
                 .filter(|(at, _)| *at <= s.at && *at >= s.at - 120.)
                 .map(|(_, v)| v[page.index()])
+                .filter(|v| v.is_finite())
                 .collect();
             if points.len() > 1 {
                 return points;
@@ -1020,7 +1028,13 @@ impl App {
                 h.processes
                     .iter()
                     .find(|v| v.key() == p.key())
-                    .map(|p| crate::ui::processes::primary(p, page, h))
+                    .and_then(|p| {
+                        if page == Page::Gpu {
+                            p.gpu.value().copied()
+                        } else {
+                            Some(crate::ui::processes::primary(p, page, h))
+                        }
+                    })
             })
             .collect()
     }
@@ -1828,11 +1842,10 @@ impl App {
                 }
             }
         }
-        let mut all: Vec<Proc> = if self.page == Page::Gpu {
-            vec![]
-        } else {
-            s.processes.as_ref().clone()
-        };
+        let mut all: Vec<Proc> = s.processes.as_ref().clone();
+        if self.page == Page::Gpu {
+            all.retain(|p| p.gpu.value().is_some() || matches!(p.gpu, Avail::Acquiring));
+        }
         if self.page == Page::Network {
             all.retain(|p| s.extra.traffic(p, s.at).is_some());
         }
@@ -1848,6 +1861,11 @@ impl App {
                 6 => (b.read + b.write).total_cmp(&(a.read + a.write)),
                 7 => crate::ui::processes::primary(b, Page::Network, &s)
                     .total_cmp(&crate::ui::processes::primary(a, Page::Network, &s)),
+                8 => b
+                    .gpu
+                    .value()
+                    .partial_cmp(&a.gpu.value())
+                    .unwrap_or(std::cmp::Ordering::Equal),
                 _ => a.pid.cmp(&b.pid),
             }
             .then(a.pid.cmp(&b.pid));

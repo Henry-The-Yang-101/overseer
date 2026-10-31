@@ -36,7 +36,7 @@ pub fn primary(p: &Proc, page: Page, s: &Sample) -> f32 {
             .extra
             .traffic(p, s.at)
             .map_or(0., |v| (v.read + v.write) as f32),
-        Page::Gpu => 0.,
+        Page::Gpu => p.gpu.value().copied().unwrap_or(0.),
     }
 }
 pub fn draw(b: &mut Buffer, r: Rect, a: &mut App, size: SizeClass) {
@@ -49,35 +49,14 @@ pub fn draw(b: &mut Buffer, r: Rect, a: &mut App, size: SizeClass) {
         format!("TOP {} TASKS", page.label().to_uppercase())
     };
     let held = a.last_input.elapsed().as_millis() < 1500;
-    let right = if page == Page::Gpu {
-        "UNAVAILABLE".into()
-    } else {
-        format!(
-            "{} · {} {}{}",
-            a.rows.iter().filter(|r| !r.exited).count(),
-            SORT_NAMES[a.sort],
-            if a.reverse { "↑" } else { "↓" },
-            if held { " · held" } else { "" }
-        )
-    };
+    let right = format!(
+        "{} · {} {}{}",
+        a.rows.iter().filter(|r| !r.exited).count(),
+        SORT_NAMES[a.sort],
+        if a.reverse { "↑" } else { "↓" },
+        if held { " · held" } else { "" }
+    );
     let inner = frame(b, r, &title, &right, false, &t);
-    if page == Page::Gpu {
-        line(
-            b,
-            inner,
-            1,
-            "⊘ Per-process GPU time is not exposed by this collector.",
-            t.muted,
-        );
-        line(
-            b,
-            inner,
-            2,
-            "The GPU totals above are measured. No task usage is estimated.",
-            t.muted,
-        );
-        return;
-    }
     let source = match page {
         Page::Cpu => "CPU time · 100% = one core · bars use whole-machine capacity",
         Page::Memory => "Physical footprint · macOS task accounting · compressed bytes unavailable",
@@ -86,7 +65,7 @@ pub fn draw(b: &mut Buffer, r: Rect, a: &mut App, size: SizeClass) {
         Page::Network => {
             "Measured RX + TX · external interfaces · ~5s samples · unavailable ≠ zero"
         }
-        _ => "",
+        Page::Gpu => "Driver GPU time · >100% possible · ~5s · bars relative to top task",
     };
     let caption = if let Some(q) = a.search.as_ref().filter(|q| !q.is_empty() || a.searching) {
         format!("/ {q}{}", if a.searching { "▏" } else { "" })
@@ -126,7 +105,7 @@ pub fn draw(b: &mut Buffer, r: Rect, a: &mut App, size: SizeClass) {
         Page::Energy => "CPU POWER ≈",
         Page::Disk => "READ + WRITE",
         Page::Network => "RX + TX",
-        _ => "",
+        Page::Gpu => "GPU%",
     };
     text(b, inner, 0, 1, " #", t.muted);
     if !compact {
@@ -151,7 +130,8 @@ pub fn draw(b: &mut Buffer, r: Rect, a: &mut App, size: SizeClass) {
             Page::Disk => "READ/s       WRITE/s       READ TOTAL / WRITTEN",
             Page::Network if compact => "TX/s",
             Page::Network => "RX/s         TX/s         SOCKETS",
-            _ => "",
+            Page::Gpu if compact => "CPU%",
+            Page::Gpu => "CPU%    THREADS  MEM",
         },
         t.muted,
     );
@@ -229,6 +209,13 @@ pub fn draw(b: &mut Buffer, r: Rect, a: &mut App, size: SizeClass) {
             y + 1,
             if page == Page::Network {
                 "No measured traffic yet. Allow two samples; i shows collection status."
+            } else if page == Page::Gpu && a.search.as_ref().is_none_or(|q| q.is_empty()) {
+                match &s.process_gpu {
+                    Avail::Ok(_) => {
+                        "No readable GPU time counters. Only reporting processes appear here."
+                    }
+                    other => other.reason(),
+                }
             } else if s.processes.is_empty() {
                 "Acquiring task snapshot…"
             } else {
@@ -342,7 +329,7 @@ fn draw_row(
                 true
             ))
         ),
-        _ => "N/A".into(),
+        Page::Gpu => format!("{:>10}", avail(&p.gpu, |v| format!("{v:.1}%"))),
     };
     text(b, r, value_x, 0, value, fg);
     if rank <= 3 {
@@ -419,9 +406,17 @@ fn draw_row(
             avail(&p.threads, |v| v.to_string())
         ),
         Page::Energy => format!(
-            "{:>5.1}%   N/A     {}",
+            "{:>5.1}%   {:<7} {}",
             p.cpu,
+            avail(&p.gpu, |v| format!("{v:.1}%")),
             avail(&p.wakeups, |v| format!("{v:.0}/s"))
+        ),
+        Page::Gpu if compact => format!("{:.1}%", p.cpu),
+        Page::Gpu => format!(
+            "{:>5.1}%   {:>5}    {}",
+            p.cpu,
+            avail(&p.threads, |v| v.to_string()),
+            bytes(p.memory, &a.cfg.units)
         ),
         Page::Disk if compact => rate(p.write, &a.cfg.units, false),
         Page::Disk => format!(
@@ -443,7 +438,6 @@ fn draw_row(
                 )
             }
         }),
-        _ => String::new(),
     };
     text(b, r, secondary_x, 0, secondary, t.muted);
 }
@@ -515,6 +509,12 @@ pub fn overview(b: &mut Buffer, r: Rect, p: &Proc, a: &App) {
                 super::insights::growth(p, &s, a, 60.),
                 super::insights::growth(p, &s, a, 300.),
                 super::insights::growth(p, &s, a, 900.)
+            )
+        } else if a.page == Page::Gpu {
+            format!(
+                "GPU {} · {}",
+                avail(&p.gpu, |v| format!("{v:.1}%")),
+                p.gpu.reason()
             )
         } else if a.page == Page::Energy {
             if s.extra.stale(s.at) {
