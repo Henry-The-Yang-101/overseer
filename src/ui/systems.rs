@@ -824,8 +824,9 @@ fn gpu_fabric(b: &mut Buffer, r: Rect, a: &App, s: &Sample) {
     }
     let footer = u16::from(r.height >= 5);
     let art = Rect::new(r.x, r.y, r.width, r.height.saturating_sub(footer));
-    let (left, right) = fabric_halves(art);
-    super::donut::draw(b, right, a);
+    let (mut left, right) = fabric_panes(art, a.cell_aspect);
+    let right = super::donut::draw(b, right, a);
+    left.width = right.x.saturating_sub(art.x).saturating_sub(1);
     for y in art.y..art.bottom() {
         text(b, r, left.width, y - r.y, "│", a.theme.wire);
     }
@@ -884,11 +885,13 @@ fn gpu_fabric(b: &mut Buffer, r: Rect, a: &App, s: &Sample) {
     }
 }
 
-fn fabric_halves(r: Rect) -> (Rect, Rect) {
-    let width = r.width.saturating_sub(1) / 2;
-    // The separator absorbs the spare column so both halves stay exactly equal.
+fn fabric_panes(r: Rect, cell_aspect: f32) -> (Rect, Rect) {
+    // A 3:2 ratio in screen pixels, accounting for tall terminal cells.
+    // On narrow layouts keep at least half the area for the measured fabric.
+    let width = ((r.height as f32 * cell_aspect.clamp(1., 3.) * 1.5).round() as u16)
+        .min(r.width.saturating_sub(1) / 2);
     (
-        Rect::new(r.x, r.y, width, r.height),
+        Rect::new(r.x, r.y, r.width.saturating_sub(width + 1), r.height),
         Rect::new(r.right() - width, r.y, width, r.height),
     )
 }
@@ -1362,13 +1365,19 @@ fn inline_stats(b: &mut Buffer, r: Rect, a: &App, s: &Sample) {
 mod fabric_tests {
     use super::*;
     #[test]
-    fn fabric_halves_are_equal_and_inside_panel() {
-        for width in 0..240 {
-            let r = Rect::new(7, 3, width, 18);
-            let (left, right) = fabric_halves(r);
-            assert_eq!(left.width, right.width);
-            assert!(left.right() <= right.x);
-            assert!(right.right() <= r.right());
+    fn donut_pane_uses_screen_ratio_and_leaves_the_rest_for_fabric() {
+        for aspect in [1., 1.6, 2.05, 3.] {
+            for width in 0..240 {
+                let r = Rect::new(7, 3, width, 18);
+                let (left, right) = fabric_panes(r, aspect);
+                assert!(left.width >= right.width);
+                assert!(left.right() <= right.x);
+                assert_eq!(right.right(), r.right());
+                assert_eq!(right.height, r.height);
+                if right.width < r.width.saturating_sub(1) / 2 {
+                    assert!((right.width as f32 - 18. * aspect * 1.5).abs() <= 0.5);
+                }
+            }
         }
     }
 }

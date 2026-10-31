@@ -141,9 +141,36 @@ impl Renderer {
     }
 }
 
-pub fn draw(b: &mut Buffer, r: Rect, a: &App) {
+fn bounds(frame: &[u32], width: u16) -> Option<Rect> {
+    let mut bounds: Option<Rect> = None;
+    for (i, &pixel) in frame.iter().enumerate() {
+        if pixel == 0 {
+            continue;
+        }
+        let cell = Rect::new(
+            (i % width as usize) as u16,
+            (i / width as usize) as u16,
+            1,
+            1,
+        );
+        bounds = Some(bounds.map_or(cell, |r| r.union(cell)));
+    }
+    bounds
+}
+
+fn centered_pane(mut pane: Rect, content: Rect) -> Rect {
+    // Matching parity makes the left and right margins exactly equal in cells.
+    // Keep the outer edge anchored and return the spare column to the fabric.
+    if pane.width % 2 != content.width % 2 {
+        pane.x += 1;
+        pane.width -= 1;
+    }
+    pane
+}
+
+pub fn draw(b: &mut Buffer, r: Rect, a: &App) -> Rect {
     if r.width == 0 || r.height == 0 {
-        return;
+        return r;
     }
     let phase = if a.motion == Motion::Full {
         a.anim.phases.get("donut").copied().unwrap_or(0.)
@@ -153,6 +180,12 @@ pub fn draw(b: &mut Buffer, r: Rect, a: &App) {
     let p = Params::new(r.width, r.height, a.cell_aspect, phase);
     let mut renderer = a.donut.borrow_mut();
     let frame = renderer.render(p, a.motion == Motion::Full);
+    let Some(content) = bounds(frame, r.width) else {
+        return r;
+    };
+    let pane = centered_pane(r, content);
+    let x = (pane.width - content.width) / 2;
+    let y = (pane.height - content.height) / 2;
     for (i, &pixel) in frame.iter().enumerate() {
         let shade = (pixel & 0xff) as usize;
         if shade == 0 {
@@ -166,13 +199,14 @@ pub fn draw(b: &mut Buffer, r: Rect, a: &App) {
         };
         text(
             b,
-            r,
-            (i % r.width as usize) as u16,
-            (i / r.width as usize) as u16,
+            pane,
+            x + (i % r.width as usize) as u16 - content.x,
+            y + (i / r.width as usize) as u16 - content.y,
             (RAMP[shade - 1] as char).to_string(),
             color,
         );
     }
+    pane
 }
 
 #[cfg(target_os = "macos")]
@@ -280,13 +314,23 @@ mod tests {
         );
         assert!(front.iter().any(|v| v & 255 >= 10));
         assert!(front.iter().any(|v| v & 255 == 1));
-        for (w, h) in [(0, 0), (1, 1), (28, 4), (80, 40), (180, 70)] {
+        for (w, h) in [(0, 0), (1, 1), (28, 4), (31, 11), (80, 40), (180, 70)] {
             let mut renderer = Renderer::default();
             for step in 0..16 {
                 let p = Params::new(w, h, 2., step as f32 / 16.);
                 let frame = renderer.render(p, false);
                 assert_eq!(frame.len(), w as usize * h as usize);
                 assert!(frame.iter().all(|v| v & 255 <= RAMP.len() as u32));
+                if let Some(content) = bounds(frame, w) {
+                    let original = Rect::new(7, 3, w, h);
+                    let pane = centered_pane(original, content);
+                    assert_eq!(pane.right(), original.right());
+                    assert!(w - pane.width <= 1);
+                    assert!(content.width <= pane.width);
+                    assert_eq!(pane.width % 2, content.width % 2);
+                    let margin = (pane.width - content.width) / 2;
+                    assert_eq!(margin * 2 + content.width, pane.width);
+                }
                 if w >= 28 {
                     assert!(frame.iter().any(|v| *v != 0));
                     assert!((0..h as usize).all(
@@ -304,6 +348,20 @@ mod tests {
         let cached = renderer.frame.as_ptr();
         renderer.render(p, false);
         assert_eq!(cached, renderer.frame.as_ptr());
+        let mut app = App::new(crate::config::Config::default(), Some("balanced".into()));
+        app.motion = Motion::Off;
+        for width in [31, 32, 55, 56] {
+            let area = Rect::new(7, 3, width, 18);
+            let mut buffer = Buffer::empty(area);
+            let pane = draw(&mut buffer, area, &app);
+            let occupied: Vec<_> = (area.x..area.right())
+                .filter(|&x| (area.y..area.bottom()).any(|y| buffer[(x, y)].symbol() != " "))
+                .collect();
+            let first = *occupied.first().unwrap();
+            let last = *occupied.last().unwrap();
+            assert_eq!(first - pane.x, pane.right() - last - 1);
+            assert_eq!(pane.width % 2, (last - first + 1) % 2);
+        }
         let mut anim = crate::motion::Anim::default();
         let s = crate::metrics::demo("idle", 0.);
         anim.tick(&s, 0.1, Motion::Full, true, 30.);
