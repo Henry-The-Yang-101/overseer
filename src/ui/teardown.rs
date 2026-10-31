@@ -1415,7 +1415,10 @@ fn device_labels(b: &mut Buffer, c: Rect, area: Rect, a: &mut App, mirror: bool)
         let x = if left { area.x } else { c.right() + 2 };
         let mut next_y = area.y + 1;
         for (kind, side, y, _) in PORTS {
-            if (side != mirror) != left || ports::indicator(&s, kind, &a.theme).2 != "CONNECTED" {
+            if matches!(kind, PortKind::MagSafe | PortKind::Audio)
+                || (side != mirror) != left
+                || ports::indicator(&s, kind, &a.theme).2 != "CONNECTED"
+            {
                 continue;
             }
             let Some(port) = ports::find(&s, kind) else {
