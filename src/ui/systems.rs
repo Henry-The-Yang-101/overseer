@@ -1238,7 +1238,7 @@ fn side_card(b: &mut Buffer, r: Rect, a: &App, s: &Sample) {
             ),
             (format!("TEMP {}", temp(&s.gpu_temp, &a.cfg.units)), t.text),
             (format!("ANE ◇─◇─◇ {}", watts(&s.power[2])), t.ane),
-            ("Tiles: aggregate · donut: visual".into(), t.muted),
+            ("Tiles: usage · Visual: animation".into(), t.muted),
         ],
     };
     for (label, c) in rows {

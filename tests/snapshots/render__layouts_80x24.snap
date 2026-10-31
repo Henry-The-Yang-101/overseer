@@ -77,11 +77,36 @@ cpu
  5m  ⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤◆ NOW
 
  ←→ pages   ↑↓ tasks   Enter inspect   i stats / history / apps   / filter   z
+gpu
+ O V E R S E E R  M4 Pro                                              SYNTHETIC
+
+  1 Teardown   2 Systems
+ ‹  GPU  23.9%  ›                                                ○ ● ○ ○ ○ ○
+
+ ╭ GPU · SHADER FABRIC ────────────────── i details · z expand ╮ ╭ VISUAL ────╮
+ │ ·▓·········▓··▓·······························█·····█····█· │ │            │
+ │ ······▓······▓·▓··········▓···▓···▓·▓·▓▓▓··█··███·····███·· │ │   ***!!=   │
+ │ ·▓···▓▓·▓····▓▓·················▓··▓▓·▓········██··█████·██ │ │   =;-..:   │
+ │ UTIL 5m  ⣤⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣀⣀⣀⣠⣤⣤⣄⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣤⣤⣤⣀⣀⣀⣀⣀⣀⣀⣀⣀ │ │   --;=:    │
+ │ GPU  3.10 W  SRAM  0.12 W  44°C   ANE  0.17 W · aggregate u │ │            │
+ ╰─────────────────────────────────────────────────────────────╯ ╰────────────╯
+ ╭ TOP GPU TASKS ────────────────────────────────────────────────── 8 · GPU ↓ ╮
+ │ Driver GPU time · >100% possible · ~5s · bars relative to top task         │
+ │  #  NAME                               GPU%                  CPU%          │
+ │ 01  Code Helper                              5.7%   ████████ 38.1%         │
+ │ 02  Safari                                   4.5%   ██████▎─ 30.3%         │
+ │ 03  overseer                                 4.4%   ██████▏─ 29.5%         │
+ │ 04  kernel_task                              2.0%   ██▊───── 13.4%         │
+ │ 05  rustc                                    1.4%   ██ ───── 9.6%          │
+ ╰────────────────────────────────────────────────────────────────────────────╯
+ 5m  ⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤◆ NOW
+
+ ←→ pages   ↑↓ tasks   Enter inspect   i stats / history / apps   / filter   z
 memory
  O V E R S E E R  M4 Pro                                              SYNTHETIC
 
   1 Teardown   2 Systems
- ‹  MEMORY 14.0G  ›                                              ○ ● ○ ○ ○ ○
+ ‹  MEMORY 14.0G  ›                                              ○ ○ ● ○ ○ ○
 
  ╭ MEMORY · ADDRESS MATRIX ───────────────────────────── i details · z expand ╮
  │ ▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣▣■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ │
@@ -106,7 +131,7 @@ energy
  O V E R S E E R  M4 Pro                                              SYNTHETIC
 
   1 Teardown   2 Systems
- ‹  ENERGY 19.90 W  ›                                            ○ ○ ● ○ ○ ○
+ ‹  ENERGY 19.90 W  ›                                            ○ ○ ○ ● ○ ○
 
  ╭ ENERGY · POWER FLOW ───────────────────────────────── i details · z expand ╮
  │ AC ADAPTER  →  SYSTEM 19.90 W   Σ SoC 12.37 W                              │
@@ -131,7 +156,7 @@ disk
  O V E R S E E R  M4 Pro                                              SYNTHETIC
 
   1 Teardown   2 Systems
- ‹  STORAGE 222.2 MiB/s  ›                                       ○ ○ ○ ● ○ ○
+ ‹  STORAGE 222.2 MiB/s  ›                                       ○ ○ ○ ○ ● ○
 
  ╭ STORAGE · NAND ARRAY ──────────────────────────────── i details · z expand ╮
  │ Macintosh HD   READ 209.2 MiB/s   WRITE 13.0 MiB/s                         │
@@ -156,7 +181,7 @@ network
  O V E R S E E R  M4 Pro                                              SYNTHETIC
 
   1 Teardown   2 Systems
- ‹  NETWORK 1.1 MiB/s  ›                                         ○ ○ ○ ○ ● ○
+ ‹  NETWORK 1.1 MiB/s  ›                                         ○ ○ ○ ○ ○ ●
 
  ╭ NETWORK · SIGNAL TRACES ───────────────────────────── i details · z expand ╮
  │ en0   RX 390.7 KiB/s   TX 784.6 KiB/s                                      │
@@ -173,31 +198,6 @@ network
  │ 03  Code Helper                         58.7 KiB/s  █████▉── 19.6 KiB/s    │
  │ 04  Safari                              52.3 KiB/s  █████▎── 39.2 KiB/s    │
  │ 05  photolibraryd                       52.2 KiB/s  █████▎── 19.6 KiB/s    │
- ╰────────────────────────────────────────────────────────────────────────────╯
- 5m  ⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤◆ NOW
-
- ←→ pages   ↑↓ tasks   Enter inspect   i stats / history / apps   / filter   z
-gpu
- O V E R S E E R  M4 Pro                                              SYNTHETIC
-
-  1 Teardown   2 Systems
- ‹  GPU  23.9%  ›                                                ○ ○ ○ ○ ○ ●
-
- ╭ GPU · SHADER FABRIC ────────────────── i details · z expand ╮ ╭ VISUAL ────╮
- │ ·▓·········▓··▓·······························█·····█····█· │ │            │
- │ ······▓······▓·▓··········▓···▓···▓·▓·▓▓▓··█··███·····███·· │ │   ***!!=   │
- │ ·▓···▓▓·▓····▓▓·················▓··▓▓·▓········██··█████·██ │ │   =;-..:   │
- │ UTIL 5m  ⣤⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣀⣀⣀⣠⣤⣤⣄⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣤⣤⣤⣀⣀⣀⣀⣀⣀⣀⣀⣀ │ │   --;=:    │
- │ GPU  3.10 W  SRAM  0.12 W  44°C   ANE  0.17 W · aggregate u │ │            │
- ╰─────────────────────────────────────────────────────────────╯ ╰────────────╯
- ╭ TOP GPU TASKS ────────────────────────────────────────────────── 8 · GPU ↓ ╮
- │ Driver GPU time · >100% possible · ~5s · bars relative to top task         │
- │  #  NAME                               GPU%                  CPU%          │
- │ 01  Code Helper                              5.7%   ████████ 38.1%         │
- │ 02  Safari                                   4.5%   ██████▎─ 30.3%         │
- │ 03  overseer                                 4.4%   ██████▏─ 29.5%         │
- │ 04  kernel_task                              2.0%   ██▊───── 13.4%         │
- │ 05  rustc                                    1.4%   ██ ───── 9.6%          │
  ╰────────────────────────────────────────────────────────────────────────────╯
  5m  ⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣄⣀⣀⣀⣀⣀⣀⣤◆ NOW
 

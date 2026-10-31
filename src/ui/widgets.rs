@@ -196,7 +196,7 @@ pub fn content(b: &mut Buffer, r: Rect, p: Part, s: &Sample, a: &App) {
             }
         }
         Part::Thermal => thermal(b, r, s, a),
-        Part::Fan0 | Part::Fan1 => super::fan::pair(b, r, s, a),
+        Part::Fan0 | Part::Fan1 => super::fan::summary(b, r, s, a),
         Part::Battery => battery(b, r, s, a),
         Part::SpeakerLeft | Part::SpeakerRight => super::audio::waveform(b, r, p, a, false),
         Part::Cell(_) => {}

@@ -235,16 +235,41 @@ fn aligned(b: &mut Buffer, r: Rect, y: u16, value: impl AsRef<str>, color: Color
     text(b, r, x, y, value, color);
 }
 
-pub fn pair(b: &mut Buffer, r: Rect, s: &Sample, a: &App) {
+pub fn summary(b: &mut Buffer, r: Rect, s: &Sample, a: &App) {
     if r.is_empty() {
         return;
     }
     let t = &a.theme;
-    let ascii = a.cfg.ui.glyphs == "ascii";
-    let panes = halves(r);
-    let art_width = panes[0].width.min(panes[1].width);
-    for (i, pane) in panes.into_iter().enumerate() {
-        let right = i == 1;
+    let fan = s.fans.value().and_then(|fans| fans.get(1));
+    let art = row(r, 0, r.height.saturating_sub(3));
+    if let Some(fan) = fan {
+        let height = art.height.min(art.width / 2);
+        let width = height.saturating_mul(2);
+        let bounds = Rect::new(
+            art.x + (art.width - width) / 2,
+            art.y + (art.height - height) / 2,
+            width,
+            height,
+        );
+        let phase = if a.motion == Motion::Off {
+            0.
+        } else {
+            a.anim.phases.get(&fan.name).copied().unwrap_or(0.)
+        };
+        draw_impeller(
+            b,
+            inner(bounds, 1, 1),
+            phase,
+            fan,
+            t,
+            ImpellerStyle {
+                mirror: true,
+                ascii: a.cfg.ui.glyphs == "ascii",
+                readout: false,
+            },
+        );
+    }
+    for (i, pane) in halves(r).into_iter().enumerate() {
         let fan = s.fans.value().and_then(|fans| fans.get(i));
         let speed = fan.map_or_else(
             || {
@@ -256,54 +281,20 @@ pub fn pair(b: &mut Buffer, r: Rect, s: &Sample, a: &App) {
             },
             |f| format!("{} rpm", f.rpm),
         );
-        if r.height < 4 {
-            aligned(b, pane, 0, format!("FAN {i}: {speed}"), t.text, right);
-            continue;
-        }
-        aligned(b, pane, 0, format!("FAN {i}"), t.accent, right);
-        let art = Rect::new(
-            pane.x,
-            pane.y + 1,
-            pane.width,
-            pane.height.saturating_sub(4),
+        aligned(
+            b,
+            pane,
+            pane.height.saturating_sub(2),
+            format!("{} {speed}", ["LEFT", "RIGHT"][i]),
+            t.text,
+            i == 1,
         );
-        if let Some(fan) = fan {
-            let height = art.height.min(art_width / 2);
-            let width = art_width.min(height.saturating_mul(2));
-            let bounds = Rect::new(
-                art.x + (art.width - width) / 2,
-                art.y + (art.height - height) / 2,
-                width,
-                height,
-            );
-            if !bounds.is_empty() {
-                let inside = inner(bounds, 1, 1);
-                let phase = if a.motion == Motion::Off {
-                    0.
-                } else {
-                    a.anim.phases.get(&fan.name).copied().unwrap_or(0.)
-                };
-                draw_impeller(
-                    b,
-                    inside,
-                    phase,
-                    fan,
-                    t,
-                    ImpellerStyle {
-                        mirror: right,
-                        ascii,
-                        readout: false,
-                    },
-                );
-            }
-        } else {
-            aligned(b, art, 0, &speed, t.muted, right);
+        if pane.height >= 2 {
+            let maximum = fan
+                .and_then(|f| f.max)
+                .map_or("Max N/A".into(), |max| format!("Max {max} rpm"));
+            aligned(b, pane, pane.height - 1, maximum, t.muted, i == 1);
         }
-        aligned(b, pane, pane.height - 2, speed, t.text, right);
-        let maximum = fan
-            .and_then(|f| f.max)
-            .map_or("Max N/A".into(), |max| format!("Max {max} rpm"));
-        aligned(b, pane, pane.height - 1, maximum, t.muted, right);
     }
 }
 
@@ -333,7 +324,7 @@ pub fn inspector(b: &mut Buffer, r: Rect, a: &App, zoom: bool) {
     let note_h = u16::from(inside.height >= 18) * 2;
     let gap = u16::from(history_h > 0);
     let body_h = inside.height.saturating_sub(history_h + note_h + gap);
-    pair(b, row(inside, 0, body_h), &s, a);
+    summary(b, row(inside, 0, body_h), &s, a);
     if history_h > 0 {
         let history_area = Rect::new(inside.x, inside.y + body_h + gap, inside.width, history_h);
         for (i, pane) in halves(history_area).into_iter().enumerate() {
@@ -341,7 +332,11 @@ pub fn inspector(b: &mut Buffer, r: Rect, a: &App, zoom: bool) {
                 b,
                 pane,
                 0,
-                format!("FAN {i} · {} history", ["1m", "5m", "15m", "1h"][a.window]),
+                format!(
+                    "{} · {} history",
+                    ["LEFT", "RIGHT"][i],
+                    ["1m", "5m", "15m", "1h"][a.window]
+                ),
                 t.muted,
                 i == 1,
             );

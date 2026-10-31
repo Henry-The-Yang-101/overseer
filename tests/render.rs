@@ -531,10 +531,11 @@ fn component_inspectors_have_no_sample_summary() {
                         "Either fan opens the same combined inspector"
                     );
                     assert!(text.contains("FANS"));
+                    assert!(!text.contains("FAN 0") && !text.contains("FAN 1"));
                     let fans = a.sample();
                     let fans = fans.fans.value().unwrap();
-                    let left = format!("{} rpm", fans[0].rpm);
-                    let right = format!("{} rpm", fans[1].rpm);
+                    let left = format!("LEFT {} rpm", fans[0].rpm);
+                    let right = format!("RIGHT {} rpm", fans[1].rpm);
                     let rows = (1..h - 1)
                         .map(|y| {
                             (2..w - 2)
@@ -577,6 +578,10 @@ fn teardown_ssd_border_keeps_its_storage_color() {
                     .1;
                 let color = term.backend().buffer()[(r.x, r.y + 1)].fg;
                 assert!(color == a.theme.disk || color == ui::theme::quantize(a.theme.disk));
+                let capacity = (r.x + 1..r.right() - 1)
+                    .map(|x| term.backend().buffer()[(x, r.y + 3)].symbol())
+                    .collect::<String>();
+                assert!(capacity.contains("383.7/925.7 GiB"));
             }
         }
     }

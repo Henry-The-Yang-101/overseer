@@ -46,17 +46,17 @@ pub enum Page {
 impl Page {
     pub const ALL: [Self; 6] = [
         Self::Cpu,
+        Self::Gpu,
         Self::Memory,
         Self::Energy,
         Self::Disk,
         Self::Network,
-        Self::Gpu,
     ];
     pub fn index(self) -> usize {
         Self::ALL.iter().position(|p| *p == self).unwrap()
     }
     pub fn name(self) -> &'static str {
-        ["cpu", "memory", "energy", "disk", "network", "gpu"][self.index()]
+        ["cpu", "gpu", "memory", "energy", "disk", "network"][self.index()]
     }
     pub fn label(self) -> &'static str {
         match self {
@@ -67,21 +67,21 @@ impl Page {
     pub fn title(self) -> &'static str {
         [
             "EXECUTION FLOOR",
+            "SHADER FABRIC",
             "ADDRESS MATRIX",
             "POWER FLOW",
             "NAND ARRAY",
             "SIGNAL TRACES",
-            "SHADER FABRIC",
         ][self.index()]
     }
     pub fn part(self) -> Part {
         [
             Part::Cpu,
+            Part::Gpu,
             Part::Memory,
             Part::Power,
             Part::Disk,
             Part::Network,
-            Part::Gpu,
         ][self.index()]
     }
     pub fn parse(s: &str) -> Self {
@@ -104,7 +104,7 @@ impl Page {
         }
     }
     pub fn default_sort(self) -> usize {
-        [0, 1, 5, 6, 7, 8][self.index()]
+        [0, 8, 1, 5, 6, 7][self.index()]
     }
 }
 #[derive(Clone, Default)]

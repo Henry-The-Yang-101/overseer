@@ -230,8 +230,12 @@ impl Layout {
                 components[i].x -= extra;
             }
         }
+        // Grow the SSD upward so the battery cells retain their existing room.
+        let lower_lift = 5u16.saturating_sub(components[7].height.max(4));
         for i in [6, 7] {
-            components[i].height = components[i].height.max(4);
+            components[i].y = components[i].y.saturating_sub(lower_lift);
+            // The SSD needs three interior rows: read, write, and capacity.
+            components[i].height = components[i].height.max(if i == 7 { 5 } else { 4 });
             // Open one more terminal column beside the chip, reflected in back view.
             if components[i].x < c.x + c.width / 2 {
                 components[i].x -= 1;
@@ -239,6 +243,12 @@ impl Layout {
                 components[i].x += 1;
             }
         }
+        let disk = &mut components[7];
+        let extra = 12u16.saturating_sub(disk.width);
+        if disk.x < c.x + c.width / 2 {
+            disk.x -= extra;
+        }
+        disk.width += extra;
         // Leave a row of air between the fans/RAM and the lower board modules.
         let lower_top = components[6].y;
         for i in [1, 2, 4, 5] {
@@ -768,6 +778,17 @@ fn physical(b: &mut Buffer, c: Rect, available: Rect, a: &mut App) {
                 } else {
                     side_text(b, inside, c, 0, s.disk.label(), t.muted);
                 }
+                let capacity = avail(&s.disk_capacity, |(used, total)| {
+                    let used = *used as f64 / 1024f64.powi(3);
+                    let total = *total as f64 / 1024f64.powi(3);
+                    let value = format!("{used:.1}/{total:.1} GiB");
+                    if value.width() <= inside.width as usize {
+                        value
+                    } else {
+                        format!("{used:.0}/{total:.0}GiB")
+                    }
+                });
+                side_text(b, inside, c, 2, capacity, t.disk);
             }
             Part::Battery => {
                 side_text(
@@ -1264,7 +1285,7 @@ fn selected(b: &mut Buffer, r: Rect, a: &mut App, part: Part) {
         widgets::tint(p, t),
     );
     if p.selection_group() == Part::Fan0 {
-        super::fan::pair(
+        super::fan::summary(
             b,
             Rect::new(
                 inner.x,
@@ -1491,13 +1512,17 @@ fn wiring(b: &mut Buffer, c: Rect, a: &App, mirror: bool, layout: &Layout) {
     }
     for r in [layout.part(Part::Disk), layout.part(Part::Power)] {
         let right = r.x > center;
-        let from = if right { r.x } else { r.right() - 1 };
-        let to = if right { soc.right() - 1 } else { soc.x };
-        let y = soc.bottom() - 2;
+        let port = if right {
+            soc.x + soc.width * 3 / 4
+        } else {
+            soc.x + soc.width / 4
+        };
+        let edge = if right { r.x } else { r.right() - 1 };
+        let y = r.y + r.height / 2;
         trace(
             b,
             c,
-            &[(from, r.y + 1), (to, r.y + 1), (to, y)],
+            &[(port, soc.bottom() - 1), (port, y), (edge, y)],
             wire,
             moving.then_some((phase, signal)),
         );
@@ -1694,6 +1719,33 @@ mod tests {
             a.motion = crate::motion::Motion::Off;
             let mut buffer = Buffer::empty(Rect::new(0, 0, c.right(), c.bottom()));
             wiring(&mut buffer, c, &a, mirror, &layout);
+            let soc = layout.part(Part::Soc);
+            for p in [Part::Disk, Part::Power] {
+                let r = layout.part(p);
+                let x = if r.x > center { r.x - 1 } else { r.right() };
+                let y = r.y + r.height / 2;
+                assert_eq!(
+                    buffer[(x, y)].symbol(),
+                    "─",
+                    "module tap must enter at mid-side"
+                );
+                assert_eq!(
+                    buffer[(x, r.y + 1)].symbol(),
+                    " ",
+                    "leave the top of the module clear"
+                );
+                let port = soc.x
+                    + if r.x > center {
+                        soc.width * 3 / 4
+                    } else {
+                        soc.width / 4
+                    };
+                assert_ne!(
+                    buffer[(port, soc.bottom())].symbol(),
+                    " ",
+                    "trace leaves the SoC bottom"
+                );
+            }
             assert!(matches!(
                 buffer[(center, layout.power_y)].symbol(),
                 "╭" | "╮"
