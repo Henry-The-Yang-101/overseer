@@ -216,14 +216,34 @@ fn chrome(b: &mut ratatui::buffer::Buffer, r: Rect, a: &mut App, size: SizeClass
     text(b, r, 1, 0, "O V E R S E E R", t.accent);
     let info = if s.machine.chip.is_empty() {
         "Hardware observatory".into()
-    } else if size == SizeClass::Compact {
-        s.machine.chip.replace("Apple ", "")
     } else {
+        let name = if s.machine.name.is_empty() {
+            &s.machine.model
+        } else {
+            &s.machine.name
+        };
+        let chip = s
+            .machine
+            .chip
+            .strip_prefix("Apple ")
+            .unwrap_or(&s.machine.chip);
+        let gpu = if s.machine.gpu_cores > 0 {
+            format!("{} Core GPU", s.machine.gpu_cores)
+        } else {
+            "GPU N/A".into()
+        };
+        let storage = s.machine.storage_gb.map_or_else(
+            || {
+                avail(&s.disk_capacity, |(_, total)| {
+                    format!("{:.0} GiB Storage", *total as f64 / 1024f64.powi(3))
+                })
+            },
+            |gb| format!("{gb} GB Storage"),
+        );
         format!(
-            "{}  /  {} cores  /  {}",
-            s.machine.chip,
+            "{name} / {chip} / {} Core CPU / {gpu} / {:.1} GiB Memory / {storage}",
             s.machine.cpu_count,
-            bytes(s.machine.memory, &a.cfg.units)
+            s.machine.memory as f64 / 1024f64.powi(3)
         )
     };
     let status_width = unicode_width::UnicodeWidthStr::width(status.as_str()) as u16;

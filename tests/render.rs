@@ -72,6 +72,27 @@ fn caffeinate_options_and_custom_input_fit_and_support_clicks() {
     }
 }
 #[test]
+fn header_lists_device_name_and_hardware_in_order() {
+    use std::sync::Arc;
+    let mut a = app("balanced");
+    let machine = Arc::make_mut(&mut Arc::make_mut(a.history.back_mut().unwrap()).machine);
+    machine.name = "QA’s MacBook Pro".into();
+    machine.storage_gb = Some(512);
+    let wide = render(&mut a, 200, 55);
+    let header = wide.lines().next().unwrap();
+    assert!(header.contains(
+        "QA’s MacBook Pro / M4 Pro / 12 Core CPU / 16 Core GPU / 24.0 GiB Memory / 512 GB Storage"
+    ));
+    assert!(!header.contains("Apple"));
+    for (w, h) in [(60, 18), (80, 24), (120, 36)] {
+        let view = render(&mut a, w, h);
+        let header = view.lines().next().unwrap();
+        assert!(header.contains("QA’s MacBook Pro"));
+        assert!(header.contains("SYNTHETIC"));
+        assert!(unicode_width::UnicodeWidthStr::width(header) <= w as usize);
+    }
+}
+#[test]
 fn representative_layouts() {
     for (w, h) in [(80, 24), (120, 36), (200, 55)] {
         let mut a = app("balanced");

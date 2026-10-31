@@ -3,7 +3,7 @@ source: tests/render.rs
 expression: frames
 ---
 TEARDOWN
- O V E R S E E R  Apple M4 Pro  /  12 cores  /  24.0 GiB                                                                                                                           SYNTHETIC / balanced
+ O V E R S E E R  Demo MacBook Pro / M4 Pro / 12 Core CPU / 16 Core GPU / 24.0 GiB Memory / 1024 GB Storage                                                                        SYNTHETIC / balanced
 
   1 Teardown   2 Systems                                                                                                                                                 THERMAL NOMINAL   SYS 19.90 W
  ╭ MACBOOK PRO 14 / M4 PRO ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── PHYSICAL [m] ╮
@@ -59,7 +59,7 @@ TEARDOWN
 
  Tab select   g system page   Enter inspect   z zoom   m cells   c caffeinate   p ports   ? help
 SELECTED COMPONENT
- O V E R S E E R  Apple M4 Pro  /  12 cores  /  24.0 GiB                                                                                                                           SYNTHETIC / balanced
+ O V E R S E E R  Demo MacBook Pro / M4 Pro / 12 Core CPU / 16 Core GPU / 24.0 GiB Memory / 1024 GB Storage                                                                        SYNTHETIC / balanced
 
   1 Teardown   2 Systems                                                                                                                                                 THERMAL NOMINAL   SYS 19.90 W
  ╭ MACBOOK PRO 14 / M4 PRO ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── PHYSICAL [m] ╮ ┏ SELECTED ━━━━━━━━━━━━━ Enter / z ┓
@@ -115,7 +115,7 @@ SELECTED COMPONENT
 
  Tab select   g system page   Enter inspect   z zoom   m cells   c caffeinate   p ports   ? help
 TELEMETRY CELLS
- O V E R S E E R  Apple M4 Pro  /  12 cores  /  24.0 GiB                                                                                                                           SYNTHETIC / balanced
+ O V E R S E E R  Demo MacBook Pro / M4 Pro / 12 Core CPU / 16 Core GPU / 24.0 GiB Memory / 1024 GB Storage                                                                        SYNTHETIC / balanced
 
   1 Teardown   2 Systems                                                                                                                                                 THERMAL NOMINAL   SYS 19.90 W
  ╭ MACBOOK PRO 14 / M4 PRO ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── TELEMETRY [m] ╮
@@ -171,7 +171,7 @@ TELEMETRY CELLS
 
  Tab select   g system page   Enter inspect   z zoom   m cells   c caffeinate   p ports   ? help
 cpu
- O V E R S E E R  Apple M4 Pro  /  12 cores  /  24.0 GiB                                                                                                                           SYNTHETIC / balanced
+ O V E R S E E R  Demo MacBook Pro / M4 Pro / 12 Core CPU / 16 Core GPU / 24.0 GiB Memory / 1024 GB Storage                                                                        SYNTHETIC / balanced
 
   1 Teardown   2 Systems                                                                                                                                                 THERMAL NOMINAL   SYS 19.90 W
  ‹  CPU  40.0%                      GPU  23.9%                      MEMORY 14.0G                    ENERGY 19.90 W                  STORAGE 222.2 MiB/s             NETWORK 1.1 MiB/s                 ›
@@ -227,7 +227,7 @@ cpu
 
  ←→ pages   ↑↓ tasks   Enter inspect   i stats / history / apps   / filter   z expand
 gpu
- O V E R S E E R  Apple M4 Pro  /  12 cores  /  24.0 GiB                                                                                                                           SYNTHETIC / balanced
+ O V E R S E E R  Demo MacBook Pro / M4 Pro / 12 Core CPU / 16 Core GPU / 24.0 GiB Memory / 1024 GB Storage                                                                        SYNTHETIC / balanced
 
   1 Teardown   2 Systems                                                                                                                                                 THERMAL NOMINAL   SYS 19.90 W
  ‹  CPU  40.0%                      GPU  23.9%                      MEMORY 14.0G                    ENERGY 19.90 W                  STORAGE 222.2 MiB/s             NETWORK 1.1 MiB/s                 ›
@@ -283,7 +283,7 @@ gpu
 
  ←→ pages   ↑↓ tasks   Enter inspect   i stats / history / apps   / filter   z expand
 memory
- O V E R S E E R  Apple M4 Pro  /  12 cores  /  24.0 GiB                                                                                                                           SYNTHETIC / balanced
+ O V E R S E E R  Demo MacBook Pro / M4 Pro / 12 Core CPU / 16 Core GPU / 24.0 GiB Memory / 1024 GB Storage                                                                        SYNTHETIC / balanced
 
   1 Teardown   2 Systems                                                                                                                                                 THERMAL NOMINAL   SYS 19.90 W
  ‹  CPU  40.0%                      GPU  23.9%                      MEMORY 14.0G                    ENERGY 19.90 W                  STORAGE 222.2 MiB/s             NETWORK 1.1 MiB/s                 ›
@@ -339,7 +339,7 @@ memory
 
  ←→ pages   ↑↓ tasks   Enter inspect   i stats / history / apps   / filter   z expand
 energy
- O V E R S E E R  Apple M4 Pro  /  12 cores  /  24.0 GiB                                                                                                                           SYNTHETIC / balanced
+ O V E R S E E R  Demo MacBook Pro / M4 Pro / 12 Core CPU / 16 Core GPU / 24.0 GiB Memory / 1024 GB Storage                                                                        SYNTHETIC / balanced
 
   1 Teardown   2 Systems                                                                                                                                                 THERMAL NOMINAL   SYS 19.90 W
  ‹  CPU  40.0%                      GPU  23.9%                      MEMORY 14.0G                    ENERGY 19.90 W                  STORAGE 222.2 MiB/s             NETWORK 1.1 MiB/s                 ›
@@ -395,7 +395,7 @@ energy
 
  ←→ pages   ↑↓ tasks   Enter inspect   i stats / history / apps   / filter   z expand
 disk
- O V E R S E E R  Apple M4 Pro  /  12 cores  /  24.0 GiB                                                                                                                           SYNTHETIC / balanced
+ O V E R S E E R  Demo MacBook Pro / M4 Pro / 12 Core CPU / 16 Core GPU / 24.0 GiB Memory / 1024 GB Storage                                                                        SYNTHETIC / balanced
 
   1 Teardown   2 Systems                                                                                                                                                 THERMAL NOMINAL   SYS 19.90 W
  ‹  CPU  40.0%                      GPU  23.9%                      MEMORY 14.0G                    ENERGY 19.90 W                  STORAGE 222.2 MiB/s             NETWORK 1.1 MiB/s                 ›
@@ -451,7 +451,7 @@ disk
 
  ←→ pages   ↑↓ tasks   Enter inspect   i stats / history / apps   / filter   z expand
 network
- O V E R S E E R  Apple M4 Pro  /  12 cores  /  24.0 GiB                                                                                                                           SYNTHETIC / balanced
+ O V E R S E E R  Demo MacBook Pro / M4 Pro / 12 Core CPU / 16 Core GPU / 24.0 GiB Memory / 1024 GB Storage                                                                        SYNTHETIC / balanced
 
   1 Teardown   2 Systems                                                                                                                                                 THERMAL NOMINAL   SYS 19.90 W
  ‹  CPU  40.0%                      GPU  23.9%                      MEMORY 14.0G                    ENERGY 19.90 W                  STORAGE 222.2 MiB/s             NETWORK 1.1 MiB/s                 ›
