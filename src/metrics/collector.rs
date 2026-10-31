@@ -57,7 +57,76 @@ pub fn spawn_collector() -> Receiver<Sample> {
     });
     rx
 }
+fn device_name() -> String {
+    #[cfg(target_os = "macos")]
+    {
+        use core_foundation::{
+            base::TCFType,
+            string::{CFString, CFStringRef},
+        };
+        #[link(name = "SystemConfiguration", kind = "framework")]
+        unsafe extern "C" {
+            fn SCDynamicStoreCopyComputerName(
+                store: *const std::ffi::c_void,
+                encoding: *mut u32,
+            ) -> CFStringRef;
+        }
+        // SAFETY: null arguments request a temporary session without an encoding output.
+        // The Copy API returns an owned CFString, released by its Rust wrapper.
+        let value =
+            unsafe { SCDynamicStoreCopyComputerName(std::ptr::null(), std::ptr::null_mut()) };
+        if !value.is_null() {
+            let name = clean(&unsafe { CFString::wrap_under_create_rule(value) }.to_string());
+            if !name.is_empty() {
+                return name;
+            }
+        }
+    }
+    clean(&System::host_name().unwrap_or_else(|_| "This device".into()))
+}
+
+#[cfg(target_os = "macos")]
+fn apple_storage_gb(report: &serde_json::Value) -> Option<u64> {
+    report
+        .get("SPNVMeDataType")?
+        .as_array()?
+        .iter()
+        .filter_map(|controller| controller.get("_items")?.as_array())
+        .flatten()
+        .filter(|disk| disk.get("detachable_drive").and_then(|v| v.as_str()) != Some("yes"))
+        .find_map(|disk| {
+            let model = disk
+                .get("device_model")?
+                .as_str()?
+                .strip_prefix("APPLE SSD AP")?;
+            model
+                .chars()
+                .take_while(char::is_ascii_digit)
+                .collect::<String>()
+                .parse::<u64>()
+                .ok()
+                .filter(|gb| *gb > 0)
+        })
+}
+
+fn advertised_storage_gb() -> Option<u64> {
+    #[cfg(target_os = "macos")]
+    {
+        // One startup query; the Apple SSD model encodes nominal capacity (AP0512… = 512 GB).
+        let output = std::process::Command::new("/usr/sbin/system_profiler")
+            .args(["SPNVMeDataType", "-json", "-timeout", "3"])
+            .output()
+            .ok()?;
+        if output.status.success() {
+            return apple_storage_gb(&serde_json::from_slice(&output.stdout).ok()?);
+        }
+    }
+    None
+}
+
 fn collect(tx: &mpsc::SyncSender<Sample>) -> anyhow::Result<()> {
+    let name = device_name();
+    let storage_gb = advertised_storage_gb();
     let mut sys = System::new_all()?;
     let mut nets = Networks::new_with_refreshed_list()?;
     let mut disks = Disks::new_with_refreshed_list()?;
@@ -100,11 +169,13 @@ fn collect(tx: &mpsc::SyncSender<Sample>) -> anyhow::Result<()> {
                 Ok(m) => {
                     let info = sampler.get_soc_info();
                     s.machine = Arc::new(Machine {
+                        name: name.clone(),
                         chip: info.chip_name.clone(),
                         model: info.mac_model.clone(),
                         gpu_cores: info.gpu_cores as usize,
                         memory: m.memory.ram_total,
                         cpu_count: info.cpu_tiers.iter().map(|t| t.cores as usize).sum(),
+                        storage_gb,
                     });
                     s.cpu = m.cpu_active_ratio;
                     s.tiers = m
@@ -217,6 +288,7 @@ fn collect(tx: &mpsc::SyncSender<Sample>) -> anyhow::Result<()> {
             sys.refresh_cpu_usage();
             sys.refresh_memory();
             s.machine = Arc::new(Machine {
+                name: name.clone(),
                 chip: sys
                     .cpus()
                     .first()
@@ -226,6 +298,7 @@ fn collect(tx: &mpsc::SyncSender<Sample>) -> anyhow::Result<()> {
                 gpu_cores: 0,
                 memory: sys.total_memory(),
                 cpu_count: sys.cpus().len(),
+                storage_gb,
             });
             s.cpu = sys.global_cpu_usage() / 100.;
             s.memory_used = sys.used_memory();
@@ -819,6 +892,16 @@ fn process_usage(_: u32) -> Option<(u64, u64)> {
 #[cfg(test)]
 mod topology_tests {
     use super::*;
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn advertised_storage_uses_the_internal_apple_ssd_model() {
+        let report = serde_json::json!({"SPNVMeDataType": [{"_items": [
+            {"device_model": "APPLE SSD AP2048Z", "detachable_drive": "yes"},
+            {"device_model": "APPLE SSD AP0512Z", "detachable_drive": "no", "size_in_bytes": 500_277_792_768u64}
+        ]}]});
+        assert_eq!(apple_storage_gb(&report), Some(512));
+        assert_eq!(apple_storage_gb(&serde_json::json!({})), None);
+    }
     #[test]
     fn m4_pro_channels_preserve_cluster_boundaries() {
         for (name, expected) in [

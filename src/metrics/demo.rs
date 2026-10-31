@@ -88,11 +88,13 @@ pub fn demo(scenario: &str, t: f64) -> Sample {
     let mut s = Sample {
         at: t,
         machine: Arc::new(Machine {
+            name: "Demo MacBook Pro".into(),
             chip: "Apple M4 Pro".into(),
             model: "Mac16,8".into(),
             gpu_cores: 16,
             memory: total,
             cpu_count: tiers.iter().map(|t| t.cores.len()).sum(),
+            storage_gb: Some(1024),
         }),
         cpu,
         power_mode: Avail::Ok(PowerMode::Automatic),

@@ -59,11 +59,13 @@ impl<T> Avail<T> {
 }
 #[derive(Clone, Debug, Default, Serialize)]
 pub struct Machine {
+    pub name: String,
     pub chip: String,
     pub model: String,
     pub gpu_cores: usize,
     pub memory: u64,
     pub cpu_count: usize,
+    pub storage_gb: Option<u64>,
 }
 #[derive(Clone, Debug, Serialize)]
 pub struct Core {
