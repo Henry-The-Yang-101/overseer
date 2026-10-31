@@ -236,13 +236,24 @@ fn aligned(b: &mut Buffer, r: Rect, y: u16, value: impl AsRef<str>, color: Color
 }
 
 pub fn summary(b: &mut Buffer, r: Rect, s: &Sample, a: &App) {
+    summary_layout(b, r, s, a, false);
+}
+
+fn summary_layout(b: &mut Buffer, r: Rect, s: &Sample, a: &App, pair: bool) {
     if r.is_empty() {
         return;
     }
     let t = &a.theme;
-    let fan = s.fans.value().and_then(|fans| fans.get(1));
     let art = row(r, 0, r.height.saturating_sub(3));
-    if let Some(fan) = fan {
+    let panes = if pair {
+        halves(art)
+    } else {
+        [Rect::default(), art]
+    };
+    for (i, art) in panes.into_iter().enumerate() {
+        let Some(fan) = s.fans.value().and_then(|fans| fans.get(i)) else {
+            continue;
+        };
         let height = art.height.min(art.width / 2);
         let width = height.saturating_mul(2);
         let bounds = Rect::new(
@@ -263,7 +274,7 @@ pub fn summary(b: &mut Buffer, r: Rect, s: &Sample, a: &App) {
             fan,
             t,
             ImpellerStyle {
-                mirror: true,
+                mirror: i == 1,
                 ascii: a.cfg.ui.glyphs == "ascii",
                 readout: false,
             },
@@ -324,7 +335,7 @@ pub fn inspector(b: &mut Buffer, r: Rect, a: &App, zoom: bool) {
     let note_h = u16::from(inside.height >= 18) * 2;
     let gap = u16::from(history_h > 0);
     let body_h = inside.height.saturating_sub(history_h + note_h + gap);
-    summary(b, row(inside, 0, body_h), &s, a);
+    summary_layout(b, row(inside, 0, body_h), &s, a, true);
     if history_h > 0 {
         let history_area = Rect::new(inside.x, inside.y + body_h + gap, inside.width, history_h);
         for (i, pane) in halves(history_area).into_iter().enumerate() {

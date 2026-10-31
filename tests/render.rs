@@ -544,6 +544,21 @@ fn component_inspectors_have_no_sample_summary() {
                     );
                     assert!(text.contains("FANS"));
                     assert!(!text.contains("FAN 0") && !text.contains("FAN 1"));
+                    // Expanded views have two impellers separated by a clear center gap.
+                    for y in 2..h / 2 {
+                        assert_eq!(buffer[(w / 2, y)].symbol(), " ");
+                    }
+                    for (start, end) in [(2, w / 2 - 2), (w / 2 + 2, w - 2)] {
+                        assert!(
+                            (2..h / 2).any(|y| (start..end).any(|x| {
+                                buffer[(x, y)]
+                                    .symbol()
+                                    .chars()
+                                    .any(|c| ('\u{2801}'..='\u{28ff}').contains(&c))
+                            })),
+                            "both fan visuals must be present"
+                        );
+                    }
                     let fans = a.sample();
                     let fans = fans.fans.value().unwrap();
                     let left = format!("LEFT {} rpm", fans[0].rpm);
