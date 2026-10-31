@@ -458,6 +458,8 @@ pub fn digits(b: &mut Buffer, r: Rect, value: u32, c: Color) {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Hit {
     Ports,
+    Caffeinate,
+    CaffeinateOption(usize),
     Part(crate::app::Part),
     Process((u32, u64)),
     Screen(crate::app::Screen),

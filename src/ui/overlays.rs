@@ -1,6 +1,6 @@
 use super::{kit::*, processes, theme::blend, widgets};
 use crate::{
-    app::{App, Layer, Part, filtered_commands, metric},
+    app::{App, CAFFEINATE_OPTIONS, Layer, Part, filtered_commands, metric},
     motion::Motion,
 };
 use ratatui::{
@@ -30,6 +30,49 @@ pub fn draw(b: &mut Buffer, r: Rect, a: &mut App) {
         match layer {
             Layer::Help => help(b, centered(r, 108, 28), a),
             Layer::Ports => super::ports::modal(b, centered(r, 72, 25), a),
+            Layer::Caffeinate {
+                index,
+                custom,
+                error,
+            } => {
+                let rect = centered(r, 56, if custom.is_some() { 10 } else { 13 });
+                Clear.render(rect, b);
+                let rr = frame(b, rect, "CAFFEINATE", "Esc back", true, &t);
+                if let Some(input) = custom {
+                    line(b, rr, 0, "How many minutes?", t.text);
+                    line(b, rr, 2, format!("› {input}▏"), t.accent);
+                    if let Some(error) = error {
+                        line(b, rr, 4, error, t.crit);
+                    }
+                    line(b, rr, rr.height - 1, "Enter start   Esc back", t.muted);
+                } else {
+                    line(b, rr, 0, "Keep this Mac and its display awake.", t.muted);
+                    for (i, label) in CAFFEINATE_OPTIONS.iter().enumerate() {
+                        let option = row(rr, i as u16 + 2, 1);
+                        if i == index {
+                            b.set_style(option, Style::new().bg(t.substrate));
+                        }
+                        line(
+                            b,
+                            option,
+                            0,
+                            format!("{} {label}", if i == index { "›" } else { " " }),
+                            if i == index { t.accent } else { t.text },
+                        );
+                        a.hitmap.add(option, 30, Hit::CaffeinateOption(i));
+                    }
+                    if let Some(error) = error {
+                        line(b, rr, 8, error, t.crit);
+                    }
+                    line(
+                        b,
+                        rr,
+                        rr.height - 1,
+                        "↑↓ choose   Enter start   Esc cancel",
+                        t.muted,
+                    );
+                }
+            }
             Layer::SystemsInfo { .. } => super::insights::modal(b, centered(r, 116, 34), a),
             Layer::Palette { query, index } => {
                 let rect = centered(r, 76, 18);
@@ -403,7 +446,7 @@ fn help(b: &mut Buffer, r: Rect, a: &App) {
         "DRAWER    ← → tabs · ↑ ↓ tasks · PgUp/PgDn scroll · Esc closes",
         "TEARDOWN  Tab selects · arrows navigate · g opens resource page",
         "          Enter inspects · z zooms · m telemetry cells · L labels",
-        "          H highlights · o mirrors · p connected ports",
+        "          H highlights · o mirrors · p connected ports · c caffeinate",
         "",
         "HISTORY   Space pause / play · , . step · < > step ten",
         "          { } spikes · [ ] window · + - speed · End returns live",

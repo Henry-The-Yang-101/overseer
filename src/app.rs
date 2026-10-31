@@ -253,6 +253,7 @@ pub enum Action {
     Quit,
     Help,
     Ports,
+    Caffeinate,
     SystemsInfo,
     Palette,
     GoTo(Screen),
@@ -313,6 +314,7 @@ pub fn commands() -> Vec<Command> {
         ("Search processes", "/", Action::Search),
         ("Show keyboard controls", "?", Action::Help),
         ("Show connected physical ports", "p", Action::Ports),
+        ("Toggle caffeinate", "c", Action::Caffeinate),
         ("Pause / play history", "Space", Action::PlayPause),
         ("Return to live", "End", Action::Live),
         ("Next history spike", "}", Action::Spike(1)),
@@ -420,6 +422,7 @@ pub fn map_key(k: KeyEvent, s: Screen) -> Option<Action> {
         Char('1') => Action::GoTo(Screen::Teardown),
         Char('2') => Action::GoTo(Screen::Systems),
         Char('g') if s == Screen::Teardown => Action::OpenPartPage,
+        Char('c') if s == Screen::Teardown => Action::Caffeinate,
         Left if s == Screen::Systems && k.modifiers.contains(KeyModifiers::SHIFT) => {
             Action::Collapse(true)
         }
@@ -469,6 +472,11 @@ pub fn map_key(k: KeyEvent, s: Screen) -> Option<Action> {
 pub enum Layer {
     Help,
     Ports,
+    Caffeinate {
+        index: usize,
+        custom: Option<String>,
+        error: Option<String>,
+    },
     SystemsInfo {
         tab: usize,
         scroll: usize,
@@ -505,8 +513,17 @@ pub struct ProcessRow {
     pub new: bool,
 }
 type TaskHistory = HashMap<(u32, u64), VecDeque<(f64, [f32; 6])>>;
+pub const CAFFEINATE_OPTIONS: [&str; 6] = [
+    "Until I turn it off or quit",
+    "30 minutes",
+    "1 hour",
+    "2 hours",
+    "4 hours",
+    "Custom…",
+];
 pub struct App {
     pub audio: crate::audio::Capture,
+    pub caffeinate: crate::caffeinate::Caffeinate,
     pub cfg: Config,
     pub screen: Screen,
     pub page: Page,
@@ -623,6 +640,7 @@ impl App {
             cursor: None,
             frozen: None,
             audio: crate::audio::Capture::default(),
+            caffeinate: crate::caffeinate::Caffeinate::default(),
             inspect_core: 0,
             playing: false,
             speed: 0,
@@ -865,6 +883,9 @@ impl App {
         });
     }
     pub fn tick(&mut self, dt: Duration) {
+        if self.caffeinate.expire() {
+            self.info("Caffeinate timer finished".into());
+        }
         self.audio
             .update(self.cfg.teardown.audio_enabled && self.demo.is_none());
         if let Some(rx) = &self.detail_rx
@@ -1189,10 +1210,26 @@ impl App {
     }
     pub fn act(&mut self, a: Action) {
         match a {
-            Action::Quit => self.quit = true,
+            Action::Quit => {
+                self.caffeinate.stop();
+                self.quit = true;
+            }
             Action::Back => self.back(),
             Action::Help => self.layers.push(Layer::Help),
             Action::Ports => self.layers.push(Layer::Ports),
+            Action::Caffeinate => {
+                self.caffeinate.expire();
+                if self.caffeinate.is_active() {
+                    self.caffeinate.stop();
+                    self.info("Caffeinate off".into());
+                } else {
+                    self.layers.push(Layer::Caffeinate {
+                        index: 0,
+                        custom: None,
+                        error: None,
+                    });
+                }
+            }
             Action::SystemsInfo => {
                 if self.screen == Screen::Systems {
                     self.layers.push(Layer::SystemsInfo {
@@ -1510,6 +1547,35 @@ impl App {
             }
         }
     }
+    fn choose_caffeinate(&mut self, index: usize) {
+        if index == 5 {
+            if let Some(Layer::Caffeinate { custom, error, .. }) = self.layers.last_mut() {
+                *custom = Some(String::new());
+                *error = None;
+            }
+        } else if let Some(minutes) = [None, Some(30), Some(60), Some(120), Some(240)].get(index) {
+            self.start_caffeinate(minutes.map(|minutes| Duration::from_secs(minutes * 60)));
+        }
+    }
+
+    fn start_caffeinate(&mut self, duration: Option<Duration>) {
+        match self.caffeinate.start(duration) {
+            Ok(()) => {
+                self.layers.pop();
+                let until = duration.map_or_else(
+                    || "until turned off or Overseer quits".into(),
+                    |time| format!("{} minutes", time.as_secs() / 60),
+                );
+                self.info(format!("Caffeinate on · {until} · c turns off"));
+            }
+            Err(message) => {
+                if let Some(Layer::Caffeinate { error, .. }) = self.layers.last_mut() {
+                    *error = Some(message);
+                }
+            }
+        }
+    }
+
     pub fn on_key(&mut self, k: KeyEvent) {
         self.last_input = Instant::now();
         self.cfg.ui.onboarding_seen = true;
@@ -1518,11 +1584,69 @@ impl App {
             return;
         }
         if k.code == KeyCode::Char('c') && k.modifiers.contains(KeyModifiers::CONTROL) {
-            self.quit = true;
+            self.act(Action::Quit);
+            return;
+        }
+        if k.code == KeyCode::Char('c')
+            && self.screen == Screen::Teardown
+            && self.caffeinate.is_active()
+            && !self.searching
+            && !matches!(self.layers.last(), Some(Layer::Palette { .. }))
+        {
+            self.act(Action::Caffeinate);
             return;
         }
         if let Some(layer) = self.layers.last_mut() {
             match layer {
+                Layer::Caffeinate {
+                    index,
+                    custom,
+                    error,
+                } => {
+                    if let Some(input) = custom {
+                        match k.code {
+                            KeyCode::Esc => {
+                                *custom = None;
+                                *error = None;
+                            }
+                            KeyCode::Char(c)
+                                if !k.modifiers.contains(KeyModifiers::CONTROL)
+                                    && input.len() < 20 =>
+                            {
+                                input.push(c);
+                                *error = None;
+                            }
+                            KeyCode::Backspace => {
+                                input.pop();
+                                *error = None;
+                            }
+                            KeyCode::Enter => match crate::caffeinate::minutes(input) {
+                                Ok(duration) => self.start_caffeinate(Some(duration)),
+                                Err(message) => *error = Some(message.into()),
+                            },
+                            _ => {}
+                        }
+                    } else {
+                        match k.code {
+                            KeyCode::Esc | KeyCode::Char('c') => {
+                                self.layers.pop();
+                            }
+                            KeyCode::Up | KeyCode::Char('k') => {
+                                *index = (*index + CAFFEINATE_OPTIONS.len() - 1)
+                                    % CAFFEINATE_OPTIONS.len();
+                            }
+                            KeyCode::Down | KeyCode::Char('j') => {
+                                *index = (*index + 1) % CAFFEINATE_OPTIONS.len();
+                            }
+                            KeyCode::Enter => {
+                                let selected = *index;
+                                self.choose_caffeinate(selected);
+                            }
+                            _ => {}
+                        }
+                    }
+                    return;
+                }
                 Layer::Signal { process, force } => {
                     match k.code {
                         KeyCode::Esc => {
@@ -1749,11 +1873,34 @@ impl App {
         }
     }
     pub fn on_mouse(&mut self, m: MouseEvent) {
+        let p = Position::new(m.column, m.row);
+        let hit = self.hitmap.at(p).cloned();
+        if let Some(Layer::Caffeinate {
+            index,
+            custom: None,
+            ..
+        }) = self.layers.last_mut()
+        {
+            match (m.kind, hit) {
+                (
+                    MouseEventKind::Down(MouseButton::Left),
+                    Some(Hit::CaffeinateOption(selected)),
+                ) => {
+                    *index = selected;
+                    self.choose_caffeinate(selected);
+                }
+                (MouseEventKind::Moved, Some(Hit::CaffeinateOption(selected))) => *index = selected,
+                (MouseEventKind::ScrollUp, _) => {
+                    *index = (*index + CAFFEINATE_OPTIONS.len() - 1) % CAFFEINATE_OPTIONS.len();
+                }
+                (MouseEventKind::ScrollDown, _) => *index = (*index + 1) % CAFFEINATE_OPTIONS.len(),
+                _ => {}
+            }
+            return;
+        }
         if !self.layers.is_empty() {
             return;
         }
-        let p = Position::new(m.column, m.row);
-        let hit = self.hitmap.at(p).cloned();
         match m.kind {
             MouseEventKind::Down(MouseButton::Left) => {
                 if let Some(h) = hit {
@@ -1778,6 +1925,7 @@ impl App {
                         Hit::Page(p) => self.change_page(p),
                         Hit::Rail => self.scrub(m.column),
                         Hit::Ports => self.act(Action::Ports),
+                        Hit::Caffeinate => self.act(Action::Caffeinate),
                         _ => {}
                     }
                 }

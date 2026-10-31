@@ -19,6 +19,59 @@ fn key(a: &mut App, k: KeyCode) {
     a.on_key(KeyEvent::new(k, KeyModifiers::NONE));
 }
 #[test]
+fn caffeinate_menu_owns_input_and_c_is_scoped_to_teardown() {
+    let mut a = app();
+    key(&mut a, KeyCode::Char('c'));
+    for expected in 0..6 {
+        assert!(matches!(
+            a.layers.last(),
+            Some(Layer::Caffeinate { index, custom: None, .. }) if *index == expected
+        ));
+        if expected < 5 {
+            key(&mut a, KeyCode::Down);
+        }
+    }
+    key(&mut a, KeyCode::Enter);
+    key(&mut a, KeyCode::Enter);
+    assert!(matches!(
+        a.layers.last(),
+        Some(Layer::Caffeinate {
+            custom: Some(_),
+            error: Some(_),
+            ..
+        })
+    ));
+    key(&mut a, KeyCode::Char('0'));
+    key(&mut a, KeyCode::Enter);
+    assert!(!a.caffeinate.is_active());
+    key(&mut a, KeyCode::Backspace);
+    for c in "90".chars() {
+        key(&mut a, KeyCode::Char(c));
+    }
+    assert!(matches!(
+        a.layers.last(),
+        Some(Layer::Caffeinate { custom: Some(input), error: None, .. }) if input == "90"
+    ));
+    key(&mut a, KeyCode::Esc);
+    assert!(matches!(
+        a.layers.last(),
+        Some(Layer::Caffeinate {
+            index: 5,
+            custom: None,
+            ..
+        })
+    ));
+    key(&mut a, KeyCode::Char('c'));
+    assert!(a.layers.is_empty() && !a.caffeinate.is_active());
+    key(&mut a, KeyCode::Char('2'));
+    key(&mut a, KeyCode::Char('c'));
+    assert!(a.layers.is_empty());
+    key(&mut a, KeyCode::Char('1'));
+    key(&mut a, KeyCode::Char('c'));
+    a.on_key(KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL));
+    assert!(a.quit && !a.caffeinate.is_active());
+}
+#[test]
 fn navigation_restores_page_state_and_gives_drawer_arrow_ownership() {
     let mut a = app();
     assert_eq!(a.screen, Screen::Teardown);

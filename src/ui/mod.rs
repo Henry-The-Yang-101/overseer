@@ -172,7 +172,7 @@ pub fn draw(f: &mut Frame, a: &mut App, dt: std::time::Duration) {
 fn chrome(b: &mut ratatui::buffer::Buffer, r: Rect, a: &mut App, size: SizeClass) {
     let t = &a.theme;
     let s = a.sample();
-    let status = if let Some(d) = &a.demo {
+    let mut status = if let Some(d) = &a.demo {
         {
             let state = if a.cursor.is_some() {
                 format!(
@@ -206,6 +206,13 @@ fn chrome(b: &mut ratatui::buffer::Buffer, r: Rect, a: &mut App, size: SizeClass
     } else {
         "● LIVE".into()
     };
+    if a.caffeinate.is_active() {
+        let remaining = a.caffeinate.remaining().map_or_else(
+            || "ON".into(),
+            |time| format!("{}m", time.as_secs().div_ceil(60)),
+        );
+        status.push_str(&format!(" · CAFFEINATE {remaining}"));
+    }
     text(b, r, 1, 0, "O V E R S E E R", t.accent);
     let info = if s.machine.chip.is_empty() {
         "Hardware observatory".into()
@@ -405,11 +412,15 @@ fn status_line(b: &mut ratatui::buffer::Buffer, r: Rect, a: &App) {
     };
     line(b, r, 0, truncate(&message, r.width as usize), t.muted);
 }
-fn hints(b: &mut ratatui::buffer::Buffer, r: Rect, a: &App, size: SizeClass) {
+fn hints(b: &mut ratatui::buffer::Buffer, r: Rect, a: &mut App, size: SizeClass) {
     let t = &a.theme;
     let h = if let Some(layer) = a.layers.last() {
         match layer {
             Layer::Ports => "p / Esc close ports",
+            Layer::Caffeinate {
+                custom: Some(_), ..
+            } => "Enter start   Esc back",
+            Layer::Caffeinate { .. } => "↑↓ choose   Enter start   Esc cancel",
             Layer::SystemsInfo { .. } => {
                 "←→ tabs   ↑↓ scroll / apps   Enter expand app   Esc close"
             }
@@ -442,19 +453,39 @@ fn hints(b: &mut ratatui::buffer::Buffer, r: Rect, a: &App, size: SizeClass) {
     } else if a.screen == Screen::Systems {
         "←→ pages   ↑↓ tasks   Enter inspect   i stats / history / apps   / filter   z expand"
     } else if a.screen == Screen::Teardown && size == SizeClass::Compact {
-        "Tab select   Enter inspect   p ports   m cells   2 Systems   ? help"
+        "Tab select   Enter inspect   m cells   c caffeinate   ? help"
     } else if a.screen == Screen::Teardown {
-        "Tab select   g system page   Enter inspect   z zoom   m cells   p ports   2 Systems   ? help"
+        "Tab select   g system page   Enter inspect   z zoom   m cells   c caffeinate   p ports   ? help"
     } else if size == SizeClass::Compact {
         "Tab select   Enter inspect   v teardown   Space pause   ? help"
     } else {
         "Tab select   Enter inspect   v teardown   Space pause   / processes   ? help   : commands"
     };
+    let mut h = h.to_owned();
+    if a.screen == Screen::Teardown && a.layers.is_empty() && !a.searching {
+        if !h.contains("c caffeinate") {
+            h.push_str("   c caffeinate");
+        }
+        if a.caffeinate.is_active() {
+            h = h.replace("c caffeinate", "c caffeinate off");
+        }
+    }
     let mut spans = vec![];
+    let mut offset = 0;
     for (i, part) in h.split("   ").enumerate() {
         if i > 0 {
             spans.push(Span::raw("   "));
+            offset += 3;
         }
+        let width = unicode_width::UnicodeWidthStr::width(part) as u16;
+        if part.starts_with("c caffeinate") && offset < r.width {
+            a.hitmap.add(
+                Rect::new(r.x + offset, r.y, width.min(r.width - offset), 1),
+                10,
+                Hit::Caffeinate,
+            );
+        }
+        offset += width;
         if let Some((key, label)) = part.split_once(' ') {
             spans.push(Span::styled(key, Style::new().fg(t.accent)));
             spans.push(Span::styled(format!(" {label}"), Style::new().fg(t.muted)));

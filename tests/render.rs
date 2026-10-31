@@ -26,6 +26,52 @@ fn render(a: &mut App, w: u16, h: u16) -> String {
         .join("\n")
 }
 #[test]
+fn caffeinate_options_and_custom_input_fit_and_support_clicks() {
+    use crossterm::event::{
+        KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
+    };
+    use overseer::app::{CAFFEINATE_OPTIONS, Layer};
+
+    for (w, h) in [(60, 18), (80, 24), (120, 36), (200, 55)] {
+        let mut a = app("balanced");
+        assert!(render(&mut a, w, h).contains("c caffeinate"));
+        let click = |a: &mut App, target: Hit| {
+            let rect = a
+                .hitmap
+                .0
+                .iter()
+                .find(|(_, _, hit)| *hit == target)
+                .unwrap()
+                .0;
+            a.on_mouse(MouseEvent {
+                kind: MouseEventKind::Down(MouseButton::Left),
+                column: rect.x,
+                row: rect.y,
+                modifiers: KeyModifiers::NONE,
+            });
+        };
+        click(&mut a, Hit::Caffeinate);
+        let view = render(&mut a, w, h);
+        let positions = CAFFEINATE_OPTIONS.map(|label| {
+            view.find(label)
+                .unwrap_or_else(|| panic!("{w}x{h}: missing {label}\n{view}"))
+        });
+        assert!(positions.windows(2).all(|pair| pair[0] < pair[1]));
+        click(&mut a, Hit::CaffeinateOption(5));
+        assert!(render(&mut a, w, h).contains("How many minutes?"));
+        a.on_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
+        assert!(render(&mut a, w, h).contains("positive whole number"));
+        assert!(matches!(
+            a.layers.last(),
+            Some(Layer::Caffeinate {
+                custom: Some(_),
+                ..
+            })
+        ));
+        assert!(!a.caffeinate.is_active());
+    }
+}
+#[test]
 fn representative_layouts() {
     for (w, h) in [(80, 24), (120, 36), (200, 55)] {
         let mut a = app("balanced");
