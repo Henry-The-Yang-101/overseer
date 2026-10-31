@@ -69,6 +69,8 @@ fn collect(tx: &mpsc::SyncSender<Sample>) -> anyhow::Result<()> {
     type Metadata = (Arc<str>, Arc<str>, Arc<str>, Arc<str>);
     let mut strings: HashMap<(u32, u64), Metadata> = HashMap::new();
     let mut processes = Arc::new(Vec::new());
+    let mut gpu_collector = super::gpu::Collector::default();
+    let mut process_gpu = Avail::Acquiring;
     let mut process_at = 0.;
     let mut wakeups: HashMap<(u32, u64), u64> = HashMap::new();
     let mut previous_vm: Option<[u64; 5]> = None;
@@ -447,6 +449,7 @@ fn collect(tx: &mpsc::SyncSender<Sample>) -> anyhow::Result<()> {
                     ),
                     user: meta.2.clone(),
                     cpu: p.cpu_usage(),
+                    gpu: Avail::Acquiring,
                     memory: p.memory(),
                     footprint,
                     wakeups: wakes,
@@ -472,12 +475,14 @@ fn collect(tx: &mpsc::SyncSender<Sample>) -> anyhow::Result<()> {
             });
             wakeups.retain(|key, _| strings.contains_key(key));
             out.sort_by_key(|p| p.pid);
+            process_gpu = gpu_collector.sample(&mut out);
             processes = Arc::new(out);
             process_at = s.at;
             last_process = Instant::now();
         }
         s.processes = processes.clone();
         s.process_at = process_at;
+        s.process_gpu = process_gpu.clone();
         if last_battery.elapsed() >= Duration::from_secs(10) {
             battery = read_battery();
             last_battery = Instant::now();

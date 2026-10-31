@@ -284,6 +284,15 @@ pub fn demo(scenario: &str, t: f64) -> Sample {
             } else {
                 wave(i as f64) * 160. / (i + 1) as f32
             },
+            gpu: if i < 8 {
+                Avail::Ok(if idle {
+                    0.
+                } else {
+                    gpu * 100. * wave(i as f64) / (i + 1) as f32
+                })
+            } else {
+                Avail::Unsupported("no readable GPU time counters".into())
+            },
             memory: (((20 - i) * 87) as u64) * 1024 * 1024,
             footprint: Avail::Ok((((20 - i) * 81) as u64) * 1024 * 1024),
             wakeups: Avail::Ok(wave(i as f64) * 28.),
@@ -307,6 +316,7 @@ pub fn demo(scenario: &str, t: f64) -> Sample {
         })
         .collect(),
     );
+    s.process_gpu = Avail::Ok(8);
     s.extra = Arc::new(extra::Snapshot {
         at: t,
         wifi: Avail::Ok(extra::Wifi {
@@ -382,6 +392,10 @@ pub fn demo(scenario: &str, t: f64) -> Sample {
         s.power_mode = Avail::Unsupported("power mode unavailable in this scenario".into());
         s.ports = Avail::Unsupported("port sensors unavailable in this scenario".into());
         s.gpu = Avail::Unsupported("GPU residency not reported".into());
+        s.process_gpu = Avail::Unsupported("GPU process counters not reported".into());
+        for p in Arc::make_mut(&mut s.processes) {
+            p.gpu = Avail::Unsupported("GPU process counters not reported".into());
+        }
         s.gpu_mhz = Avail::Unsupported("GPU clock not reported".into());
         s.power = std::array::from_fn(|_| Avail::Unsupported("power counter not reported".into()));
         s.cpu_temp = Avail::Failed("CPU temperature read failed".into());

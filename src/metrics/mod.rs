@@ -2,6 +2,7 @@ mod collector;
 mod demo;
 pub mod details;
 pub mod extra;
+mod gpu;
 pub mod insights;
 pub mod ports;
 pub mod power_mode;
@@ -170,6 +171,8 @@ pub struct Proc {
     pub application: Arc<str>,
     pub user: Arc<str>,
     pub cpu: f32,
+    /// Driver-reported GPU nanoseconds / elapsed nanoseconds × 100; may exceed 100%.
+    pub gpu: Avail<f32>,
     pub memory: u64,
     pub footprint: Avail<u64>,
     pub wakeups: Avail<f32>,
@@ -228,6 +231,7 @@ pub struct Sample {
     pub ports_at: f64,
     pub processes: Arc<Vec<Proc>>,
     pub process_at: f64,
+    pub process_gpu: Avail<usize>,
     pub uptime: u64,
     pub collector_ms: f64,
     pub error: Option<String>,
