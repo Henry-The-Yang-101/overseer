@@ -10,16 +10,9 @@ use ratatui::{
     widgets::{Block, BorderType, Clear, Widget},
 };
 pub fn frame(a: &App) -> Frame {
-    let status = if !a.cfg.teardown.audio_enabled {
-        Some("Capture off · Enter in speaker inspector to enable")
-    } else if a.cursor.is_some() {
-        Some("Audio is live only · unavailable in timeline replay")
-    } else {
-        None
-    };
-    if let Some(status) = status {
+    if !a.cfg.teardown.audio_enabled || a.cursor.is_some() {
         return Frame {
-            status: status.into(),
+            status: String::new(),
             channels: vec![],
         };
     }
@@ -43,7 +36,11 @@ pub fn frame(a: &App) -> Frame {
             channels,
         }
     } else {
-        a.audio.snapshot()
+        let mut frame = a.audio.snapshot();
+        if frame.channels.iter().all(Vec::is_empty) {
+            frame.status.clear();
+        }
+        frame
     }
 }
 pub fn waveform(b: &mut Buffer, r: Rect, p: Part, a: &App, vertical: bool) {
@@ -51,22 +48,13 @@ pub fn waveform(b: &mut Buffer, r: Rect, p: Part, a: &App, vertical: bool) {
         return;
     }
     let frame = frame(a);
-    let Some(samples) = frame.channels.get(usize::from(p == Part::SpeakerRight)) else {
-        if vertical {
-            for y in 0..r.height {
-                text(b, r, r.width / 2, y, "┆", a.theme.wire);
-            }
-        } else {
-            line(
-                b,
-                r,
-                0,
-                truncate(&frame.status, r.width as usize),
-                a.theme.muted,
-            );
-        }
-        return;
-    };
+    // Missing samples share the same flat baseline as silent audio.
+    let samples = frame
+        .channels
+        .get(usize::from(p == Part::SpeakerRight))
+        .filter(|samples| !samples.is_empty())
+        .map(Vec::as_slice)
+        .unwrap_or(&[0.]);
     let mut g = BrailleGrid::new(r.width, r.height);
     let count = if vertical {
         r.height as usize * 4

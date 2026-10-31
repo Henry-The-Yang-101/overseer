@@ -949,6 +949,50 @@ fn teardown_fan_hubs_center_readings_and_keep_them_upright() {
     }
 }
 #[test]
+fn unavailable_audio_shows_an_idle_waveform_without_status_text() {
+    use ratatui::{buffer::Buffer, layout::Rect};
+    let mut a = app("balanced");
+    a.demo = None;
+    assert!(!a.audio.snapshot().status.is_empty());
+    for (enabled, replay) in [(true, false), (false, false), (true, true)] {
+        a.cfg.teardown.audio_enabled = enabled;
+        a.cursor = replay.then_some(a.latest_time());
+        assert!(ui::audio::frame(&a).status.is_empty());
+        for part in [Part::SpeakerLeft, Part::SpeakerRight] {
+            assert!(ui::widgets::readout(part, &a.sample(), &a).is_empty());
+            let area = Rect::new(0, 0, 40, 12);
+            for vertical in [false, true] {
+                let mut buffer = Buffer::empty(area);
+                ui::audio::waveform(&mut buffer, area, part, &a, vertical);
+                let occupied: Vec<_> = (0..area.height)
+                    .flat_map(|y| (0..area.width).map(move |x| (x, y)))
+                    .filter(|&(x, y)| buffer[(x, y)].symbol() != " ")
+                    .collect();
+                assert!(!occupied.is_empty());
+                assert!(occupied.iter().all(|&(x, y)| if vertical {
+                    x == area.width / 2
+                } else {
+                    y == area.height / 2
+                }));
+            }
+            let area = Rect::new(0, 0, 112, 32);
+            let mut buffer = Buffer::empty(area);
+            ui::audio::inspector(&mut buffer, area, part, &a);
+            let text = buffer
+                .content
+                .iter()
+                .map(|c| c.symbol())
+                .collect::<String>()
+                .to_lowercase();
+            assert!(
+                !text.contains("permission")
+                    && !text.contains("waiting")
+                    && !text.contains("starting audio")
+            );
+        }
+    }
+}
+#[test]
 fn speaker_grilles_follow_channels_and_respect_motion_settings() {
     use overseer::{audio::Frame, motion::Motion};
     use ratatui::{buffer::Buffer, layout::Rect};
