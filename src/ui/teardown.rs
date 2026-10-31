@@ -1300,7 +1300,8 @@ fn selected(b: &mut Buffer, r: Rect, a: &mut App, part: Part) {
         line(b, inner, 3, widgets::readout(p, &s, a), t.text);
         let h = (inner.height / 4).max(1);
         let values = a.history_values(p);
-        spark(
+        let max = values.iter().copied().fold(1., f32::max);
+        let chart = scale_axis(
             b,
             Rect::new(
                 inner.x,
@@ -1308,8 +1309,15 @@ fn selected(b: &mut Buffer, r: Rect, a: &mut App, part: Part) {
                 inner.width,
                 h.min(inner.height.saturating_sub(5)),
             ),
+            &widgets::history_label(p, max, a),
+            &widgets::history_label(p, 0., a),
+            t,
+        );
+        spark(
+            b,
+            chart,
             &values,
-            values.iter().copied().fold(1., f32::max),
+            max,
             widgets::tint(p, t),
             t,
             a.cfg.ui.glyphs == "ascii",

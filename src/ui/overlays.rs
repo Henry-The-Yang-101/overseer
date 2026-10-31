@@ -195,9 +195,16 @@ pub fn draw(b: &mut Buffer, r: Rect, a: &mut App) {
                             })
                             .collect();
                         let max = history.iter().copied().fold(100., f32::max);
-                        spark(
+                        let chart = scale_axis(
                             b,
                             Rect::new(body.x, body.y + 2, body.width, body.height / 3),
+                            &format!("{max:.0}%"),
+                            "0%",
+                            &t,
+                        );
+                        spark(
+                            b,
+                            chart,
                             &history,
                             max,
                             t.cpu,
@@ -218,7 +225,7 @@ pub fn draw(b: &mut Buffer, r: Rect, a: &mut App) {
                             })
                             .collect();
                         let max = mem.iter().copied().fold(1., f32::max);
-                        spark(
+                        let chart = scale_axis(
                             b,
                             Rect::new(
                                 body.x,
@@ -226,6 +233,13 @@ pub fn draw(b: &mut Buffer, r: Rect, a: &mut App) {
                                 body.width,
                                 body.height.saturating_sub(y + 3),
                             ),
+                            &bytes(max as u64, &a.cfg.units),
+                            &bytes(0, &a.cfg.units),
+                            &t,
+                        );
+                        spark(
+                            b,
+                            chart,
                             &mem,
                             max,
                             t.memory,
@@ -606,10 +620,17 @@ pub fn detail(b: &mut Buffer, r: Rect, a: &mut App, part: Part, zoom: bool) {
         inside.width,
         hist_h.min(inside.height.saturating_sub(hist_y)),
     );
-    let plot = stretch(&history, chart.width as usize * 2);
-    spark(
+    let plot_area = scale_axis(
         b,
         chart,
+        &widgets::history_label(p, max, a),
+        &widgets::history_label(p, 0., a),
+        &t,
+    );
+    let plot = stretch(&history, plot_area.width as usize * 2);
+    spark(
+        b,
+        plot_area,
         &plot,
         max,
         widgets::tint(p, &t),
@@ -621,20 +642,22 @@ pub fn detail(b: &mut Buffer, r: Rect, a: &mut App, part: Part, zoom: bool) {
         inside,
         hist_y + hist_h,
         format!(
-            "{} history   min {:.1}   peak {:.1}   {}",
+            "{} history   min {}   peak {}   {}",
             ["1m", "5m", "15m", "1h"][a.window],
-            history
-                .iter()
-                .copied()
-                .fold(f32::INFINITY, f32::min)
-                .min(max),
-            max,
+            widgets::history_label(p, history.iter().copied().reduce(f32::min).unwrap_or(0.), a),
+            widgets::history_label(p, history.iter().copied().reduce(f32::max).unwrap_or(0.), a),
             widgets::readout(p, &s, a)
         ),
         t.muted,
     );
     if history.is_empty() {
-        line(b, chart, 0, "No recorded readings for this sensor", t.muted);
+        line(
+            b,
+            plot_area,
+            0,
+            "No recorded readings for this sensor",
+            t.muted,
+        );
     }
     let note_y = inside.height.saturating_sub(4);
     line(b, inside, note_y, "WHAT THIS SHOWS", t.accent);

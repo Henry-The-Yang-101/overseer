@@ -327,6 +327,47 @@ pub fn max_pool(data: &[f32], n: usize) -> Vec<f32> {
         })
         .collect()
 }
+/// Reserve a labeled scale beside a plot without changing its data range.
+pub fn scale_axis(b: &mut Buffer, r: Rect, upper: &str, lower: &str, t: &Theme) -> Rect {
+    if r.is_empty() {
+        return r;
+    }
+    if r.height == 1 {
+        let label = format!("{lower}–{upper}");
+        let gutter = (label.width() as u16 + 2).min(r.width);
+        text(b, r, 0, 0, label, t.muted);
+        return Rect::new(r.x + gutter, r.y, r.width - gutter, r.height);
+    }
+    let width = (upper.width().max(lower.width()) as u16).min(r.width.saturating_sub(2));
+    let gutter = (width + 2).min(r.width);
+    for (y, label) in [(0, upper), (r.height - 1, lower)] {
+        let label = truncate(label, width as usize);
+        text(
+            b,
+            r,
+            width.saturating_sub(label.width() as u16),
+            y,
+            label,
+            t.muted,
+        );
+    }
+    for y in 0..r.height {
+        text(
+            b,
+            r,
+            gutter.saturating_sub(1),
+            y,
+            if y == 0 || y == r.height - 1 {
+                "┤"
+            } else {
+                "│"
+            },
+            t.wire,
+        );
+    }
+    Rect::new(r.x + gutter, r.y, r.width - gutter, r.height)
+}
+
 pub fn spark(b: &mut Buffer, r: Rect, data: &[f32], max: f32, c: Color, t: &Theme, ascii: bool) {
     if r.is_empty() {
         return;

@@ -745,7 +745,20 @@ fn butterfly(b: &mut Buffer, r: Rect, a: &App, s: &Sample, network: bool) {
         return;
     }
     let peak = data.iter().map(|v| v.read.max(v.write)).fold(1., f64::max);
-    let chart = Rect::new(r.x + 12, r.y, r.width.saturating_sub(14), r.height);
+    let upper = format!(
+        "{} {}",
+        if network { "DOWN ▲" } else { "READ ▲" },
+        rate(peak, &a.cfg.units, network)
+    );
+    let lower = format!(
+        "{} {}",
+        if network { "UP ▼" } else { "WRITE ▼" },
+        rate(peak, &a.cfg.units, network)
+    );
+    let chart = scale_axis(b, r, &upper, &lower, t);
+    if chart.is_empty() {
+        return;
+    }
     let mut g = BrailleGrid::new(chart.width, chart.height);
     let mid = (chart.height as f32 * 4. - 1.) / 2.;
     g.line((0., mid), ((chart.width * 2) as f32 - 1., mid), t.wire);
@@ -764,17 +777,9 @@ fn butterfly(b: &mut Buffer, r: Rect, a: &App, s: &Sample, network: bool) {
         );
     }
     g.flush(chart, b, a.cfg.ui.glyphs == "ascii");
-    text(b, r, 0, 0, if network { "DOWN ▲" } else { "READ ▲" }, color);
-    text(
-        b,
-        r,
-        0,
-        r.height - 1,
-        if network { "UP   ▼" } else { "WRITE▼" },
-        t.muted,
-    );
-    if r.height > 3 {
-        text(b, r, 0, r.height / 2, "5m / shared", t.muted);
+    if r.height > 2 {
+        text(b, r, 0, r.height / 2, "0 · 5m/shared", t.muted);
+        text(b, r, chart.x - r.x - 1, r.height / 2, "┤", t.wire);
     }
 }
 fn gpu(b: &mut Buffer, r: Rect, a: &App, s: &Sample) {

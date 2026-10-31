@@ -535,6 +535,19 @@ fn component_inspectors_have_no_sample_summary() {
                 assert!(!text.contains("CURRENT SAMPLE"));
                 assert!(!text.contains("T-SNAPSHOT"));
                 assert!(!text.to_lowercase().contains("physical side assumed"));
+                if !matches!(
+                    p,
+                    Part::Fan0 | Part::Fan1 | Part::SpeakerLeft | Part::SpeakerRight
+                ) {
+                    let lower = match p {
+                        Part::Cpu | Part::Gpu | Part::Memory | Part::Battery => "0% ┤",
+                        Part::Ane | Part::Power => "0.0 W ┤",
+                        Part::Disk | Part::Network => "0.0 B/s ┤",
+                        Part::Thermal => "0°C ┤",
+                        _ => unreachable!(),
+                    };
+                    assert!(text.contains(lower), "{p:?}: missing scale {lower}");
+                }
                 if matches!(p, Part::Fan0 | Part::Fan1) {
                     let mut other = Buffer::empty(bounds);
                     ui::overlays::detail(&mut other, bounds, &mut a, Part::Fan0, zoom);
@@ -543,6 +556,9 @@ fn component_inspectors_have_no_sample_summary() {
                         "Either fan opens the same combined inspector"
                     );
                     assert!(text.contains("FANS"));
+                    if h >= 32 {
+                        assert_eq!(text.matches("0 rpm ┤").count(), 2);
+                    }
                     assert!(!text.contains("FAN 0") && !text.contains("FAN 1"));
                     // Expanded views have two impellers separated by a clear center gap.
                     for y in 2..h / 2 {
@@ -579,6 +595,58 @@ fn component_inspectors_have_no_sample_summary() {
             }
         }
     }
+}
+#[test]
+fn selected_graph_scales_follow_units_and_task_cpu_can_exceed_100_percent() {
+    use overseer::{app::Layer, metrics::Avail};
+    use std::sync::Arc;
+    let mut a = app("balanced");
+    a.select(Part::Soc);
+    assert!(render(&mut a, 200, 55).contains("100% ┤"));
+    a.select(Part::Disk);
+    assert!(render(&mut a, 200, 55).contains("0.0 B/s ┤"));
+    a.cfg.units.temp = "f".into();
+    let bounds = ratatui::layout::Rect::new(0, 0, 112, 32);
+    let mut buffer = ratatui::buffer::Buffer::empty(bounds);
+    ui::overlays::detail(&mut buffer, bounds, &mut a, Part::Thermal, false);
+    assert!(
+        buffer
+            .content
+            .iter()
+            .map(|c| c.symbol())
+            .collect::<String>()
+            .contains("32°F ┤")
+    );
+    for sample in &mut a.history {
+        Arc::make_mut(&mut Arc::make_mut(sample).processes)[0].cpu = 250.;
+    }
+    a.act(Action::GoPage(Page::Cpu));
+    let process = a.sample().processes[0].clone();
+    a.layers.push(Layer::Process { process, tab: 1 });
+    let view = render(&mut a, 200, 55);
+    assert!(view.contains("250% ┤"));
+    assert!(view.contains("0% ┤"));
+    assert!(view.contains("0.0 B ┤"));
+    assert!(view.contains("GiB ┤"));
+    a.layers.clear();
+    for page in [Page::Disk, Page::Network] {
+        a.act(Action::GoPage(page));
+        a.expanded = true;
+        let view = render(&mut a, 200, 55);
+        assert!(view.contains("0 · 5m/shared"));
+        assert!(view.contains("MiB/s ┤"));
+    }
+    a.cfg.units.net = "bits".into();
+    assert!(render(&mut a, 200, 55).contains("Mb/s ┤"));
+    // A battery graph labels its existing observed range rather than pretending it reaches 100%.
+    a.act(Action::GoTo(Screen::Teardown));
+    a.select(Part::Battery);
+    for sample in &mut a.history {
+        if let Avail::Ok(battery) = &mut Arc::make_mut(sample).battery {
+            battery.percent = 82.;
+        }
+    }
+    assert!(render(&mut a, 200, 55).contains("82% ┤"));
 }
 #[test]
 fn teardown_ssd_border_keeps_its_storage_color() {

@@ -369,11 +369,13 @@ pub fn inspector(b: &mut Buffer, r: Rect, a: &App, zoom: bool) {
             if history.is_empty() {
                 aligned(b, graph, 0, "No recorded readings", t.muted, i == 1);
             } else {
+                let max = history.iter().copied().fold(1., f32::max);
+                let graph = scale_axis(b, graph, &format!("{max:.0} rpm"), "0 rpm", t);
                 spark(
                     b,
                     graph,
                     &history,
-                    history.iter().copied().fold(1., f32::max),
+                    max,
                     t.accent,
                     t,
                     a.cfg.ui.glyphs == "ascii",

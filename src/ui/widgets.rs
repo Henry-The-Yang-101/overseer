@@ -4,7 +4,7 @@ use super::{
 };
 use crate::{
     app::{App, Part},
-    metrics::Sample,
+    metrics::{Avail, Sample},
     motion::{Mood, face},
 };
 use ratatui::{buffer::Buffer, layout::Rect};
@@ -126,6 +126,18 @@ pub fn panel(b: &mut Buffer, r: Rect, p: Part, a: &mut App) {
         }
     }
 }
+pub fn history_label(p: Part, value: f32, a: &App) -> String {
+    match p {
+        Part::Cpu | Part::Soc | Part::Gpu | Part::Memory => format!("{:.0}%", value * 100.),
+        Part::Battery => format!("{value:.0}%"),
+        Part::Power | Part::Ane => format!("{value:.1} W"),
+        Part::Disk | Part::Network => rate(value as f64, &a.cfg.units, p == Part::Network),
+        Part::Thermal => temp(&Avail::Ok(value), &a.cfg.units),
+        Part::Fan0 | Part::Fan1 => format!("{value:.0} rpm"),
+        _ => format!("{value:.1}"),
+    }
+}
+
 pub fn content(b: &mut Buffer, r: Rect, p: Part, s: &Sample, a: &App) {
     if r.is_empty() {
         return;
