@@ -1556,7 +1556,7 @@ fn wiring(b: &mut Buffer, c: Rect, a: &App, mirror: bool, layout: &Layout) {
         trace(b, c, &layout.cell_path(i, c), wire, None);
     }
     let power_input = crate::metrics::ports::power_input(&s);
-    let mut power_path = None;
+    let mut power_paths = None;
     for (i, (kind, left, y, label)) in PORTS.iter().enumerate() {
         let left = *left != mirror;
         let y = c.y + (y * c.height as f32).round() as u16;
@@ -1581,35 +1581,41 @@ fn wiring(b: &mut Buffer, c: Rect, a: &App, mirror: bool, layout: &Layout) {
             (target, soc.bottom() - 1),
         ];
         let connected = ports::indicator(&s, *kind, t).2 == "CONNECTED";
-        trace(
-            b,
-            c,
-            &path,
-            blend(wire, t.panel, 0.15),
-            (moving && connected).then_some((phase + i as f32 * 0.17, signal)),
-        );
         if power_input.value() == Some(kind) {
-            power_path = Some([
-                (edge, y),
-                (lane, y),
-                (lane, layout.power_y),
-                (center, layout.power_y),
-                (center, bms.y),
+            power_paths = Some([
+                path,
+                [
+                    (edge, y),
+                    (lane, y),
+                    (lane, layout.power_y),
+                    (center, layout.power_y),
+                    (center, bms.y),
+                ],
             ]);
+        } else {
+            trace(
+                b,
+                c,
+                &path,
+                blend(wire, t.panel, 0.15),
+                (moving && connected).then_some((phase + i as f32 * 0.17, signal)),
+            );
         }
     }
     let flow = cell_flow(s.battery.value());
     // Paint the active input last so another port sharing the trunk cannot hide it.
-    if let Some(path) = power_path {
-        trace(
-            b,
-            c,
-            &path,
-            blend(t.battery, t.panel, 0.70),
-            moving.then_some((phase, blend(t.battery, t.panel, 0.35))),
-        );
-    } else {
-        // Keep the battery's rail connection when an input cannot be identified.
+    if let Some(paths) = power_paths {
+        for path in paths {
+            trace(
+                b,
+                c,
+                &path,
+                blend(t.battery, t.panel, 0.70),
+                moving.then_some((phase, blend(t.battery, t.panel, 0.35))),
+            );
+        }
+    } else if s.battery.value().is_some_and(|battery| battery.ac) {
+        // Keep the adapter's rail connection when its input cannot be identified.
         let mut branch = [(center, layout.power_y), (center, bms.y)];
         if flow.is_some_and(|f| !f.charging) {
             branch.reverse();
@@ -1728,7 +1734,7 @@ mod tests {
     use crate::{config::Config, metrics::Avail};
 
     #[test]
-    fn power_input_trace_curves_into_bms_with_one_continuous_pulse() {
+    fn power_input_traces_reach_bms_and_chip_and_clear_on_battery() {
         for mirror in [false, true] {
             let c = Rect::new(2, 3, 107, 38);
             let layout = Layout::new(c, mirror);
@@ -1778,6 +1784,11 @@ mod tests {
             for y in layout.power_y..=bms.y {
                 assert_eq!(buffer[(center, y)].fg, wire_color);
             }
+            // The demo's USB-C 3 input also feeds the chip, reflected in back view.
+            let chip_input = if mirror { center + 2 } else { center - 2 };
+            for y in soc.bottom() - 1..=layout.data_y {
+                assert_eq!(buffer[(chip_input, y)].fg, wire_color);
+            }
             a.motion = crate::motion::Motion::Full;
             for phase in [0., 0.9999] {
                 a.anim.phases.insert("ambient".into(), phase);
@@ -1785,9 +1796,32 @@ mod tests {
                 wiring(&mut buffer, c, &a, mirror, &layout);
                 assert_eq!(buffer[(center, bms.y)].symbol() == "·", phase > 0.);
                 assert_eq!(
+                    buffer[(chip_input, soc.bottom() - 1)].symbol() == "·",
+                    phase > 0.,
+                    "input pulse travels toward the chip"
+                );
+                assert_eq!(
                     buffer[(center, layout.power_y)].symbol(),
                     if mirror { "╭" } else { "╮" }
                 );
+            }
+            let sample = std::sync::Arc::make_mut(a.history.back_mut().unwrap());
+            if let Avail::Ok(battery) = &mut sample.battery {
+                battery.ac = false;
+                battery.charging = false;
+                battery.watts = Avail::Ok(-10.);
+            }
+            for motion in [crate::motion::Motion::Off, crate::motion::Motion::Full] {
+                a.motion = motion;
+                buffer.reset();
+                wiring(&mut buffer, c, &a, mirror, &layout);
+                for y in layout.power_y..bms.y {
+                    assert_eq!(
+                        buffer[(center, y)].symbol(),
+                        " ",
+                        "battery power leaves the space above the BMS clear"
+                    );
+                }
             }
         }
     }
