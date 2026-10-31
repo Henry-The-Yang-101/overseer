@@ -135,6 +135,11 @@ fn gpu_tasks_sort_and_render_measured_zero_warmup_and_missing_counters() {
     ]) {
         p.name = Arc::from(name);
         p.gpu = gpu;
+        p.memory = if name == "gpu-zero" {
+            (9.5 * 1_048_576.) as u64
+        } else {
+            (1234.5 * 1_048_576.) as u64
+        };
         if matches!(name, "gpu-restricted" | "gpu-busy") {
             p.cpu = 0.;
             p.memory = 0;
@@ -168,12 +173,19 @@ fn gpu_tasks_sort_and_render_measured_zero_warmup_and_missing_counters() {
         assert!(!restricted.contains("PERMISSION"));
         assert!(!restricted.contains("0.0%"));
         if w >= 120 {
-            assert!(restricted.contains("???    ???B"));
+            assert!(restricted.contains("??? MiB"));
+            let unit_column = |row: &str| row[..row.find("MiB").unwrap()].chars().count();
+            let zero = view.lines().find(|line| line.contains("gpu-zero")).unwrap();
+            let wait = view.lines().find(|line| line.contains("gpu-wait")).unwrap();
+            assert!(zero.contains("9.5 MiB"));
+            assert!(wait.contains("1234.5 MiB"));
+            assert_eq!(unit_column(restricted), unit_column(zero));
+            assert_eq!(unit_column(zero), unit_column(wait));
         }
         let busy = view.lines().find(|line| line.contains("gpu-busy")).unwrap();
         assert!(busy.contains("150.0%") && busy.contains("???%"));
         if w >= 120 {
-            assert!(busy.contains("???    ???B"));
+            assert!(busy.contains("??? MiB"));
         }
     }
     a.search = Some("gpu-busy".into());

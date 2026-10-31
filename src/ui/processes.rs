@@ -435,11 +435,11 @@ fn draw_row(
                     avail(&p.threads, |v| v.to_string())
                 };
                 let memory = if restricted {
-                    "???B".into()
+                    "???".into()
                 } else {
-                    bytes(p.memory, &a.cfg.units)
+                    format!("{:.1}", p.memory as f64 / 1_048_576.)
                 };
-                format!("{cpu:>6}   {threads:>5}    {memory}")
+                format!("{cpu:>6}   {threads:>5}    {memory:>7} MiB")
             }
         }
         Page::Disk if compact => rate(p.write, &a.cfg.units, false),
