@@ -1452,8 +1452,13 @@ fn device_labels(b: &mut Buffer, c: Rect, area: Rect, a: &mut App, mirror: bool)
             }
             let mut r = Rect::new(x, y, width, area.bottom() - y);
             let is_power_input = power_input.value() == Some(&kind);
-            let unnamed_charger =
-                kind == PortKind::MagSafe || (is_power_input && port.devices.is_empty());
+            let charger_watts = port.charger_watts.or_else(|| {
+                (is_power_input && !s.extra.stale(s.at) && s.extra.at <= s.at)
+                    .then(|| s.extra.adapter.value().and_then(|adapter| adapter.watts))
+                    .flatten()
+            });
+            let unnamed_charger = kind == PortKind::MagSafe
+                || ((is_power_input || charger_watts.is_some()) && port.devices.is_empty());
             let mut names = if unnamed_charger {
                 "Charger".into()
             } else if port.devices.is_empty() {
@@ -1461,17 +1466,8 @@ fn device_labels(b: &mut Buffer, c: Rect, area: Rect, a: &mut App, mirror: bool)
             } else {
                 port.devices.join(" · ")
             };
-            if is_power_input
-                && !s.extra.stale(s.at)
-                && s.extra.at <= s.at
-                && let Some(watts) = s
-                    .extra
-                    .adapter
-                    .value()
-                    .and_then(|adapter| adapter.watts)
-                    .filter(|watts| watts.is_finite() && *watts > 0.)
-            {
-                let charger = format!("{watts:.0}W charger");
+            if let Some(watts) = charger_watts.filter(|watts| watts.is_finite() && *watts > 0.) {
+                let charger = format!("{watts:.0}W Charger");
                 if unnamed_charger {
                     names = charger;
                 } else {
@@ -1810,7 +1806,7 @@ mod tests {
         let area = Rect::new(0, 0, 187, 42);
         for mirror in [false, true] {
             for kind in [PortKind::MagSafe, PortKind::UsbC(2)] {
-                for state in ["fresh", "missing", "stale", "ambiguous"] {
+                for state in ["fresh", "missing", "stale", "ambiguous", "per-port"] {
                     let mut a = App::new(Config::default(), Some("balanced".into()));
                     let sample = Arc::make_mut(a.history.back_mut().unwrap());
                     if let Avail::Ok(ports) = &mut sample.ports {
@@ -1818,8 +1814,11 @@ mod tests {
                             port.connected = Avail::Ok(
                                 port.kind == kind
                                     || port.kind == PortKind::Audio
-                                    || (state == "ambiguous" && port.kind == PortKind::UsbC(3)),
+                                    || (matches!(state, "ambiguous" | "per-port")
+                                        && port.kind == PortKind::UsbC(3)),
                             );
+                            port.charger_watts =
+                                (state == "per-port" && port.kind == kind).then_some(67.8);
                             port.devices.clear();
                         }
                     }
@@ -1851,8 +1850,12 @@ mod tests {
                     let arrow_x = if left { c.x - 2 } else { c.right() + 1 };
                     assert_eq!(buffer[(arrow_x, y)].symbol(), if left { "→" } else { "←" });
                     let view = (0..area.height).map(row).collect::<Vec<_>>().join("\n");
-                    if state == "fresh" {
-                        let charger = "96W charger";
+                    if matches!(state, "fresh" | "per-port") {
+                        let charger = if state == "per-port" {
+                            "68W Charger"
+                        } else {
+                            "96W Charger"
+                        };
                         let charger_x = if left {
                             c.x - 3 - charger.len() as u16
                         } else {
@@ -1861,7 +1864,7 @@ mod tests {
                         assert!(row(y + 1).contains(charger));
                         assert_eq!(
                             buffer[(charger_x, y + 1)].symbol(),
-                            "9",
+                            if state == "per-port" { "6" } else { "9" },
                             "white text shares the port name's alignment, excluding the arrow"
                         );
                         let title_x = if left {
@@ -1876,7 +1879,8 @@ mod tests {
                     } else if kind == PortKind::MagSafe || state != "ambiguous" {
                         assert!(view.contains("Charger"));
                     }
-                    assert_eq!(view.contains("96W charger"), state == "fresh");
+                    assert_eq!(view.contains("96W Charger"), state == "fresh");
+                    assert_eq!(view.contains("68W Charger"), state == "per-port");
                     assert!(!view.contains("MagSafe Charger"));
                     assert!(!view.contains("W rated"));
                     assert!(!view.contains("3.5 mm"));

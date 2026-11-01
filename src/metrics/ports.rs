@@ -39,6 +39,7 @@ pub struct Port {
     pub connected: Avail<bool>,
     pub detail: String,
     pub devices: Vec<String>,
+    pub charger_watts: Option<f64>,
 }
 impl Port {
     pub fn status(&self) -> &'static str {
@@ -80,6 +81,7 @@ fn collect() -> Ports {
         ports.push(Port {
             kind: PortKind::Audio,
             devices: vec![],
+            charger_watts: None,
             connected: audio.map(Avail::Ok).unwrap_or(Avail::Unsupported(
                 "headphone jack sensor not exposed".into(),
             )),
@@ -231,6 +233,11 @@ fn parse(v: &plist::Value) -> Vec<Port> {
         if !ports.iter().any(|p: &Port| p.kind == kind) {
             ports.push(Port {
                 kind,
+                charger_watts: if connected == Avail::Ok(true) {
+                    charger_watts(&plist::Value::Dictionary(n.clone()))
+                } else {
+                    None
+                },
                 devices: if connected == Avail::Ok(true) {
                     device_names(&plist::Value::Dictionary(n.clone()))
                 } else {
@@ -242,6 +249,37 @@ fn parse(v: &plist::Value) -> Vec<Port> {
         }
     });
     ports
+}
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+fn charger_watts(v: &plist::Value) -> Option<f64> {
+    let mut watts: Option<f64> = None;
+    nodes(v, &mut |n| {
+        if n.get("IOObjectClass").and_then(plist::Value::as_string)
+            != Some("IOPortFeaturePowerSource")
+            || n.get("PowerSourceName").and_then(plist::Value::as_string) != Some("USB-PD")
+        {
+            return;
+        }
+        // Advertised USB-PD capacity belongs to this port, even with other cables attached.
+        if let Some(options) = n.get("PowerSourceOptions").and_then(plist::Value::as_array) {
+            for option in options {
+                let Some(power) = option
+                    .as_dictionary()
+                    .and_then(|option| option.get("Max Power (mW)"))
+                else {
+                    continue;
+                };
+                let power = power
+                    .as_real()
+                    .or_else(|| power.as_unsigned_integer().map(|v| v as f64))
+                    .filter(|v| v.is_finite() && *v > 0.);
+                if let Some(power) = power {
+                    watts = Some(watts.unwrap_or(0.).max(power / 1000.));
+                }
+            }
+        }
+    });
+    watts
 }
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
 fn device_names(v: &plist::Value) -> Vec<String> {
@@ -305,6 +343,29 @@ fn headphone_detect(v: &plist::Value) -> Option<bool> {
 #[cfg(all(test, target_os = "macos", target_arch = "aarch64"))]
 mod tests {
     use super::*;
+    #[test]
+    fn charger_capacity_comes_from_the_connected_ports_advertised_profiles() {
+        let xml = br#"<plist version="1.0"><array><dict>
+        <key>PortTypeDescription</key><string>MagSafe 3</string>
+        <key>ConnectionActive</key><true/>
+        <key>IORegistryEntryChildren</key><array><dict>
+          <key>IOObjectClass</key><string>IOPortFeaturePowerSource</string>
+          <key>PowerSourceName</key><string>USB-PD</string>
+          <key>PowerSourceOptions</key><array>
+            <dict><key>Max Power (mW)</key><integer>44700</integer></dict>
+            <dict><key>Max Power (mW)</key><integer>67800</integer></dict>
+            <dict/>
+          </array>
+        </dict></array></dict></array></plist>"#;
+        let mut v = plist::Value::from_reader(std::io::Cursor::new(xml)).unwrap();
+        assert_eq!(parse(&v)[0].charger_watts, Some(67.8));
+        v.as_array_mut().unwrap()[0]
+            .as_dictionary_mut()
+            .unwrap()
+            .insert("ConnectionActive".into(), plist::Value::Boolean(false));
+        assert_eq!(parse(&v)[0].charger_watts, None);
+    }
+
     #[test]
     fn missing_flags_stay_unknown_and_usb_identity_is_preserved() {
         let xml=br#"<?xml version="1.0"?><plist version="1.0"><array>
