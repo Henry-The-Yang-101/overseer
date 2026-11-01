@@ -222,13 +222,9 @@ fn battery_and_energy_show_charging_policy_power_modes_and_unavailable_states() 
                 2 => "N/A",
                 _ => "HIGH POWER",
             };
-            let low_power = match state {
-                0 => "ON",
-                2 => "N/A",
-                _ => "OFF",
-            };
             a.act(Action::GoPage(Page::Energy));
             let energy = render(&mut a, w, h);
+            assert!(!energy.contains("LOW POWER OFF") && !energy.contains("LOW POWER ON"));
             if w >= 150 && state != 4 {
                 for label in ["HEALTH 97%", "CYCLES 112", "TIME 48 min"] {
                     assert!(energy.contains(label), "missing {label}\n{energy}");
@@ -237,7 +233,6 @@ fn battery_and_energy_show_charging_policy_power_modes_and_unavailable_states() 
             for label in [
                 format!("LIMIT {limit}"),
                 format!("OPTIMIZED {optimized}"),
-                format!("LOW POWER {low_power}"),
                 mode.into(),
             ] {
                 assert!(
@@ -249,23 +244,19 @@ fn battery_and_energy_show_charging_policy_power_modes_and_unavailable_states() 
             if w >= 150 && state != 4 {
                 a.select(Part::Battery);
                 let selected = render(&mut a, w, h);
-                for label in [
-                    format!("LIMIT {limit}"),
-                    format!("OPTIMIZED {optimized}"),
-                    format!("LOW POWER {low_power}"),
-                ] {
+                for label in [format!("LIMIT {limit}"), format!("OPTIMIZED {optimized}")] {
                     assert!(selected.contains(&label), "missing {label}\n{selected}");
                 }
             }
             a.act(Action::InspectPart(Part::Battery));
             let battery = render(&mut a, w, h);
+            assert!(!battery.contains("LOW POWER OFF") && !battery.contains("LOW POWER ON"));
             if state == 4 {
                 assert!(battery.contains("AC powered"));
             } else {
                 for label in [
                     format!("LIMIT {limit}"),
                     format!("OPTIMIZED {optimized}"),
-                    format!("LOW POWER {low_power}"),
                     mode.into(),
                 ] {
                     assert!(

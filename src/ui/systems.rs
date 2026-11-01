@@ -406,8 +406,7 @@ fn energy(b: &mut Buffer, r: Rect, a: &App, s: &Sample) {
             r,
             3,
             format!(
-                "LOW POWER {} · CPU {}  GPU {}  {}",
-                super::insights::low_power(s),
+                "CPU {}  GPU {}  {}",
                 temp(&s.cpu_temp, &a.cfg.units),
                 temp(&s.gpu_temp, &a.cfg.units),
                 avail(&s.thermal, |v| v.clone())
@@ -430,13 +429,6 @@ fn energy(b: &mut Buffer, r: Rect, a: &App, s: &Sample) {
     };
     let branch_x = (r.width * 43 / 100).clamp(27, 53);
     let branch_w = r.width.saturating_sub(branch_x + 21);
-    line(
-        b,
-        r,
-        0,
-        format!("LOW POWER {}", super::insights::low_power(s)),
-        t.text,
-    );
     line(
         b,
         r,
@@ -1064,10 +1056,6 @@ fn side_card(b: &mut Buffer, r: Rect, a: &App, s: &Sample) {
             let mut v = vec![
                 (
                     format!("MODE {}", avail(&s.power_mode, |mode| mode.label().into())),
-                    t.text,
-                ),
-                (
-                    format!("LOW POWER {}", super::insights::low_power(s)),
                     t.text,
                 ),
                 (

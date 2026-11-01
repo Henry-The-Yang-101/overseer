@@ -1,7 +1,7 @@
 use super::kit::*;
 use crate::{
     app::{App, Layer, Page, WINDOWS},
-    metrics::{PowerMode, Sample, insights},
+    metrics::{Sample, insights},
 };
 use ratatui::{
     buffer::Buffer,
@@ -63,16 +63,6 @@ pub fn power(s: &Sample) -> String {
             .map_or("watts N/A".into(), |w| format!("{w:.0} W rated"))),
         avail(&s.extra.assertions, |v| v.len().to_string())
     )
-}
-pub fn low_power(s: &Sample) -> String {
-    avail(&s.power_mode, |mode| {
-        if *mode == PowerMode::LowPower {
-            "ON"
-        } else {
-            "OFF"
-        }
-        .into()
-    })
 }
 pub fn charge_limit(s: &Sample) -> String {
     if s.battery.value().is_none() {
@@ -230,9 +220,8 @@ fn details(a: &App, s: &Sample) -> Vec<String> {
         }
         Page::Energy => {
             lines.push(format!(
-                "POWER MODE {} · LOW POWER {}",
-                avail(&s.power_mode, |mode| mode.label().into()),
-                low_power(s)
+                "POWER MODE {}",
+                avail(&s.power_mode, |mode| mode.label().into())
             ));
             if s.battery.value().is_some() {
                 lines.push(format!("CHARGE {}", charging(s)));

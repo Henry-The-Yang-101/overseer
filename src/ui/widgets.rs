@@ -852,11 +852,7 @@ fn battery(b: &mut Buffer, r: Rect, s: &Sample, a: &App) {
         b,
         r,
         1,
-        format!(
-            "LIMIT {} · LOW POWER {}",
-            super::insights::charge_limit(s),
-            super::insights::low_power(s)
-        ),
+        format!("LIMIT {}", super::insights::charge_limit(s)),
         t.battery,
     );
     line(

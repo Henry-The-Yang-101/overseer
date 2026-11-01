@@ -1316,11 +1316,7 @@ fn selected(b: &mut Buffer, r: Rect, a: &mut App, part: Part) {
                 b,
                 inner,
                 2,
-                format!(
-                    "LIMIT {} · LOW POWER {}",
-                    super::insights::charge_limit(&s),
-                    super::insights::low_power(&s)
-                ),
+                format!("LIMIT {}", super::insights::charge_limit(&s)),
                 t.battery,
             );
             line(
@@ -1330,7 +1326,7 @@ fn selected(b: &mut Buffer, r: Rect, a: &mut App, part: Part) {
                 format!(
                     "OPTIMIZED {} · {}",
                     super::insights::optimized_charging(&s),
-                    avail(&s.power_mode, |mode| mode.compact_label().into())
+                    avail(&s.power_mode, |mode| mode.label().into())
                 ),
                 t.muted,
             );

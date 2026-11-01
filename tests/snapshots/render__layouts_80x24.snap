@@ -137,7 +137,7 @@ energy
  │ AC ADAPTER  →  SYSTEM 19.90 W   Σ SoC 12.37 W                              │
  │ CPU  9.10 W    GPU  3.10 W    ANE  0.17 W                                  │
  │ LIMIT 90% · OPTIMIZED OFF                                                  │
- │ LOW POWER OFF · CPU 53°C  GPU 44°C  NOMINAL                                │
+ │ CPU 53°C  GPU 44°C  NOMINAL                                                │
  │ ADAPTER 65 W rated · 1 sleep assertions                                    │
  ╰────────────────────────────────────────────────────────────────────────────╯
  ╭ TOP ENERGY TASKS ──────────────────────────────────────────── 20 · POWER ↓ ╮
