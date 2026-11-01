@@ -1425,15 +1425,16 @@ fn device_labels(b: &mut Buffer, c: Rect, area: Rect, a: &mut App, mirror: bool)
     let s = a.sample();
     let power_input = crate::metrics::ports::power_input(&s);
     for left in [true, false] {
+        // Reserve an arrow and a space beside the port, outside both text lines.
         let width = if left {
-            c.x.saturating_sub(area.x + 1)
+            c.x.saturating_sub(area.x + 3)
         } else {
-            area.right().saturating_sub(c.right() + 1)
+            area.right().saturating_sub(c.right() + 3)
         };
-        if width < 8 {
+        if width < 6 {
             continue;
         }
-        let x = if left { area.x } else { c.right() + 1 };
+        let x = if left { area.x } else { c.right() + 3 };
         let mut next_y = area.y + 1;
         for (kind, side, y, _) in PORTS {
             if kind == PortKind::Audio
@@ -1451,10 +1452,10 @@ fn device_labels(b: &mut Buffer, c: Rect, area: Rect, a: &mut App, mirror: bool)
             }
             let mut r = Rect::new(x, y, width, area.bottom() - y);
             let is_power_input = power_input.value() == Some(&kind);
-            let mut names = if kind == PortKind::MagSafe {
-                "MagSafe Charger".into()
-            } else if is_power_input && port.devices.is_empty() {
-                "USB-C Charger".into()
+            let unnamed_charger =
+                kind == PortKind::MagSafe || (is_power_input && port.devices.is_empty());
+            let mut names = if unnamed_charger {
+                "Charger".into()
             } else if port.devices.is_empty() {
                 "Device name unavailable".into()
             } else {
@@ -1470,14 +1471,15 @@ fn device_labels(b: &mut Buffer, c: Rect, area: Rect, a: &mut App, mirror: bool)
                     .and_then(|adapter| adapter.watts)
                     .filter(|watts| watts.is_finite() && *watts > 0.)
             {
-                names.push_str(&format!("\n{watts:.0} W rated"));
+                let charger = format!("{watts:.0}W charger");
+                if unnamed_charger {
+                    names = charger;
+                } else {
+                    names.push('\n');
+                    names.push_str(&charger);
+                }
             }
-            let label = truncate(&kind.label(), width.saturating_sub(2) as usize);
-            let title = if left {
-                format!("{label} →")
-            } else {
-                format!("← {label}")
-            };
+            let title = truncate(&kind.label(), width as usize);
             let mut rows = Vec::new();
             for name_line in names.lines() {
                 rows.push(String::new());
@@ -1514,11 +1516,25 @@ fn device_labels(b: &mut Buffer, c: Rect, area: Rect, a: &mut App, mirror: bool)
                     0
                 }
             };
-            // Give wrapped device names a quiet margin without clearing the audio pane.
+            // Include the separate arrow in the quiet margin around the label.
             clear_panel(
                 b,
-                Rect::new(r.x.saturating_sub(1), r.y, label_width + 2, count),
+                Rect::new(
+                    r.x.saturating_sub(if left { 1 } else { 3 }),
+                    r.y,
+                    label_width + 4,
+                    count,
+                ),
                 a.theme.panel,
+            );
+            let arrow_x = if left { c.x - 2 } else { c.right() + 1 };
+            text(
+                b,
+                area,
+                arrow_x - area.x,
+                y - area.y,
+                if left { "→" } else { "←" },
+                a.theme.ok,
             );
             text(b, r, aligned_x(&title), 0, &title, a.theme.ok);
             for (i, value) in rows
@@ -1835,12 +1851,34 @@ mod tests {
                     let arrow_x = if left { c.x - 2 } else { c.right() + 1 };
                     assert_eq!(buffer[(arrow_x, y)].symbol(), if left { "→" } else { "←" });
                     let view = (0..area.height).map(row).collect::<Vec<_>>().join("\n");
-                    if kind == PortKind::MagSafe {
-                        assert!(view.contains("MagSafe Charger"));
-                    } else if state != "ambiguous" {
-                        assert!(view.contains("USB-C Charger"));
+                    if state == "fresh" {
+                        let charger = "96W charger";
+                        let charger_x = if left {
+                            c.x - 3 - charger.len() as u16
+                        } else {
+                            c.right() + 3
+                        };
+                        assert!(row(y + 1).contains(charger));
+                        assert_eq!(
+                            buffer[(charger_x, y + 1)].symbol(),
+                            "9",
+                            "white text shares the port name's alignment, excluding the arrow"
+                        );
+                        let title_x = if left {
+                            c.x - 3 - kind.label().len() as u16
+                        } else {
+                            c.right() + 3
+                        };
+                        assert_eq!(
+                            buffer[(title_x, y)].symbol(),
+                            if kind == PortKind::MagSafe { "M" } else { "U" }
+                        );
+                    } else if kind == PortKind::MagSafe || state != "ambiguous" {
+                        assert!(view.contains("Charger"));
                     }
-                    assert_eq!(view.contains("96 W rated"), state == "fresh");
+                    assert_eq!(view.contains("96W charger"), state == "fresh");
+                    assert!(!view.contains("MagSafe Charger"));
+                    assert!(!view.contains("W rated"));
                     assert!(!view.contains("3.5 mm"));
                 }
             }
