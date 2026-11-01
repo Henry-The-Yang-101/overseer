@@ -1311,6 +1311,30 @@ fn selected(b: &mut Buffer, r: Rect, a: &mut App, part: Part) {
         );
     } else {
         line(b, inner, 3, widgets::readout(p, &s, a), t.text);
+        if p == Part::Battery && s.battery.value().is_some() {
+            line(
+                b,
+                inner,
+                2,
+                format!(
+                    "LIMIT {} · LOW POWER {}",
+                    super::insights::charge_limit(&s),
+                    super::insights::low_power(&s)
+                ),
+                t.battery,
+            );
+            line(
+                b,
+                inner,
+                4,
+                format!(
+                    "OPTIMIZED {} · {}",
+                    super::insights::optimized_charging(&s),
+                    avail(&s.power_mode, |mode| mode.compact_label().into())
+                ),
+                t.muted,
+            );
+        }
         let h = (inner.height / 4).max(1);
         let values = a.history_values(p);
         let max = values.iter().copied().fold(1., f32::max);

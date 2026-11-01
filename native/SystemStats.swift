@@ -4,9 +4,49 @@ import SystemConfiguration
 import IOKit
 import IOKit.pwr_mgt
 import IOKit.ps
+import ObjectiveC
+import Darwin
+
+// PowerUI's manual-limit getter is distinct from its legacy currentChargeLimit getter.
+// Resolve only read methods, and omit unknown signatures/results instead of reporting OFF.
+func chargingPolicy() -> [String: Any] {
+    guard dlopen("/System/Library/PrivateFrameworks/PowerUI.framework/PowerUI", RTLD_LAZY | RTLD_LOCAL) != nil,
+          let cls = NSClassFromString("PowerUISmartChargeClient") as? NSObject.Type else { return [:] }
+    let initializer = NSSelectorFromString("initWithClientName:")
+    guard let method = class_getInstanceMethod(cls, initializer),
+          let encoding = method_getTypeEncoding(method), String(cString: encoding) == "@24@0:8@16",
+          let allocation = cls.perform(NSSelectorFromString("alloc")) else { return [:] }
+    let allocated = allocation.takeUnretainedValue() as! NSObject
+    guard let client = allocated.perform(initializer, with: "Overseer" as NSString)?.takeRetainedValue() as? NSObject else { return [:] }
+    func read(_ name: String, byte: Bool = false) -> UInt? {
+        let selector = NSSelectorFromString(name)
+        guard let method = class_getInstanceMethod(cls, selector),
+              let encoding = method_getTypeEncoding(method),
+              String(cString: encoding) == (byte ? "C24@0:8^@16" : "Q24@0:8^@16") else { return nil }
+        var error: AnyObject?
+        let value: UInt
+        if byte {
+            typealias Getter = @convention(c) (AnyObject, Selector, AutoreleasingUnsafeMutablePointer<AnyObject?>) -> UInt8
+            value = UInt(unsafeBitCast(method_getImplementation(method), to: Getter.self)(client, selector, &error))
+        } else {
+            typealias Getter = @convention(c) (AnyObject, Selector, AutoreleasingUnsafeMutablePointer<AnyObject?>) -> UInt
+            value = unsafeBitCast(method_getImplementation(method), to: Getter.self)(client, selector, &error)
+        }
+        return error == nil ? value : nil
+    }
+    var result: [String: Any] = [:]
+    if let limit = read("getMCLLimitWithError:", byte: true), (1...100).contains(limit) {
+        result["limit"] = limit
+    }
+    for (key, method) in [("limit_enabled", "isMCLCurrentlyEnabled:"), ("optimized", "isSmartChargingCurrentlyEnabled:")] {
+        if let value = read(method), value <= 1 { result[key] = value == 1 }
+    }
+    return result
+}
 
 // A short-lived, read-only helper. No network probes, scanning, or permission prompts.
 var result: [String: Any] = [:]
+result["charging"] = chargingPolicy()
 if let wifi = CWWiFiClient.shared().interface(), wifi.powerOn(),
    let channel = wifi.wlanChannel(), wifi.rssiValue() != 0 {
     var value: [String: Any] = ["interface": wifi.interfaceName ?? "",

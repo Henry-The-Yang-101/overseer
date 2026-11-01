@@ -44,6 +44,39 @@ pub struct Traffic {
     pub write: f64,
 }
 #[derive(Clone, Debug, Default, Serialize)]
+pub struct ChargingPolicy {
+    pub limit: Avail<u8>,
+    pub limit_enabled: Avail<bool>,
+    pub optimized: Avail<bool>,
+}
+#[cfg(any(target_os = "macos", test))]
+#[derive(Default, Deserialize)]
+struct RawCharging {
+    limit: Option<u8>,
+    limit_enabled: Option<bool>,
+    optimized: Option<bool>,
+}
+#[cfg(any(target_os = "macos", test))]
+impl From<RawCharging> for ChargingPolicy {
+    fn from(raw: RawCharging) -> Self {
+        Self {
+            limit: raw
+                .limit
+                .filter(|v| (1..=100).contains(v))
+                .map(Avail::Ok)
+                .unwrap_or(Avail::Unsupported("charge limit not exposed".into())),
+            limit_enabled: raw
+                .limit_enabled
+                .map(Avail::Ok)
+                .unwrap_or(Avail::Unsupported("charge limit status not exposed".into())),
+            optimized: raw
+                .optimized
+                .map(Avail::Ok)
+                .unwrap_or(Avail::Unsupported("optimized charging not exposed".into())),
+        }
+    }
+}
+#[derive(Clone, Debug, Default, Serialize)]
 pub struct Snapshot {
     pub at: f64,
     pub wifi: Avail<Wifi>,
@@ -52,6 +85,7 @@ pub struct Snapshot {
     pub adapter: Avail<Adapter>,
     pub disks: Avail<Vec<DiskActivity>>,
     pub traffic: Avail<Vec<Traffic>>,
+    pub charging: ChargingPolicy,
 }
 impl Snapshot {
     pub fn stale(&self, at: f64) -> bool {
@@ -61,7 +95,10 @@ impl Snapshot {
                 || self.assertions.value().is_some()
                 || self.adapter.value().is_some()
                 || self.disks.value().is_some()
-                || self.traffic.value().is_some())
+                || self.traffic.value().is_some()
+                || self.charging.limit.value().is_some()
+                || self.charging.limit_enabled.value().is_some()
+                || self.charging.optimized.value().is_some())
     }
     pub fn traffic(&self, p: &Proc, at: f64) -> Option<&Traffic> {
         if at - self.at > 15. || at < self.at {
@@ -100,6 +137,7 @@ mod macos {
         assertions: Option<Vec<Assertion>>,
         adapter: Option<Adapter>,
         disks: Option<Vec<RawDisk>>,
+        charging: Option<RawCharging>,
     }
     pub fn install() -> Result<std::path::PathBuf, String> {
         use std::os::unix::fs::PermissionsExt;
@@ -198,6 +236,7 @@ mod macos {
                 .and_then(|json| serde_json::from_str::<Native>(&json).map_err(|e| e.to_string()));
             match native {
                 Ok(n) => {
+                    s.charging = n.charging.unwrap_or_default().into();
                     s.wifi = n.wifi.map(Avail::Ok).unwrap_or(Avail::Unsupported(
                         "Wi-Fi disconnected or reading restricted".into(),
                     ));
@@ -250,6 +289,11 @@ mod macos {
                     }
                 }
                 Err(e) => {
+                    s.charging = ChargingPolicy {
+                        limit: Avail::Failed(e.clone()),
+                        limit_enabled: Avail::Failed(e.clone()),
+                        optimized: Avail::Failed(e.clone()),
+                    };
                     s.wifi = Avail::Failed(e.clone());
                     s.routes = Avail::Failed(e.clone());
                     s.assertions = Avail::Failed(e.clone());
@@ -363,6 +407,11 @@ pub fn spawn(start: std::time::Instant) -> std::sync::mpsc::Receiver<Arc<Snapsho
             let _ = start;
             let why = "extended telemetry requires macOS".to_string();
             let _ = tx.send(Arc::new(Snapshot {
+                charging: ChargingPolicy {
+                    limit: Avail::Unsupported(why.clone()),
+                    limit_enabled: Avail::Unsupported(why.clone()),
+                    optimized: Avail::Unsupported(why.clone()),
+                },
                 wifi: Avail::Unsupported(why.clone()),
                 routes: Avail::Unsupported(why.clone()),
                 assertions: Avail::Unsupported(why.clone()),
@@ -379,6 +428,29 @@ pub fn spawn(start: std::time::Instant) -> std::sync::mpsc::Receiver<Arc<Snapsho
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn charging_policy_keeps_missing_and_invalid_values_distinct_from_off() {
+        let raw: RawCharging =
+            serde_json::from_str(r#"{"limit":80,"limit_enabled":true,"optimized":false}"#).unwrap();
+        let policy = ChargingPolicy::from(raw);
+        assert_eq!(policy.limit, Avail::Ok(80));
+        assert_eq!(policy.limit_enabled, Avail::Ok(true));
+        assert_eq!(policy.optimized, Avail::Ok(false));
+        let missing = ChargingPolicy::from(RawCharging::default());
+        assert!(missing.limit.value().is_none());
+        assert!(missing.limit_enabled.value().is_none());
+        assert!(missing.optimized.value().is_none());
+        for limit in [0, 101, 255] {
+            let policy = ChargingPolicy::from(RawCharging {
+                limit: Some(limit),
+                limit_enabled: Some(false),
+                optimized: Some(true),
+            });
+            assert!(policy.limit.value().is_none());
+            assert_eq!(policy.limit_enabled, Avail::Ok(false));
+            assert_eq!(policy.optimized, Avail::Ok(true));
+        }
+    }
     #[test]
     fn traffic_parser_and_identity_guard() {
         let rows = parse_nettop(",bytes_in,bytes_out,\nApp, Helper.thing.42,120,250,\n").unwrap();

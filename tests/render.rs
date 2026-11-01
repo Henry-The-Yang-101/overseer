@@ -182,6 +182,102 @@ fn representative_layouts() {
     }
 }
 #[test]
+fn battery_and_energy_show_charging_policy_power_modes_and_unavailable_states() {
+    use overseer::metrics::{Avail, PowerMode};
+    use std::sync::Arc;
+
+    for (w, h) in [(80, 24), (120, 36), (200, 55)] {
+        for state in 0..5 {
+            let mut a = app("balanced");
+            let s = Arc::make_mut(a.history.back_mut().unwrap());
+            s.power_mode = Avail::Ok(if state == 0 {
+                PowerMode::LowPower
+            } else {
+                PowerMode::HighPower
+            });
+            let extra = Arc::make_mut(&mut s.extra);
+            extra.charging.limit = Avail::Ok(80);
+            extra.charging.limit_enabled = Avail::Ok(state != 1);
+            extra.charging.optimized = Avail::Ok(state == 1);
+            let (limit, optimized) = match state {
+                0 => ("80%", "OFF"),
+                1 => ("OFF", "ON"),
+                2 => {
+                    extra.charging.limit_enabled = Avail::Unsupported("not exposed".into());
+                    extra.charging.optimized = Avail::Unsupported("not exposed".into());
+                    s.power_mode = Avail::Unsupported("not exposed".into());
+                    ("N/A", "N/A")
+                }
+                3 => {
+                    extra.at = s.at - 16.;
+                    ("STALE", "STALE")
+                }
+                _ => {
+                    s.battery = Avail::NoHardware("AC powered".into());
+                    ("NO HARDWARE", "NO HARDWARE")
+                }
+            };
+            let mode = match state {
+                0 => "LOW POWER",
+                2 => "N/A",
+                _ => "HIGH POWER",
+            };
+            let low_power = match state {
+                0 => "ON",
+                2 => "N/A",
+                _ => "OFF",
+            };
+            a.act(Action::GoPage(Page::Energy));
+            let energy = render(&mut a, w, h);
+            if w >= 150 && state != 4 {
+                for label in ["HEALTH 97%", "CYCLES 112", "TIME 48 min"] {
+                    assert!(energy.contains(label), "missing {label}\n{energy}");
+                }
+            }
+            for label in [
+                format!("LIMIT {limit}"),
+                format!("OPTIMIZED {optimized}"),
+                format!("LOW POWER {low_power}"),
+                mode.into(),
+            ] {
+                assert!(
+                    energy.contains(&label),
+                    "{w}x{h}, state {state}: missing {label}\n{energy}"
+                );
+            }
+            a.act(Action::GoTo(Screen::Teardown));
+            if w >= 150 && state != 4 {
+                a.select(Part::Battery);
+                let selected = render(&mut a, w, h);
+                for label in [
+                    format!("LIMIT {limit}"),
+                    format!("OPTIMIZED {optimized}"),
+                    format!("LOW POWER {low_power}"),
+                ] {
+                    assert!(selected.contains(&label), "missing {label}\n{selected}");
+                }
+            }
+            a.act(Action::InspectPart(Part::Battery));
+            let battery = render(&mut a, w, h);
+            if state == 4 {
+                assert!(battery.contains("AC powered"));
+            } else {
+                for label in [
+                    format!("LIMIT {limit}"),
+                    format!("OPTIMIZED {optimized}"),
+                    format!("LOW POWER {low_power}"),
+                    mode.into(),
+                ] {
+                    assert!(
+                        battery.contains(&label),
+                        "{w}x{h}, state {state}: missing {label}\n{battery}"
+                    );
+                }
+            }
+        }
+    }
+}
+#[test]
 fn gpu_tasks_sort_and_render_measured_zero_warmup_and_missing_counters() {
     use overseer::metrics::Avail;
     use std::sync::Arc;

@@ -43,9 +43,10 @@ pub fn draw(b: &mut Buffer, r: Rect, a: &mut App, size: SizeClass) {
     let s = a.sample();
     let t = a.theme.clone();
     let color = widgets::tint(a.page.part(), &t);
-    let title = if a.page == Page::Cpu {
+    let title = if matches!(a.page, Page::Cpu | Page::Energy) {
         format!(
-            "CPU · {} · {}",
+            "{} · {} · {}",
+            a.page.label().to_uppercase(),
             a.page.title(),
             avail(&s.power_mode, |mode| mode.label().into())
         )
@@ -403,17 +404,19 @@ fn energy(b: &mut Buffer, r: Rect, a: &App, s: &Sample) {
         line(
             b,
             r,
-            2,
+            3,
             format!(
-                "CPU {}  GPU {}   {}",
+                "LOW POWER {} · CPU {}  GPU {}  {}",
+                super::insights::low_power(s),
                 temp(&s.cpu_temp, &a.cfg.units),
                 temp(&s.gpu_temp, &a.cfg.units),
                 avail(&s.thermal, |v| v.clone())
             ),
             t.muted,
         );
-        if r.height > 3 {
-            line(b, r, 3, super::insights::power(s), t.muted);
+        line(b, r, 2, super::insights::charging(s), t.battery);
+        if r.height > 4 {
+            line(b, r, 4, super::insights::power(s), t.muted);
         }
         return;
     }
@@ -427,7 +430,20 @@ fn energy(b: &mut Buffer, r: Rect, a: &App, s: &Sample) {
     };
     let branch_x = (r.width * 43 / 100).clamp(27, 53);
     let branch_w = r.width.saturating_sub(branch_x + 21);
-    line(b, r, 1, source, t.battery);
+    line(
+        b,
+        r,
+        0,
+        format!("LOW POWER {}", super::insights::low_power(s)),
+        t.text,
+    );
+    line(
+        b,
+        r,
+        1,
+        format!("{source} · {}", super::insights::charging(s)),
+        t.battery,
+    );
     if system {
         text(b, r, 0, 2, "┃", t.battery);
         text(b, r, 0, 3, "└━━━━ SYSTEM ━━━━━┳", t.accent);
@@ -1047,6 +1063,22 @@ fn side_card(b: &mut Buffer, r: Rect, a: &App, s: &Sample) {
         Page::Energy => {
             let mut v = vec![
                 (
+                    format!("MODE {}", avail(&s.power_mode, |mode| mode.label().into())),
+                    t.text,
+                ),
+                (
+                    format!("LOW POWER {}", super::insights::low_power(s)),
+                    t.text,
+                ),
+                (
+                    format!("CHARGE LIMIT {}", super::insights::charge_limit(s)),
+                    t.battery,
+                ),
+                (
+                    format!("OPTIMIZED {}", super::insights::optimized_charging(s)),
+                    t.muted,
+                ),
+                (
                     if s.extra.stale(s.at) {
                         "ADAPTER STALE".into()
                     } else {
@@ -1246,12 +1278,18 @@ fn side_card(b: &mut Buffer, r: Rect, a: &App, s: &Sample) {
             ("Tiles: usage · Visual: animation".into(), t.muted),
         ],
     };
+    let spacing =
+        if r.height > 19 && (a.page != Page::Energy || rows.len() * 2 - 1 <= r.height as usize) {
+            2
+        } else {
+            1
+        };
     for (label, c) in rows {
         if y >= r.height {
             break;
         }
         line(b, r, y, label, c);
-        y += if r.height > 19 { 2 } else { 1 };
+        y += spacing;
     }
 }
 fn dual_ring(b: &mut Buffer, r: Rect, active: f32, scaled: f32, color: Color, a: &App) {

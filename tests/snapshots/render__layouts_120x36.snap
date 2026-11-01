@@ -193,9 +193,9 @@ energy
   1 Teardown   2 Systems                                                                 THERMAL NOMINAL   SYS 19.90 W
  ‹  CPU  40.0%         GPU  23.9%         MEMORY 14.0G       ENERGY 19.90 W     STORAGE 222.2 MiB… NETWORK 1.1 MiB/s  ›
 
- ╭ ENERGY · POWER FLOW ───────────────────────────────────────────────────────────────────────── i details · z expand ╮
- │                                                                                                                    │
- │ AC ADAPTER                                                                                                         │
+ ╭ ENERGY · POWER FLOW · AUTOMATIC ───────────────────────────────────────────────────────────── i details · z expand ╮
+ │ LOW POWER OFF                                                                                                      │
+ │ AC ADAPTER · LIMIT 90% · OPTIMIZED OFF                                                                             │
  │ ┃                 ┣───────────────────────────── CPU     9.10 W     ████████████████████ ───────────────────────   │
  │ └━━━━ SYSTEM ━━━━━┳                                                                                                │
  │       19.90 W     ┣───────────────────────────── GPU     3.10 W     ██████▊─────────────────────────────────────   │

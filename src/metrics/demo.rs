@@ -320,6 +320,11 @@ pub fn demo(scenario: &str, t: f64) -> Sample {
     );
     s.process_gpu = Avail::Ok(8);
     s.extra = Arc::new(extra::Snapshot {
+        charging: extra::ChargingPolicy {
+            limit: Avail::Ok(90),
+            limit_enabled: Avail::Ok(true),
+            optimized: Avail::Ok(false),
+        },
         at: t,
         wifi: Avail::Ok(extra::Wifi {
             interface: "en0".into(),
@@ -390,6 +395,11 @@ pub fn demo(scenario: &str, t: f64) -> Sample {
             assertions: Avail::Permission("sleep assertions restricted (demo)".into()),
             disks: Avail::Unsupported("disk counters unavailable (demo)".into()),
             traffic: Avail::Failed("network scan failed (demo)".into()),
+            charging: extra::ChargingPolicy {
+                limit: Avail::Unsupported("charge limit unavailable (demo)".into()),
+                limit_enabled: Avail::Unsupported("charge limit status unavailable (demo)".into()),
+                optimized: Avail::Unsupported("optimized charging unavailable (demo)".into()),
+            },
         });
         s.power_mode = Avail::Unsupported("power mode unavailable in this scenario".into());
         s.ports = Avail::Unsupported("port sensors unavailable in this scenario".into());

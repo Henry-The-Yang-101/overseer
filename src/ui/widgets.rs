@@ -848,11 +848,33 @@ fn battery(b: &mut Buffer, r: Rect, s: &Sample, a: &App) {
             a.cfg.ui.glyphs == "ascii",
         );
     }
-    if r.height > 1 {
+    line(
+        b,
+        r,
+        1,
+        format!(
+            "LIMIT {} · LOW POWER {}",
+            super::insights::charge_limit(s),
+            super::insights::low_power(s)
+        ),
+        t.battery,
+    );
+    line(
+        b,
+        r,
+        2,
+        format!(
+            "OPTIMIZED {} · {}",
+            super::insights::optimized_charging(s),
+            avail(&s.power_mode, |mode| mode.label().into())
+        ),
+        t.text,
+    );
+    if r.height > 3 {
         line(
             b,
             r,
-            1,
+            3,
             format!(
                 "{} {}   health {}",
                 if bat.charging {
@@ -868,11 +890,11 @@ fn battery(b: &mut Buffer, r: Rect, s: &Sample, a: &App) {
             t.muted,
         );
     }
-    if r.height > 2 {
+    if r.height > 4 {
         line(
             b,
             r,
-            2,
+            4,
             format!(
                 "{} cycles   {}",
                 avail(&bat.cycles, |v| v.to_string()),

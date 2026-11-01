@@ -1,7 +1,7 @@
 use super::kit::*;
 use crate::{
     app::{App, Layer, Page, WINDOWS},
-    metrics::{Sample, insights},
+    metrics::{PowerMode, Sample, insights},
 };
 use ratatui::{
     buffer::Buffer,
@@ -62,6 +62,49 @@ pub fn power(s: &Sample) -> String {
             .watts
             .map_or("watts N/A".into(), |w| format!("{w:.0} W rated"))),
         avail(&s.extra.assertions, |v| v.len().to_string())
+    )
+}
+pub fn low_power(s: &Sample) -> String {
+    avail(&s.power_mode, |mode| {
+        if *mode == PowerMode::LowPower {
+            "ON"
+        } else {
+            "OFF"
+        }
+        .into()
+    })
+}
+pub fn charge_limit(s: &Sample) -> String {
+    if s.battery.value().is_none() {
+        return s.battery.label().into();
+    }
+    if s.extra.stale(s.at) {
+        return "STALE".into();
+    }
+    avail(&s.extra.charging.limit_enabled, |enabled| {
+        if *enabled {
+            avail(&s.extra.charging.limit, |v| format!("{v}%"))
+        } else {
+            "OFF".into()
+        }
+    })
+}
+pub fn optimized_charging(s: &Sample) -> String {
+    if s.battery.value().is_none() {
+        return s.battery.label().into();
+    }
+    if s.extra.stale(s.at) {
+        return "STALE".into();
+    }
+    avail(&s.extra.charging.optimized, |enabled| {
+        if *enabled { "ON" } else { "OFF" }.into()
+    })
+}
+pub fn charging(s: &Sample) -> String {
+    format!(
+        "LIMIT {} · OPTIMIZED {}",
+        charge_limit(s),
+        optimized_charging(s)
     )
 }
 fn signed_bytes(v: i64, a: &App) -> String {
@@ -186,6 +229,31 @@ fn details(a: &App, s: &Sample) -> Vec<String> {
             }
         }
         Page::Energy => {
+            lines.push(format!(
+                "POWER MODE {} · LOW POWER {}",
+                avail(&s.power_mode, |mode| mode.label().into()),
+                low_power(s)
+            ));
+            if s.battery.value().is_some() {
+                lines.push(format!("CHARGE {}", charging(s)));
+                if !s.extra.stale(s.at) {
+                    for (label, reason) in [
+                        ("Charge limit", s.extra.charging.limit.reason()),
+                        (
+                            "Charge limit status",
+                            s.extra.charging.limit_enabled.reason(),
+                        ),
+                        (
+                            "Optimized Battery Charging",
+                            s.extra.charging.optimized.reason(),
+                        ),
+                    ] {
+                        if reason != "measured" {
+                            lines.push(format!("{label}: {reason}"));
+                        }
+                    }
+                }
+            }
             lines.push(power(s));
             if let Some(adapter) = s.extra.adapter.value() {
                 if let Some(ma) = adapter.milliamps {
