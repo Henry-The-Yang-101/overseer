@@ -1423,19 +1423,20 @@ fn edge_ports(b: &mut Buffer, c: Rect, a: &mut App, mirror: bool) {
 }
 fn device_labels(b: &mut Buffer, c: Rect, area: Rect, a: &mut App, mirror: bool) {
     let s = a.sample();
+    let power_input = crate::metrics::ports::power_input(&s);
     for left in [true, false] {
         let width = if left {
-            c.x.saturating_sub(area.x + 2)
+            c.x.saturating_sub(area.x + 1)
         } else {
-            area.right().saturating_sub(c.right() + 2)
+            area.right().saturating_sub(c.right() + 1)
         };
         if width < 8 {
             continue;
         }
-        let x = if left { area.x } else { c.right() + 2 };
+        let x = if left { area.x } else { c.right() + 1 };
         let mut next_y = area.y + 1;
         for (kind, side, y, _) in PORTS {
-            if matches!(kind, PortKind::MagSafe | PortKind::Audio)
+            if kind == PortKind::Audio
                 || (side != mirror) != left
                 || ports::indicator(&s, kind, &a.theme).2 != "CONNECTED"
             {
@@ -1448,24 +1449,49 @@ fn device_labels(b: &mut Buffer, c: Rect, area: Rect, a: &mut App, mirror: bool)
             if y >= area.bottom() {
                 break;
             }
-            let r = Rect::new(x, y, width, area.bottom() - y);
-            let names = if port.devices.is_empty() {
+            let mut r = Rect::new(x, y, width, area.bottom() - y);
+            let is_power_input = power_input.value() == Some(&kind);
+            let mut names = if kind == PortKind::MagSafe {
+                "MagSafe Charger".into()
+            } else if is_power_input && port.devices.is_empty() {
+                "USB-C Charger".into()
+            } else if port.devices.is_empty() {
                 "Device name unavailable".into()
             } else {
                 port.devices.join(" · ")
             };
-            let title = format!("{} {}", if left { "→" } else { "←" }, kind.label());
-            let mut rows = vec![String::new()];
-            for word in names.split_whitespace() {
-                let last = rows.last_mut().unwrap();
-                if !last.is_empty() && last.width() + word.width() + 1 > width as usize {
-                    rows.push(String::new());
+            if is_power_input
+                && !s.extra.stale(s.at)
+                && s.extra.at <= s.at
+                && let Some(watts) = s
+                    .extra
+                    .adapter
+                    .value()
+                    .and_then(|adapter| adapter.watts)
+                    .filter(|watts| watts.is_finite() && *watts > 0.)
+            {
+                names.push_str(&format!("\n{watts:.0} W rated"));
+            }
+            let label = truncate(&kind.label(), width.saturating_sub(2) as usize);
+            let title = if left {
+                format!("{label} →")
+            } else {
+                format!("← {label}")
+            };
+            let mut rows = Vec::new();
+            for name_line in names.lines() {
+                rows.push(String::new());
+                for word in name_line.split_whitespace() {
+                    let last = rows.last_mut().unwrap();
+                    if !last.is_empty() && last.width() + word.width() + 1 > width as usize {
+                        rows.push(String::new());
+                    }
+                    let last = rows.last_mut().unwrap();
+                    if !last.is_empty() {
+                        last.push(' ');
+                    }
+                    last.push_str(word);
                 }
-                let last = rows.last_mut().unwrap();
-                if !last.is_empty() {
-                    last.push(' ');
-                }
-                last.push_str(word);
             }
             let count = (rows.len() as u16).min(5).min(r.height.saturating_sub(2)) + 1;
             let label_width = rows
@@ -1477,30 +1503,37 @@ fn device_labels(b: &mut Buffer, c: Rect, area: Rect, a: &mut App, mirror: bool)
                 .max()
                 .unwrap_or(0)
                 .min(width as usize) as u16;
+            if left {
+                r.x += width - label_width;
+            }
+            r.width = label_width;
+            let aligned_x = |value: &str| {
+                if left {
+                    r.width.saturating_sub(value.width() as u16)
+                } else {
+                    0
+                }
+            };
             // Give wrapped device names a quiet margin without clearing the audio pane.
             clear_panel(
                 b,
                 Rect::new(r.x.saturating_sub(1), r.y, label_width + 2, count),
                 a.theme.panel,
             );
-            line(b, r, 0, title, a.theme.ok);
+            text(b, r, aligned_x(&title), 0, &title, a.theme.ok);
             for (i, value) in rows
                 .iter()
                 .take(count.saturating_sub(1) as usize)
                 .enumerate()
             {
-                line(
-                    b,
-                    r,
-                    i as u16 + 1,
-                    truncate(value, width as usize),
-                    a.theme.text,
-                );
+                let value = truncate(value, r.width as usize);
+                text(b, r, aligned_x(&value), i as u16 + 1, &value, a.theme.text);
             }
             if rows.len() >= count as usize {
-                line(
+                text(
                     b,
                     r,
+                    aligned_x("… p for details"),
                     count.saturating_sub(1),
                     "… p for details",
                     a.theme.muted,
@@ -1752,6 +1785,67 @@ fn trace(
 mod tests {
     use super::*;
     use crate::{config::Config, metrics::Avail};
+
+    #[test]
+    fn connected_port_labels_face_ports_and_match_charger_wattage() {
+        use std::sync::Arc;
+
+        let c = Rect::new(40, 2, 107, 38);
+        let area = Rect::new(0, 0, 187, 42);
+        for mirror in [false, true] {
+            for kind in [PortKind::MagSafe, PortKind::UsbC(2)] {
+                for state in ["fresh", "missing", "stale", "ambiguous"] {
+                    let mut a = App::new(Config::default(), Some("balanced".into()));
+                    let sample = Arc::make_mut(a.history.back_mut().unwrap());
+                    if let Avail::Ok(ports) = &mut sample.ports {
+                        for port in Arc::make_mut(ports) {
+                            port.connected = Avail::Ok(
+                                port.kind == kind
+                                    || port.kind == PortKind::Audio
+                                    || (state == "ambiguous" && port.kind == PortKind::UsbC(3)),
+                            );
+                            port.devices.clear();
+                        }
+                    }
+                    let extra = Arc::make_mut(&mut sample.extra);
+                    extra.at = if state == "stale" {
+                        sample.at - 16.
+                    } else {
+                        sample.at
+                    };
+                    if let Avail::Ok(adapter) = &mut extra.adapter {
+                        adapter.watts = if state == "missing" { None } else { Some(96.) };
+                    }
+                    let mut buffer = Buffer::empty(area);
+                    device_labels(&mut buffer, c, area, &mut a, mirror);
+                    let (.., side, y, _) = PORTS.iter().find(|p| p.0 == kind).unwrap();
+                    let left = *side != mirror;
+                    let y = c.y + (*y * c.height as f32).round() as u16;
+                    let title = if left {
+                        format!("{} →", kind.label())
+                    } else {
+                        format!("← {}", kind.label())
+                    };
+                    let row = |y| {
+                        (area.x..area.right())
+                            .map(|x| buffer[(x, y)].symbol())
+                            .collect::<String>()
+                    };
+                    assert!(row(y).contains(&title));
+                    let arrow_x = if left { c.x - 2 } else { c.right() + 1 };
+                    assert_eq!(buffer[(arrow_x, y)].symbol(), if left { "→" } else { "←" });
+                    let view = (0..area.height).map(row).collect::<Vec<_>>().join("\n");
+                    if kind == PortKind::MagSafe {
+                        assert!(view.contains("MagSafe Charger"));
+                    } else if state != "ambiguous" {
+                        assert!(view.contains("USB-C Charger"));
+                    }
+                    assert_eq!(view.contains("96 W rated"), state == "fresh");
+                    assert!(!view.contains("3.5 mm"));
+                }
+            }
+        }
+    }
 
     #[test]
     fn power_input_traces_reach_bms_and_chip_and_clear_on_battery() {
