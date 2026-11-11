@@ -1616,12 +1616,11 @@ fn wiring(b: &mut Buffer, c: Rect, a: &App, mirror: bool, layout: &Layout) {
             moving.then_some((phase, signal)),
         );
     }
-    let bms = layout.part(Part::Battery);
     for i in 0..CELLS.len() {
         trace(b, c, &layout.cell_path(i, c), wire, None);
     }
     let power_input = crate::metrics::ports::power_input(&s);
-    let mut power_paths = None;
+    let mut adapter_lead = None;
     for (i, (kind, left, y, label)) in PORTS.iter().enumerate() {
         let left = *left != mirror;
         let y = c.y + (y * c.height as f32).round() as u16;
@@ -1647,16 +1646,7 @@ fn wiring(b: &mut Buffer, c: Rect, a: &App, mirror: bool, layout: &Layout) {
         ];
         let connected = ports::indicator(&s, *kind, t).2 == "CONNECTED";
         if power_input.value() == Some(kind) {
-            power_paths = Some([
-                path,
-                [
-                    (edge, y),
-                    (lane, y),
-                    (lane, layout.power_y),
-                    (center, layout.power_y),
-                    (center, bms.y),
-                ],
-            ]);
+            adapter_lead = Some([(edge, y), (lane, y), (lane, layout.power_y)]);
         } else {
             trace(
                 b,
@@ -1667,35 +1657,38 @@ fn wiring(b: &mut Buffer, c: Rect, a: &App, mirror: bool, layout: &Layout) {
             );
         }
     }
-    let flow = cell_flow(s.battery.value());
-    // Paint the active input last so another port sharing the trunk cannot hide it.
-    if let Some(paths) = power_paths {
-        for path in paths {
+    let battery = s.battery.value();
+    let flow = cell_flow(battery);
+    if let Some(battery) = battery {
+        let bms = (center, layout.part(Part::Battery).y);
+        let chip = (center, soc.bottom() - 1);
+        let junction = (center, layout.power_y);
+        let color = blend(t.battery, t.panel, 0.50);
+        let pulse = moving.then_some((phase, t.battery));
+        let supplying_power = !battery.ac || flow.is_some_and(|f| !f.charging);
+
+        // The adapter joins the same rail that links the battery and chip.
+        if !supplying_power {
+            trace(b, c, &[bms, chip], color, None);
+            if battery.charging {
+                trace(b, c, &[(center, junction.1 + 1), bms], color, pulse);
+            }
+        }
+        if let Some([port, lane, bend]) = adapter_lead {
+            let adapter_pulse = if supplying_power { None } else { pulse };
             trace(
                 b,
                 c,
-                &path,
-                blend(t.battery, t.panel, 0.70),
-                moving.then_some((phase, blend(t.battery, t.panel, 0.35))),
+                &[port, lane, bend, junction, chip],
+                color,
+                adapter_pulse,
             );
+        } else if !supplying_power {
+            trace(b, c, &[junction, chip], color, pulse);
         }
-    } else if s.battery.value().is_some_and(|battery| battery.ac) {
-        // Keep the adapter's rail connection when its input cannot be identified.
-        let mut branch = [(center, layout.power_y), (center, bms.y)];
-        if flow.is_some_and(|f| !f.charging) {
-            branch.reverse();
+        if supplying_power {
+            trace(b, c, &[bms, chip], color, pulse);
         }
-        trace(
-            b,
-            c,
-            &branch,
-            if flow.is_some() {
-                blend(t.battery, t.panel, 0.30)
-            } else {
-                wire
-            },
-            (moving && flow.is_some()).then_some((phase, t.battery)),
-        );
     }
     if !a.cells
         && let Some(flow) = flow
@@ -1890,12 +1883,14 @@ mod tests {
     }
 
     #[test]
-    fn power_input_traces_reach_bms_and_chip_and_clear_on_battery() {
+    fn power_rail_links_bms_and_chip_with_pulses_from_the_active_source() {
         for mirror in [false, true] {
             let c = Rect::new(2, 3, 107, 38);
             let layout = Layout::new(c, mirror);
             let center = c.x + c.width / 2;
             let bms = layout.part(Part::Battery);
+            let soc = layout.part(Part::Soc);
+            let chip_y = soc.bottom() - 1;
             let mut a = App::new(Config::default(), Some("balanced".into()));
             assert!(
                 crate::metrics::ports::power_input(&a.sample())
@@ -1905,7 +1900,6 @@ mod tests {
             a.motion = crate::motion::Motion::Off;
             let mut buffer = Buffer::empty(Rect::new(0, 0, c.right(), c.bottom()));
             wiring(&mut buffer, c, &a, mirror, &layout);
-            let soc = layout.part(Part::Soc);
             for p in [Part::Disk, Part::Power] {
                 let r = layout.part(p);
                 let x = if r.x > center { r.x - 1 } else { r.right() };
@@ -1932,18 +1926,15 @@ mod tests {
                     "trace leaves the SoC bottom"
                 );
             }
-            assert!(matches!(
-                buffer[(center, layout.power_y)].symbol(),
-                "╭" | "╮"
-            ));
-            let wire_color = blend(a.theme.battery, a.theme.panel, 0.70);
-            for y in layout.power_y..=bms.y {
-                assert_eq!(buffer[(center, y)].fg, wire_color);
-            }
-            // The demo's USB-C 3 input also feeds the chip, reflected in back view.
-            let chip_input = if mirror { center + 2 } else { center - 2 };
-            for y in soc.bottom() - 1..=layout.data_y {
-                assert_eq!(buffer[(chip_input, y)].fg, wire_color);
+            let wire_color = blend(a.theme.battery, a.theme.panel, 0.50);
+            let junction = if mirror { "├" } else { "┤" };
+            for y in chip_y..=bms.y {
+                let cell = &buffer[(center, y)];
+                assert_eq!(cell.fg, wire_color);
+                assert_eq!(
+                    cell.symbol(),
+                    if y == layout.power_y { junction } else { "│" }
+                );
             }
             a.motion = crate::motion::Motion::Full;
             for phase in [0., 0.9999] {
@@ -1952,30 +1943,51 @@ mod tests {
                 wiring(&mut buffer, c, &a, mirror, &layout);
                 assert_eq!(buffer[(center, bms.y)].symbol() == "·", phase > 0.);
                 assert_eq!(
-                    buffer[(chip_input, soc.bottom() - 1)].symbol() == "·",
+                    buffer[(center, chip_y)].symbol() == "·",
                     phase > 0.,
-                    "input pulse travels toward the chip"
-                );
-                assert_eq!(
-                    buffer[(center, layout.power_y)].symbol(),
-                    if mirror { "╭" } else { "╮" }
+                    "adapter power also travels toward the chip while charging"
                 );
             }
+
             let sample = std::sync::Arc::make_mut(a.history.back_mut().unwrap());
-            if let Avail::Ok(battery) = &mut sample.battery {
-                battery.ac = false;
-                battery.charging = false;
-                battery.watts = Avail::Ok(-10.);
+            sample.ports = Avail::Acquiring;
+            let Avail::Ok(battery) = &mut sample.battery else {
+                unreachable!()
+            };
+            battery.charging = false;
+            battery.watts = Avail::Ok(0.);
+            buffer.reset();
+            wiring(&mut buffer, c, &a, mirror, &layout);
+            assert_eq!(buffer[(center, chip_y)].symbol(), "·");
+            for y in layout.power_y..=bms.y {
+                assert_eq!(buffer[(center, y)].symbol(), "│");
+                assert_eq!(buffer[(center, y)].fg, wire_color);
             }
-            for motion in [crate::motion::Motion::Off, crate::motion::Motion::Full] {
-                a.motion = motion;
+
+            let sample = std::sync::Arc::make_mut(a.history.back_mut().unwrap());
+            let Avail::Ok(battery) = &mut sample.battery else {
+                unreachable!()
+            };
+            battery.ac = false;
+            battery.watts = Avail::Ok(-10.);
+            for (phase, y) in [
+                (0., bms.y),
+                (0.5, bms.y - (bms.y - chip_y + 1) / 2),
+                (0.9999, chip_y),
+            ] {
+                a.anim.phases.insert("ambient".into(), phase);
                 buffer.reset();
                 wiring(&mut buffer, c, &a, mirror, &layout);
-                for y in layout.power_y..bms.y {
+                for row in chip_y..=bms.y {
+                    let cell = &buffer[(center, row)];
+                    assert_eq!(cell.symbol(), if row == y { "·" } else { "│" });
                     assert_eq!(
-                        buffer[(center, y)].symbol(),
-                        " ",
-                        "battery power leaves the space above the BMS clear"
+                        cell.fg,
+                        if row == y {
+                            a.theme.battery
+                        } else {
+                            wire_color
+                        }
                     );
                 }
             }
