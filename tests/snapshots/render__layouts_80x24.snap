@@ -5,7 +5,7 @@ expression: frames
 TEARDOWN
  O V E R S E E R  Demo MacBook Pro / M4 Pro / 12 Core CPU / 16 Core…  SYNTHETIC
 
-  1 Teardown   2 Systems
+  1 Teardown   2 Systems   3 Control Center
  ╭ MACBOOK PRO 14 / M4 PRO ───────────────────────────────────── PHYSICAL [m] ╮
  │ COMPONENT NAVIGATOR                                                        │
  │  ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   · │
@@ -30,7 +30,7 @@ TEARDOWN
 TELEMETRY CELLS
  O V E R S E E R  Demo MacBook Pro / M4 Pro / 12 Core CPU / 16 Core…  SYNTHETIC
 
-  1 Teardown   2 Systems
+  1 Teardown   2 Systems   3 Control Center
  ╭ MACBOOK PRO 14 / M4 PRO ──────────────────────────────────── TELEMETRY [m] ╮
  │ COMPONENT NAVIGATOR                                                        │
  │  ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   ·   · │
@@ -55,7 +55,7 @@ TELEMETRY CELLS
 cpu
  O V E R S E E R  Demo MacBook Pro / M4 Pro / 12 Core CPU / 16 Core…  SYNTHETIC
 
-  1 Teardown   2 Systems
+  1 Teardown   2 Systems   3 Control Center
  ‹  CPU  40.0%  ›                                                ● ○ ○ ○ ○ ○
 
  ╭ CPU · EXECUTION FLOOR · AUTOMATIC ─────────────────── i details · z expand ╮
@@ -80,7 +80,7 @@ cpu
 gpu
  O V E R S E E R  Demo MacBook Pro / M4 Pro / 12 Core CPU / 16 Core…  SYNTHETIC
 
-  1 Teardown   2 Systems
+  1 Teardown   2 Systems   3 Control Center
  ‹  GPU  23.9%  ›                                                ○ ● ○ ○ ○ ○
 
  ╭ GPU · SHADER FABRIC ────────────────── i details · z expand ╮ ╭ VISUAL ────╮
@@ -105,7 +105,7 @@ gpu
 memory
  O V E R S E E R  Demo MacBook Pro / M4 Pro / 12 Core CPU / 16 Core…  SYNTHETIC
 
-  1 Teardown   2 Systems
+  1 Teardown   2 Systems   3 Control Center
  ‹  MEMORY 14.0G  ›                                              ○ ○ ● ○ ○ ○
 
  ╭ MEMORY · ADDRESS MATRIX ───────────────────────────── i details · z expand ╮
@@ -130,7 +130,7 @@ memory
 energy
  O V E R S E E R  Demo MacBook Pro / M4 Pro / 12 Core CPU / 16 Core…  SYNTHETIC
 
-  1 Teardown   2 Systems
+  1 Teardown   2 Systems   3 Control Center
  ‹  ENERGY 19.90 W  ›                                            ○ ○ ○ ● ○ ○
 
  ╭ ENERGY · POWER FLOW · AUTOMATIC ───────────────────── i details · z expand ╮
@@ -155,7 +155,7 @@ energy
 disk
  O V E R S E E R  Demo MacBook Pro / M4 Pro / 12 Core CPU / 16 Core…  SYNTHETIC
 
-  1 Teardown   2 Systems
+  1 Teardown   2 Systems   3 Control Center
  ‹  STORAGE 222.2 MiB/s  ›                                       ○ ○ ○ ○ ● ○
 
  ╭ STORAGE · NAND ARRAY ──────────────────────────────── i details · z expand ╮
@@ -180,7 +180,7 @@ disk
 network
  O V E R S E E R  Demo MacBook Pro / M4 Pro / 12 Core CPU / 16 Core…  SYNTHETIC
 
-  1 Teardown   2 Systems
+  1 Teardown   2 Systems   3 Control Center
  ‹  NETWORK 1.1 MiB/s  ›                                         ○ ○ ○ ○ ○ ●
 
  ╭ NETWORK · SIGNAL TRACES ───────────────────────────── i details · z expand ╮

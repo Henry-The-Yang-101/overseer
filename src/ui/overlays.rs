@@ -436,29 +436,47 @@ fn help(b: &mut Buffer, r: Rect, a: &App) {
     let t = &a.theme;
     Clear.render(r, b);
     let rr = frame(b, r, "OVERSEER / CONTROLS", "Esc close", true, t);
-    let entries = vec![
-        "1 Teardown · 2 Systems · v switches between them",
-        "",
-        "SYSTEMS   ← → or Tab / Shift+Tab switches resource pages",
-        "          ↑ ↓ selects tasks · Enter opens the inspector",
-        "          / filters · s sort · S reverse · T tree · ⇧← ⇧→ folds tree",
-        "          z expands visualizer · f pins task · X opens signal prompt",
-        "DRAWER    ← → tabs · ↑ ↓ tasks · PgUp/PgDn scroll · Esc closes",
-        "TEARDOWN  Tab selects · arrows navigate · g opens resource page",
-        "          Enter inspects · z zooms · m telemetry cells · L labels",
-        "          H highlights · o mirrors · p connected ports · c caffeinate",
-        "",
-        "HISTORY   Space pause / play · , . step · < > step ten",
-        "          { } spikes · [ ] window · + - speed · End returns live",
-        "LOOK      t theme · a motion · : command palette · ? help",
-        "MOUSE     Click page / part / task · double-click inspect",
-        "          Drag timeline to scrub · wheel to scroll tasks",
-        "",
-        "VALUES    ≈ estimate · N/A unavailable · zero means measured zero",
-        "SIGNALS   y sends SIGTERM; Y sends SIGKILL. Enter never confirms.",
-        "          Signals disabled in demo / replay. PID identity is checked.",
-        "Esc backs out one layer. q or Ctrl+C quits and restores the terminal.",
-    ];
+    let entries = if a.screen == crate::app::Screen::ControlCenter {
+        vec![
+            "1 Teardown · 2 Systems · 3 Control Center",
+            "Tab / Shift+Tab switches tabs · ↑ ↓ selects devices",
+            "",
+            "WI-FI        s speed test / cancel · r refresh",
+            "BLUETOOTH    ↑ ↓ devices · r refresh",
+            "DISPLAY      ↑ ↓ displays · r refresh",
+            "SOUND        i / o input / output · Enter set device",
+            "             + / − volume · m mute · e audio capture",
+            "NOW PLAYING  Space play/pause · p / n previous/next",
+            "             ← / → seek 10s · click timeline to seek",
+            "             + / − volume · m mute · e audio capture",
+            "",
+            "t theme · a motion · : commands · Esc close · q quit",
+        ]
+    } else {
+        vec![
+            "1 Teardown · 2 Systems · 3 Control Center · v cycles views",
+            "",
+            "SYSTEMS   ← → or Tab / Shift+Tab switches resource pages",
+            "          ↑ ↓ selects tasks · Enter opens the inspector",
+            "          / filters · s sort · S reverse · T tree · ⇧← ⇧→ folds tree",
+            "          z expands visualizer · f pins task · X opens signal prompt",
+            "DRAWER    ← → tabs · ↑ ↓ tasks · PgUp/PgDn scroll · Esc closes",
+            "TEARDOWN  Tab selects · arrows navigate · g opens resource page",
+            "          Enter inspects · z zooms · m telemetry cells · L labels",
+            "          H highlights · o mirrors · p connected ports · c caffeinate",
+            "",
+            "HISTORY   Space pause / play · , . step · < > step ten",
+            "          { } spikes · [ ] window · + - speed · End returns live",
+            "LOOK      t theme · a motion · : command palette · ? help",
+            "MOUSE     Click page / part / task · double-click inspect",
+            "          Drag timeline to scrub · wheel to scroll tasks",
+            "",
+            "VALUES    ≈ estimate · N/A unavailable · zero means measured zero",
+            "SIGNALS   y sends SIGTERM; Y sends SIGKILL. Enter never confirms.",
+            "          Signals disabled in demo / replay. PID identity is checked.",
+            "Esc backs out one layer. q or Ctrl+C quits and restores the terminal.",
+        ]
+    };
     for (i, l) in entries.iter().enumerate() {
         line(
             b,
@@ -721,7 +739,7 @@ pub fn detail(b: &mut Buffer, r: Rect, a: &mut App, part: Part, zoom: bool) {
     if p == Part::Soc && note_y <= hist_y + hist_h {
         return;
     }
-    line(b, inside, note_y, "WHAT THIS SHOWS", t.accent);
+
     paragraph(
         b,
         Rect::new(

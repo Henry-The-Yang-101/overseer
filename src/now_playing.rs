@@ -23,10 +23,54 @@ pub struct Metadata {
     pub elapsed_time: Option<f64>,
     pub playback_rate: Option<f64>,
     pub timestamp: Option<String>,
+    pub duration_micros: Option<f64>,
+    pub elapsed_time_micros: Option<f64>,
+    pub timestamp_epoch_micros: Option<f64>,
+    pub artwork_data: Option<Arc<str>>,
+    pub artwork_mime_type: Option<String>,
+}
+impl Metadata {
+    pub fn duration_seconds(&self) -> Option<f64> {
+        self.duration_micros
+            .map(|v| v / 1e6)
+            .or(self.duration)
+            .filter(|v| v.is_finite() && *v > 0.)
+    }
+    pub fn position(&self) -> Option<f64> {
+        let base = self
+            .elapsed_time_micros
+            .map(|v| v / 1e6)
+            .or(self.elapsed_time)?;
+        if !base.is_finite() {
+            return None;
+        }
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .ok()?
+            .as_secs_f64();
+        let extra = if self.playing == Some(true) {
+            self.timestamp_epoch_micros
+                .filter(|v| v.is_finite())
+                .map_or(0., |t| (now - t / 1e6).max(0.))
+                * self
+                    .playback_rate
+                    .filter(|v| v.is_finite() && *v >= 0.)
+                    .unwrap_or(1.)
+        } else {
+            0.
+        };
+        Some(
+            (base + extra)
+                .max(0.)
+                .min(self.duration_seconds().unwrap_or(f64::MAX)),
+        )
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(tag = "status", content = "data", rename_all = "snake_case")]
+// Preserve the existing listener API; there is only one retained snapshot.
+#[allow(clippy::large_enum_variant)]
 pub enum State {
     Waiting,
     Idle,
@@ -47,6 +91,14 @@ impl Listener {
     }
 
     pub fn start_with(program: impl AsRef<OsStr>) -> io::Result<Self> {
+        Self::start_options(program, false)
+    }
+
+    pub fn start_with_artwork() -> io::Result<Self> {
+        Self::start_options("media-control", true)
+    }
+
+    fn start_options(program: impl AsRef<OsStr>, artwork: bool) -> io::Result<Self> {
         if !cfg!(target_os = "macos") {
             return Err(io::Error::new(
                 io::ErrorKind::Unsupported,
@@ -56,12 +108,12 @@ impl Listener {
         let mut command = Command::new(program);
         // Full snapshots avoid carrying an old player's metadata into a new session.
         // Missing titles are useful for browser audio and untagged local files.
-        command.args([
-            "stream",
-            "--no-diff",
-            "--no-artwork",
-            "--allow-missing-title",
-        ]);
+        command.args(["stream", "--no-diff", "--allow-missing-title"]);
+        if artwork {
+            command.args(["--micros", "--debounce=200"]);
+        } else {
+            command.arg("--no-artwork");
+        }
         Self::spawn(command)
     }
 
@@ -69,7 +121,7 @@ impl Listener {
         let mut child = command
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
-            .stderr(Stdio::inherit())
+            .stderr(Stdio::null())
             .spawn()?;
         let stdout = child.stdout.take().expect("piped stdout");
         let state = Arc::new(Mutex::new(State::Waiting));
@@ -81,9 +133,8 @@ impl Listener {
                 let mut line = Vec::new();
                 loop {
                     line.clear();
-                    // Artwork is disabled; cap each record so a bad helper cannot
-                    // grow memory indefinitely. There is no unbounded event queue.
-                    const LIMIT: usize = 64 * 1024;
+                    // Artwork snapshots are bounded too. There is no event backlog.
+                    const LIMIT: usize = 12 * 1024 * 1024;
                     let next = match input
                         .by_ref()
                         .take((LIMIT + 1) as u64)
@@ -91,7 +142,7 @@ impl Listener {
                     {
                         Ok(0) => Err("Now Playing helper disconnected".into()),
                         Ok(_) if line.len() > LIMIT => {
-                            Err("Now Playing record exceeded 64 KiB".into())
+                            Err("Now Playing record exceeded 12 MiB".into())
                         }
                         Ok(_) => parse(&line),
                         Err(error) => Err(format!("Could not read Now Playing stream: {error}")),
@@ -191,6 +242,14 @@ mod tests {
         assert_eq!(next.title, None);
         assert_eq!(next.artist, None);
         assert_eq!(next.playing, None);
+        assert_eq!(next.artwork_data, None);
+        let State::Active(timed) = parse(br#"{"type":"data","diff":false,"payload":{
+            "bundleIdentifier":"com.example.player","playing":false,"durationMicros":120000000,
+            "elapsedTimeMicros":15000000,"timestampEpochMicros":1,"artworkData":"aGVsbG8=","artworkMimeType":"image/jpeg"
+        }}"#).unwrap() else {panic!("expected timed session")};
+        assert_eq!(timed.duration_seconds(), Some(120.));
+        assert_eq!(timed.position(), Some(15.));
+        assert_eq!(timed.artwork_data.as_deref(), Some("aGVsbG8="));
         assert_eq!(
             parse(br#"{"type":"data","diff":false,"payload":{}}"#).unwrap(),
             State::Idle

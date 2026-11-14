@@ -1,6 +1,8 @@
 # Bluetooth feasibility
 
-Investigated 2026-10-30 on macOS 27.0.1 (26A434), arm64, with the macOS 27.0 SDK. Research only; no TUI/backend implementation or connection changes.
+Historical investigation from 2026-10-30 on macOS 27.0.1 (26A434), arm64, with the macOS 27.0 SDK.
+
+Implemented 2026-11-14 in Control Center (`3` → Bluetooth): read-only profiler inventory, cached metadata/batteries, and shaded device meshes. The action/scanning proposals below are historical and are **not implemented**. Current scope and asset credits: [Control Center sources](assets/control/SOURCES.md).
 
 ## Verified on this Mac
 

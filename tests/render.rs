@@ -1319,3 +1319,90 @@ fn systems_details_pin_samples_and_support_small_layouts() {
         }
     }
 }
+
+#[test]
+fn control_center_tabs_fit_and_own_their_controls() {
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+    use overseer::control::{ControlAction as C, Tab};
+    for (w, h) in [(60, 18), (80, 24), (120, 36), (200, 55)] {
+        let mut a = app("balanced");
+        for tab in Tab::ALL {
+            a.act(Action::ControlTab(tab));
+            let view = render(&mut a, w, h);
+            assert!(view.contains("3 Control Center"));
+            assert!(view.contains(tab.name()));
+            assert!(!view.contains("WHAT THIS SHOWS"));
+            let actions: Vec<_> = a
+                .hitmap
+                .0
+                .iter()
+                .filter_map(|(_, _, hit)| match hit {
+                    Hit::Control(action) => Some(*action),
+                    _ => None,
+                })
+                .collect();
+            match tab {
+                Tab::Wifi => assert!(actions.contains(&C::SpeedTest)),
+                Tab::Bluetooth | Tab::Display => assert!(actions.is_empty()),
+                Tab::Sound => {
+                    assert!(actions.contains(&C::Activate) && actions.contains(&C::Volume(1)))
+                }
+                Tab::NowPlaying => {
+                    for action in [
+                        C::Previous,
+                        C::TogglePlayback,
+                        C::Next,
+                        C::Volume(-1),
+                        C::Volume(1),
+                    ] {
+                        assert!(
+                            actions.contains(&action),
+                            "{w}x{h} missing {action:?}\n{view}"
+                        );
+                    }
+                    assert!(actions.iter().any(|c| matches!(c, C::SeekPercent(_))));
+                }
+            }
+            a.on_key(KeyEvent::new(KeyCode::Tab, KeyModifiers::NONE));
+            assert_eq!(a.control.tab, tab.step(1));
+        }
+        a.act(Action::ControlTab(Tab::NowPlaying));
+        for key in [
+            KeyCode::Char(' '),
+            KeyCode::Left,
+            KeyCode::Right,
+            KeyCode::Char('+'),
+        ] {
+            a.on_key(KeyEvent::new(key, KeyModifiers::NONE));
+            assert_eq!(a.control.tab, Tab::NowPlaying);
+            assert!(a.cursor.is_none());
+            assert!(
+                a.control
+                    .message
+                    .as_ref()
+                    .is_some_and(|m| m.contains("Demo"))
+            );
+        }
+        a.act(Action::ControlTab(Tab::Bluetooth));
+        a.control.select_device(7);
+        render(&mut a, w, h);
+        assert!(
+            a.control
+                .model
+                .as_ref()
+                .unwrap()
+                .source
+                .contains("Guibazilla")
+        );
+        a.control.select_device(8);
+        render(&mut a, w, h);
+        assert!(
+            a.control
+                .model
+                .as_ref()
+                .unwrap()
+                .source
+                .contains("Zalaneke")
+        );
+    }
+}

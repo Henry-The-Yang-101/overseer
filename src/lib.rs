@@ -2,6 +2,7 @@ pub mod agents;
 pub mod app;
 pub mod caffeinate;
 pub mod config;
+pub mod control;
 pub mod metrics;
 pub mod motion;
 pub mod now_playing;

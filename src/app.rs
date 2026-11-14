@@ -18,16 +18,20 @@ use std::{
 pub enum Screen {
     Teardown,
     Systems,
+    ControlCenter,
 }
 impl Screen {
     pub fn name(self) -> &'static str {
         match self {
             Self::Teardown => "teardown",
             Self::Systems => "systems",
+            Self::ControlCenter => "control-center",
         }
     }
     pub fn parse(s: &str) -> Self {
-        if matches!(s, "systems" | "processes") {
+        if matches!(s, "control-center" | "control") {
+            Self::ControlCenter
+        } else if matches!(s, "systems" | "processes") {
             Self::Systems
         } else {
             Self::Teardown
@@ -179,42 +183,18 @@ impl Part {
     }
     pub fn note(self) -> &'static str {
         match self {
-            Self::SpeakerLeft | Self::SpeakerRight => {
-                "Stereo system output, including headphones and external outputs. Waveforms are not a microphone or a measurement of individual speaker drivers. Nothing is saved. Toggle capture for both channels in this inspector."
-            }
-            Self::Cpu | Self::Soc => {
-                "Instruction lanes are symbolic: density follows active residency, speed follows clock frequency. Process-to-core mapping is not measurable."
-            }
-            Self::Gpu => {
-                "Lit tiles encode aggregate GPU residency. Tiles and the framebuffer are symbolic, not individual GPU cores or screen contents. Process GPU rates use driver-reported GPU time and may exceed 100%."
-            }
-            Self::Ane => {
-                "The lattice encodes measured ANE watts, not individual neural-engine operations."
-            }
-            Self::Power => {
-                "Σ is CPU + GPU + ANE only. DRAM and GPU SRAM are shown separately. System power is the SMC PSTR reading; unavailable is never zero."
-            }
-            Self::Memory => {
-                "Aggregate VM categories, not physical addresses. Live app/cache categories are derived estimates. Pressure is the macOS level, not a percentage inferred from used RAM."
-            }
-            Self::Disk => {
-                "Root volume throughput and capacity. APFS volumes share storage; they are not added together. IOPS are not exposed by this collector."
-            }
-            Self::Network => {
-                "The busiest physical interface. Receive/transmit rates use elapsed sample time. Wi-Fi signal and per-process network attribution are not exposed."
-            }
-            Self::Fan0 | Self::Fan1 => {
-                "Rotor speed is scaled and capped to prevent strobing. The RPM number is measured."
-            }
-            Self::Thermal => {
-                "Pipe color follows the maximum measured CPU/GPU temperature. No spatial temperature gradient is inferred. Thermal state comes from macOS."
-            }
-            Self::Battery => {
-                "Segments represent pack charge, not individual cells. Per-cell readings are unavailable. Health and time remaining are estimates."
-            }
-            Self::Cell(_) => {
-                "Cells are display slots, not per-cell battery data. The displayed subsystem is configurable in the command palette."
-            }
+            Self::SpeakerLeft | Self::SpeakerRight => "Stereo system output · L/R channels",
+            Self::Cpu | Self::Soc => "CPU residency · clock frequency",
+            Self::Gpu => "GPU residency · driver-reported GPU time",
+            Self::Ane => "ANE power",
+            Self::Power => "Σ CPU + GPU + ANE · system power: SMC PSTR",
+            Self::Memory => "VM allocation · macOS memory pressure",
+            Self::Disk => "Root volume · shared APFS capacity",
+            Self::Network => "Busiest physical interface · receive / transmit",
+            Self::Fan0 | Self::Fan1 => "Measured RPM",
+            Self::Thermal => "Peak CPU/GPU temperature · macOS thermal state",
+            Self::Battery => "Pack charge · estimated health and time remaining",
+            Self::Cell(_) => "Telemetry slot · : configure",
         }
     }
 }
@@ -259,6 +239,8 @@ pub enum Action {
     GoTo(Screen),
     ToggleView,
     GoPage(Page),
+    ControlTab(crate::control::Tab),
+    Control(crate::control::ControlAction),
     OpenPartPage,
     Collapse(bool),
     PageRows(i32),
@@ -306,6 +288,11 @@ pub fn commands() -> Vec<Command> {
         ("Open Teardown", "1", Action::GoTo(Screen::Teardown)),
         ("Open Systems", "2", Action::GoTo(Screen::Systems)),
         (
+            "Open Control Center",
+            "3",
+            Action::GoTo(Screen::ControlCenter),
+        ),
+        (
             "Open selected component in Systems",
             "g",
             Action::OpenPartPage,
@@ -338,6 +325,13 @@ pub fn commands() -> Vec<Command> {
             name: name.into(),
             key,
             action,
+        });
+    }
+    for tab in crate::control::Tab::ALL {
+        c.push(Command {
+            name: format!("Control Center: {}", tab.name()),
+            key: "",
+            action: Action::ControlTab(tab),
         });
     }
     for page in Page::ALL {
@@ -421,6 +415,7 @@ pub fn map_key(k: KeyEvent, s: Screen) -> Option<Action> {
         Char('/') => Action::Search,
         Char('1') => Action::GoTo(Screen::Teardown),
         Char('2') => Action::GoTo(Screen::Systems),
+        Char('3') => Action::GoTo(Screen::ControlCenter),
         Char('g') if s == Screen::Teardown => Action::OpenPartPage,
         Char('c') if s == Screen::Teardown => Action::Caffeinate,
         Left if s == Screen::Systems && k.modifiers.contains(KeyModifiers::SHIFT) => {
@@ -522,6 +517,7 @@ pub const CAFFEINATE_OPTIONS: [&str; 6] = [
     "Custom…",
 ];
 pub struct App {
+    pub control: crate::control::ControlCenter,
     pub audio: crate::audio::Capture,
     pub caffeinate: crate::caffeinate::Caffeinate,
     pub cfg: Config,
@@ -624,6 +620,11 @@ impl App {
         let sort = lists[page.index()].sort;
         let now = Instant::now();
         let mut a = Self {
+            control: if demo.is_some() {
+                crate::control::ControlCenter::demo()
+            } else {
+                crate::control::ControlCenter::default()
+            },
             boot: cfg.ui.show_boot && motion == Motion::Full,
             cfg,
             screen,
@@ -883,6 +884,8 @@ impl App {
         });
     }
     pub fn tick(&mut self, dt: Duration) {
+        self.control
+            .tick(self.screen == Screen::ControlCenter, self.demo.is_some());
         if self.caffeinate.expire() {
             self.info("Caffeinate timer finished".into());
         }
@@ -950,7 +953,8 @@ impl App {
                 ))
         {
             60.
-        } else if (self.screen == Screen::Systems && self.page == Page::Gpu)
+        } else if self.screen == Screen::ControlCenter
+            || (self.screen == Screen::Systems && self.page == Page::Gpu)
             || s.energy() > 0.08
             || s.fans.value().is_some_and(|v| v.iter().any(|f| f.rpm > 0))
             || self.fx.is_running()
@@ -1247,15 +1251,33 @@ impl App {
             }),
             Action::GoTo(s) => {
                 self.screen = s;
+                if s == Screen::ControlCenter {
+                    self.cursor = None;
+                    self.frozen = None;
+                    self.playing = false;
+                }
                 self.zoom = None;
                 self.selection = (s == Screen::Systems).then_some(Part::Cpu);
                 self.transition = true;
             }
-            Action::ToggleView => self.act(Action::GoTo(if self.screen == Screen::Teardown {
-                Screen::Systems
-            } else {
-                Screen::Teardown
+            Action::ToggleView => self.act(Action::GoTo(match self.screen {
+                Screen::Teardown => Screen::Systems,
+                Screen::Systems => Screen::ControlCenter,
+                Screen::ControlCenter => Screen::Teardown,
             })),
+            Action::ControlTab(tab) => {
+                self.act(Action::GoTo(Screen::ControlCenter));
+                self.control.change_tab(tab);
+            }
+            Action::Control(action) => {
+                if action == crate::control::ControlAction::Capture {
+                    if self.demo.is_none() {
+                        self.cfg.teardown.audio_enabled = !self.cfg.teardown.audio_enabled;
+                    }
+                } else {
+                    self.control.act(action, self.demo.is_some());
+                }
+            }
             Action::GoPage(page) => {
                 self.act(Action::GoTo(Screen::Systems));
                 self.change_page(page);
@@ -1280,7 +1302,9 @@ impl App {
                 }
             }
             Action::Next(n) => {
-                if self.screen == Screen::Systems {
+                if self.screen == Screen::ControlCenter {
+                    self.control.change_tab(self.control.tab.step(n));
+                } else if self.screen == Screen::Systems {
                     self.change_page(self.page.step(n));
                 } else {
                     let p = self.part_order();
@@ -1295,7 +1319,14 @@ impl App {
                 }
             }
             Action::Move(d) => {
-                if self.screen == Screen::Systems {
+                if self.screen == Screen::ControlCenter {
+                    match d {
+                        Dir::Up => self.control.move_selection(-1),
+                        Dir::Down => self.control.move_selection(1),
+                        Dir::Left => self.control.change_tab(self.control.tab.step(-1)),
+                        Dir::Right => self.control.change_tab(self.control.tab.step(1)),
+                    }
+                } else if self.screen == Screen::Systems {
                     match d {
                         Dir::Up => {
                             if !self.expanded {
@@ -1513,6 +1544,9 @@ impl App {
             Action::Demo(s) => {
                 self.frozen = None;
                 self.demo = Some(s.clone());
+                let tab = self.control.tab;
+                self.control = crate::control::ControlCenter::demo();
+                self.control.tab = tab;
                 self.persist = false;
                 self.history.clear();
                 self.spike_marks.clear();
@@ -1868,6 +1902,41 @@ impl App {
                 .update(self.cfg.teardown.audio_enabled && self.demo.is_none());
             return;
         }
+        if self.screen == Screen::ControlCenter {
+            use crate::control::{ControlAction as C, Tab as T};
+            let action = match (self.control.tab, k.code) {
+                (T::Wifi, KeyCode::Char('s')) => Some(C::SpeedTest),
+                (_, KeyCode::Char('r')) => Some(C::Refresh),
+                (T::Sound | T::NowPlaying, KeyCode::Char('+') | KeyCode::Char('=')) => {
+                    Some(C::Volume(1))
+                }
+                (T::Sound | T::NowPlaying, KeyCode::Char('-')) => Some(C::Volume(-1)),
+                (T::Sound | T::NowPlaying, KeyCode::Char('m')) => Some(C::Mute),
+                (T::Sound | T::NowPlaying, KeyCode::Char('e')) => Some(C::Capture),
+                (T::Sound, KeyCode::Char('i')) => Some(C::Input),
+                (T::Sound, KeyCode::Char('o')) => Some(C::Output),
+                (T::Sound, KeyCode::Enter) => Some(C::Activate),
+                (T::NowPlaying, KeyCode::Char(' ')) => Some(C::TogglePlayback),
+                (T::NowPlaying, KeyCode::Char('p')) => Some(C::Previous),
+                (T::NowPlaying, KeyCode::Char('n')) => Some(C::Next),
+                (T::NowPlaying, KeyCode::Left) => Some(C::Seek(-10)),
+                (T::NowPlaying, KeyCode::Right) => Some(C::Seek(10)),
+                _ => None,
+            };
+            if let Some(action) = action {
+                self.act(Action::Control(action));
+                return;
+            }
+            // Control Center always shows live data; history keys never freeze its controls.
+            if matches!(
+                k.code,
+                KeyCode::Char(
+                    ' ' | ',' | '.' | '<' | '>' | '[' | ']' | '{' | '}' | '+' | '=' | '-'
+                )
+            ) {
+                return;
+            }
+        }
         if let Some(a) = map_key(k, self.screen) {
             self.act(a);
         }
@@ -1923,6 +1992,14 @@ impl App {
                         }
                         Hit::Screen(s) => self.act(Action::GoTo(s)),
                         Hit::Page(p) => self.change_page(p),
+                        Hit::ControlTab(tab) => self.control.change_tab(tab),
+                        Hit::Control(action) => self.act(Action::Control(action)),
+                        Hit::ControlSelect(index) => match self.control.tab {
+                            crate::control::Tab::Bluetooth => self.control.select_device(index),
+                            crate::control::Tab::Display => self.control.display_index = index,
+                            crate::control::Tab::Sound => self.control.audio_index = index,
+                            _ => {}
+                        },
                         Hit::Rail => self.scrub(m.column),
                         Hit::Ports => self.act(Action::Ports),
                         Hit::Caffeinate => self.act(Action::Caffeinate),
@@ -1936,6 +2013,8 @@ impl App {
             MouseEventKind::ScrollUp => {
                 if self.rail.contains(p) {
                     self.act(Action::Step(-1));
+                } else if self.screen == Screen::ControlCenter {
+                    self.control.move_selection(-1);
                 } else if self.screen == Screen::Systems {
                     self.move_row(-3);
                 }
@@ -1943,6 +2022,8 @@ impl App {
             MouseEventKind::ScrollDown => {
                 if self.rail.contains(p) {
                     self.act(Action::Step(1));
+                } else if self.screen == Screen::ControlCenter {
+                    self.control.move_selection(1);
                 } else if self.screen == Screen::Systems {
                     self.move_row(3);
                 }

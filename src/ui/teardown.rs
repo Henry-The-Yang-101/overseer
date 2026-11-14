@@ -1994,7 +1994,7 @@ mod tests {
             battery.watts = Avail::Ok(-10.);
             for (phase, y) in [
                 (0., bms.y),
-                (0.5, bms.y - (bms.y - chip_y + 1) / 2),
+                (0.5, bms.y - (bms.y - chip_y).div_ceil(2)),
                 (0.9999, chip_y),
             ] {
                 a.anim.phases.insert("ambient".into(), phase);

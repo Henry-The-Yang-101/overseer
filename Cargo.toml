@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 rust-version = "1.95"
 description = "A live hardware observatory for your terminal"
-license = "MIT"
+license = "MIT AND CC-BY-4.0"
 
 [dependencies]
 anyhow = "1"
@@ -20,6 +20,8 @@ tempfile = "3"
 toml = "0.9"
 unicode-width = "0.2"
 libc = "0.2"
+base64 = "0.22"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp"] }
 
 [target.'cfg(all(target_os = "macos", target_arch = "aarch64"))'.dependencies]
 macmon = { version = "0.10", default-features = false }

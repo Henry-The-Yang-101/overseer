@@ -1,4 +1,4 @@
-//! Read-only diagnostic; the TUI does not start this listener.
+//! Read-only diagnostic for the listener used by Control Center.
 use anyhow::{Context, Result, bail};
 use clap::Parser;
 use overseer::now_playing::{Listener, State};

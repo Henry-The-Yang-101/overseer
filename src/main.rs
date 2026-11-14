@@ -21,6 +21,8 @@ use std::{
 struct Cli {
     #[command(subcommand)]
     command: Option<Command>,
+    #[arg(long, help = "Show asset credits, licenses, and data-source notes")]
+    credits: bool,
     #[arg(long, help = "Use explicitly labelled synthetic telemetry")]
     demo: bool,
     #[arg(long,default_value="balanced",value_parser=clap::builder::PossibleValuesParser::new(metrics::SCENARIOS))]
@@ -33,10 +35,12 @@ struct Cli {
     no_boot: bool,
     #[arg(long)]
     debug: bool,
-    #[arg(long,value_parser=["teardown","systems"])]
+    #[arg(long,value_parser=["teardown","systems","control-center"])]
     view: Option<String>,
     #[arg(long, value_parser=["cpu","memory","energy","disk","network","gpu"], help="Open a Systems resource page")]
     page: Option<String>,
+    #[arg(long, value_parser=["wi-fi","bluetooth","display","sound","now-playing"], help="Open a Control Center tab")]
+    control_tab: Option<String>,
     #[arg(long,value_parser=clap::builder::PossibleValuesParser::new(ui::theme::NAMES))]
     theme: Option<String>,
     #[arg(
@@ -62,6 +66,10 @@ enum Command {
 }
 fn main() -> anyhow::Result<()> {
     let c = Cli::parse();
+    if c.credits {
+        print!("{}", include_str!("../assets/control/SOURCES.md"));
+        return Ok(());
+    }
     if let Some(Command::Agents(agents)) = c.command {
         return overseer::agents::cli::run(agents);
     }
@@ -121,6 +129,11 @@ fn main() -> anyhow::Result<()> {
         return Ok(());
     }
     let mut app = App::new(cfg, c.demo.then_some(c.scenario.clone()));
+    if let Some(tab) = c.control_tab {
+        app.act(overseer::app::Action::ControlTab(
+            overseer::control::Tab::parse(&tab),
+        ));
+    }
     app.debug = c.debug;
     app.cells = c.cells;
     if let Some(path) = c.snapshot {

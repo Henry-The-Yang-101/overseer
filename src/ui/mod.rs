@@ -1,4 +1,5 @@
 pub mod audio;
+pub mod control;
 pub mod donut;
 mod fan;
 pub mod insights;
@@ -63,7 +64,13 @@ pub fn draw(f: &mut Frame, a: &mut App, dt: std::time::Duration) {
         return;
     }
     let top = Rect::new(0, 0, area.width, 3);
-    let rail_h = if size >= SizeClass::Regular { 3 } else { 2 };
+    let rail_h = if a.screen == Screen::ControlCenter {
+        1
+    } else if size >= SizeClass::Regular {
+        3
+    } else {
+        2
+    };
     let stage = Rect::new(1, 3, area.width - 2, area.height - 3 - rail_h - 1);
     let rail = Rect::new(1, area.height - rail_h - 1, area.width - 2, rail_h);
     let dock = Rect::new(1, area.height - 1, area.width - 2, 1);
@@ -76,6 +83,7 @@ pub fn draw(f: &mut Frame, a: &mut App, dt: std::time::Duration) {
         match a.screen {
             Screen::Teardown => teardown::draw(b, stage, a, size),
             Screen::Systems => systems::draw(b, stage, a, size),
+            Screen::ControlCenter => control::draw(b, stage, a, size),
         }
     }
     if a.transition && a.motion == Motion::Full {
@@ -112,8 +120,13 @@ pub fn draw(f: &mut Frame, a: &mut App, dt: std::time::Duration) {
             }
         }
     }
-    timeline(b, rail, a);
-    status_line(b, row(rail, rail.height - 1, 1), a);
+    if a.screen == Screen::ControlCenter {
+        control::status(b, rail, a);
+        a.rail = Rect::default();
+    } else {
+        timeline(b, rail, a);
+        status_line(b, row(rail, rail.height - 1, 1), a);
+    }
     hints(b, dock, a, size);
     overlays::draw(b, stage, a);
     if let Some((old, since)) = &a.theme_from
@@ -276,6 +289,7 @@ fn chrome(b: &mut ratatui::buffer::Buffer, r: Rect, a: &mut App, size: SizeClass
     for (screen, name) in [
         (Screen::Teardown, "1 Teardown"),
         (Screen::Systems, "2 Systems"),
+        (Screen::ControlCenter, "3 Control Center"),
     ] {
         let selected = a.screen == screen;
         let label = format!(" {} ", name);
@@ -470,6 +484,8 @@ fn hints(b: &mut ratatui::buffer::Buffer, r: Rect, a: &mut App, size: SizeClass)
         ", . step   < > ×10   { } spikes   Space play   End live   ? help"
     } else if a.zoom.is_some() {
         "← → sibling   Enter details   Esc back"
+    } else if a.screen == Screen::ControlCenter {
+        a.control.tab.hints()
     } else if a.screen == Screen::Systems {
         "←→ pages   ↑↓ tasks   Enter inspect   i stats / history / apps   / filter   z expand"
     } else if a.screen == Screen::Teardown && size == SizeClass::Compact {

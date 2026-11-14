@@ -5,7 +5,7 @@ expression: frames
 TEARDOWN
  O V E R S E E R  Demo MacBook Pro / M4 Pro / 12 Core CPU / 16 Core GPU / 24.0 GiB Memory / 1024 GB Storage                                                                        SYNTHETIC / balanced
 
-  1 Teardown   2 Systems                                                                                                                                                 THERMAL NOMINAL   SYS 19.90 W
+  1 Teardown   2 Systems   3 Control Center                                                                                                                              THERMAL NOMINAL   SYS 19.90 W
  ╭ MACBOOK PRO 14 / M4 PRO ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── PHYSICAL [m] ╮
  │                                 ⢀⡤⠤───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────⠤⢤⡀                                  │
  │  ·   ·   ·   ·   ·   ·   ·   · ⡼⠉         ║║║║║║║║║║║┃┃┃║║║║║║║║║║║║║       ╭─────────────── NETWORK ───────────────╮       ║║║║║║║║║║║║║┃┃┃║║║║║║║║║║║         ⠉⢧   ·   ·   ·   ·   ·   ·   ·   · │
@@ -61,7 +61,7 @@ TEARDOWN
 SELECTED COMPONENT
  O V E R S E E R  Demo MacBook Pro / M4 Pro / 12 Core CPU / 16 Core GPU / 24.0 GiB Memory / 1024 GB Storage                                                                        SYNTHETIC / balanced
 
-  1 Teardown   2 Systems                                                                                                                                                 THERMAL NOMINAL   SYS 19.90 W
+  1 Teardown   2 Systems   3 Control Center                                                                                                                              THERMAL NOMINAL   SYS 19.90 W
  ╭ MACBOOK PRO 14 / M4 PRO ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── PHYSICAL [m] ╮ ┏ SELECTED ━━━━━━━━━━━━━ Enter / z ┓
  │               ⢀⡤⠤───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────⠤⢤⡀               │ ┃                                  ┃
  │  ·   ·   ·   ⡼⠉         ║║║║║║║║║║║┃┃┃║║║║║║║║║║║║║       ╭─────────────── NETWORK ───────────────╮       ║║║║║║║║║║║║║┃┃┃║║║║║║║║║║║         ⠉⢧ ·   ·   ·    │ ┃ FANS                             ┃
@@ -101,7 +101,7 @@ SELECTED COMPONENT
  │  ·   ·  ▬▬▬ │   ╭───╮   ╰──────────────────────╯ ││█╶─╴ ╶─╴ ╶─╴ ╶─╴ ╶─│ ││    ↓    ││ │█╶─╴ ╶─╴ ╶─╴ ╶─╴ ╶─││ ╰──────────────────────╯   ╭───╮   │·▬  ·   ·    │ │    Nothing connected             │
  │       ▬▬▬▬▬ │   │╭─╮│                            ││█╶─╴ ╶─╴ ╶─╴ ╶─╴ ╶─│ ││    ↓    ││ │█╶─╴ ╶─╴ ╶─╴ ╶─╴ ╶─││                            │╭─╮│   │ ▬           │ │                                  │
  │  ·   ·   ▬▬ │   ││ ││   ╭ CELL 2 ──────────────╮ ││█╶─╴ ╶─╴ ╶─╴ ╶─╴ ╶─│─┴│    ↓    │┴─│█╶─╴ ╶─╴ ╶─╴ ╶─╴ ╶─││ ╭────────────── CELL 6 ╮   ││ ││   │·▬  ·   ·    │ │ ● attached  ○ empty  ? unknown   │
- │       ▬▬▬▬▬ │   │╰─╯│   │█╶─╴ ╶─╴ ╶─╴ ╶─╴ ╶─╴ ╶│ ││█╶─╴ ╶─╴ ╶─╴ ╶─╴ ╶─│  │    ↓    │  │█╶─╴ ╶─╴ ╶─╴ ╶─╴ ╶─││ │  .   .   .   .   .   │   │╰─╯│   │ ▬           │ │ Wiring & pulses are symbolic.    │
+ │       ▬▬▬▬▬ │   │╰─╯│   │█╶─╴ ╶─╴ ╶─╴ ╶─╴ ╶─╴ ╶│ ││█╶─╴ ╶─╴ ╶─╴ ╶─╴ ╶─│  │    ↓    │  │█╶─╴ ╶─╴ ╶─╴ ╶─╴ ╶─││ │  .   .   .   .   .   │   │╰─╯│   │ ▬           │ │                                  │
  │  ·   ·  ▬▬▬ │   ╰───╯   │█╶─╴ ╶─╴ ╶─╴ ╶─╴ ╶─╴ ╶│ ││█╶─╴ ╶─╴ ╶─╴ ╶─╴ ╶─│  │    ↓    │  │█╶─╴ ╶─╴ ╶─╴ ╶─╴ ╶─││ │  .   .   .   .   .   │   ╰───╯   │·▬  ·   ·    │ │                                  │
  │        ▬▬▬▬ │           │█╶─╴ ╶─╴ ╶─╴ ╶─╴ ╶─╴ ╶│ ││█╶─╴ ╶─╴ ╶─╴ ╶─╴ ╶─│  │    ↓    │  │█╶─╴ ╶─╴ ╶─╴ ╶─╴ ╶─││ │  .   .   .   .   .   │           │ ▬           │ │                                  │
  │  ·   ·  ▬▬▬ │     L     │█╶─╴ ╶─╴ ╶─╴ ╶─╴ ╶─╴ ╶│─╯│█╶─╴ ╶─╴ ╶─╴ ╶─╴ ╶─│  │    ↓    │  │█╶─╴ ╶─╴ ╶─╴ ╶─╴ ╶─│╰─│  .   .   .   .   .   │     R     │·▬  ·   ·    │ │                                  │
@@ -117,7 +117,7 @@ SELECTED COMPONENT
 TELEMETRY CELLS
  O V E R S E E R  Demo MacBook Pro / M4 Pro / 12 Core CPU / 16 Core GPU / 24.0 GiB Memory / 1024 GB Storage                                                                        SYNTHETIC / balanced
 
-  1 Teardown   2 Systems                                                                                                                                                 THERMAL NOMINAL   SYS 19.90 W
+  1 Teardown   2 Systems   3 Control Center                                                                                                                              THERMAL NOMINAL   SYS 19.90 W
  ╭ MACBOOK PRO 14 / M4 PRO ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── TELEMETRY [m] ╮
  │                                 ⢀⡤⠤───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────⠤⢤⡀                                  │
  │  ·   ·   ·   ·   ·   ·   ·   · ⡼⠉         ║║║║║║║║║║║┃┃┃║║║║║║║║║║║║║       ╭─────────────── NETWORK ───────────────╮       ║║║║║║║║║║║║║┃┃┃║║║║║║║║║║║         ⠉⢧   ·   ·   ·   ·   ·   ·   ·   · │
@@ -173,7 +173,7 @@ TELEMETRY CELLS
 cpu
  O V E R S E E R  Demo MacBook Pro / M4 Pro / 12 Core CPU / 16 Core GPU / 24.0 GiB Memory / 1024 GB Storage                                                                        SYNTHETIC / balanced
 
-  1 Teardown   2 Systems                                                                                                                                                 THERMAL NOMINAL   SYS 19.90 W
+  1 Teardown   2 Systems   3 Control Center                                                                                                                              THERMAL NOMINAL   SYS 19.90 W
  ‹  CPU  40.0%                      GPU  23.9%                      MEMORY 14.0G                    ENERGY 19.90 W                  STORAGE 222.2 MiB/s             NETWORK 1.1 MiB/s                 ›
 
  ╭ CPU · EXECUTION FLOOR · AUTOMATIC ─────────────────────────────────────────────────────────────────────────────────────────────────────── i details · z expand ╮ ╭ UTILIZATION ────────────────────╮
@@ -229,7 +229,7 @@ cpu
 gpu
  O V E R S E E R  Demo MacBook Pro / M4 Pro / 12 Core CPU / 16 Core GPU / 24.0 GiB Memory / 1024 GB Storage                                                                        SYNTHETIC / balanced
 
-  1 Teardown   2 Systems                                                                                                                                                 THERMAL NOMINAL   SYS 19.90 W
+  1 Teardown   2 Systems   3 Control Center                                                                                                                              THERMAL NOMINAL   SYS 19.90 W
  ‹  CPU  40.0%                      GPU  23.9%                      MEMORY 14.0G                    ENERGY 19.90 W                  STORAGE 222.2 MiB/s             NETWORK 1.1 MiB/s                 ›
 
  ╭ GPU · SHADER FABRIC ─────────────────────────────────────────────────────────────── i details · z expand ╮ ╭ VISUAL ───────────────────────────────────────────╮ ╭ UTILIZATION ────────────────────╮
@@ -285,7 +285,7 @@ gpu
 memory
  O V E R S E E R  Demo MacBook Pro / M4 Pro / 12 Core CPU / 16 Core GPU / 24.0 GiB Memory / 1024 GB Storage                                                                        SYNTHETIC / balanced
 
-  1 Teardown   2 Systems                                                                                                                                                 THERMAL NOMINAL   SYS 19.90 W
+  1 Teardown   2 Systems   3 Control Center                                                                                                                              THERMAL NOMINAL   SYS 19.90 W
  ‹  CPU  40.0%                      GPU  23.9%                      MEMORY 14.0G                    ENERGY 19.90 W                  STORAGE 222.2 MiB/s             NETWORK 1.1 MiB/s                 ›
 
  ╭ MEMORY · ADDRESS MATRIX ───────────────────────────────────────────────────────────────────────────────────────────────────────────────── i details · z expand ╮ ╭ PRESSURE / VM ──────────────────╮
@@ -341,7 +341,7 @@ memory
 energy
  O V E R S E E R  Demo MacBook Pro / M4 Pro / 12 Core CPU / 16 Core GPU / 24.0 GiB Memory / 1024 GB Storage                                                                        SYNTHETIC / balanced
 
-  1 Teardown   2 Systems                                                                                                                                                 THERMAL NOMINAL   SYS 19.90 W
+  1 Teardown   2 Systems   3 Control Center                                                                                                                              THERMAL NOMINAL   SYS 19.90 W
  ‹  CPU  40.0%                      GPU  23.9%                      MEMORY 14.0G                    ENERGY 19.90 W                  STORAGE 222.2 MiB/s             NETWORK 1.1 MiB/s                 ›
 
  ╭ ENERGY · POWER FLOW · AUTOMATIC ───────────────────────────────────────────────────────────────────────────────────────────────────────── i details · z expand ╮ ╭ THERMALS / BATTERY ─────────────╮
@@ -397,7 +397,7 @@ energy
 disk
  O V E R S E E R  Demo MacBook Pro / M4 Pro / 12 Core CPU / 16 Core GPU / 24.0 GiB Memory / 1024 GB Storage                                                                        SYNTHETIC / balanced
 
-  1 Teardown   2 Systems                                                                                                                                                 THERMAL NOMINAL   SYS 19.90 W
+  1 Teardown   2 Systems   3 Control Center                                                                                                                              THERMAL NOMINAL   SYS 19.90 W
  ‹  CPU  40.0%                      GPU  23.9%                      MEMORY 14.0G                    ENERGY 19.90 W                  STORAGE 222.2 MiB/s             NETWORK 1.1 MiB/s                 ›
 
  ╭ STORAGE · NAND ARRAY ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────── i details · z expand ╮ ╭ VOLUMES ────────────────────────╮
@@ -453,7 +453,7 @@ disk
 network
  O V E R S E E R  Demo MacBook Pro / M4 Pro / 12 Core CPU / 16 Core GPU / 24.0 GiB Memory / 1024 GB Storage                                                                        SYNTHETIC / balanced
 
-  1 Teardown   2 Systems                                                                                                                                                 THERMAL NOMINAL   SYS 19.90 W
+  1 Teardown   2 Systems   3 Control Center                                                                                                                              THERMAL NOMINAL   SYS 19.90 W
  ‹  CPU  40.0%                      GPU  23.9%                      MEMORY 14.0G                    ENERGY 19.90 W                  STORAGE 222.2 MiB/s             NETWORK 1.1 MiB/s                 ›
 
  ╭ NETWORK · SIGNAL TRACES ───────────────────────────────────────────────────────────────────────────────────────────────────────────────── i details · z expand ╮ ╭ LINK / SOCKETS ─────────────────╮

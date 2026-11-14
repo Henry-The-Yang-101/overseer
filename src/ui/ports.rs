@@ -108,17 +108,6 @@ fn contents(b: &mut Buffer, r: Rect, a: &App, expanded: bool) {
     let end = start + ports.len() as u16 * if double { 2 } else { 1 };
     if r.height >= end + 5 {
         line(b, r, end + 1, "● attached  ○ empty  ? unknown", t.muted);
-        line(
-            b,
-            r,
-            end + 2,
-            if expanded {
-                "USB-C IDs come from macOS; placement is approximate."
-            } else {
-                "Wiring & pulses are symbolic."
-            },
-            t.muted,
-        );
     }
     if r.height >= end + 4 {
         let input = crate::metrics::ports::power_input(&s);

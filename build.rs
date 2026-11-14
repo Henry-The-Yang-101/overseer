@@ -2,9 +2,21 @@ fn main() {
     println!("cargo:rerun-if-changed=native/AudioCapture.swift");
     println!("cargo:rerun-if-changed=native/AudioCapture.plist");
     println!("cargo:rerun-if-changed=native/SystemStats.swift");
+    println!("cargo:rerun-if-changed=native/ControlCenter.swift");
     if std::env::var("CARGO_CFG_TARGET_OS").as_deref() != Ok("macos") {
         return;
     }
+    let control =
+        std::path::PathBuf::from(std::env::var_os("OUT_DIR").unwrap()).join("overseer-control");
+    assert!(
+        std::process::Command::new("xcrun")
+            .args(["swiftc", "-O", "native/ControlCenter.swift", "-o"])
+            .arg(control)
+            .status()
+            .expect("Swift compiler required")
+            .success(),
+        "Control Center helper compilation failed"
+    );
     let stats =
         std::path::PathBuf::from(std::env::var_os("OUT_DIR").unwrap()).join("overseer-stats");
     assert!(
