@@ -1436,7 +1436,14 @@ fn control_center_tabs_fit_and_own_their_controls() {
                 Tab::Wifi => assert!(actions.contains(&C::SpeedTest)),
                 Tab::Bluetooth | Tab::Display => assert!(actions.is_empty()),
                 Tab::Sound => {
-                    assert!(actions.contains(&C::Activate) && actions.contains(&C::Volume(1)))
+                    assert!(actions.contains(&C::Activate) && actions.contains(&C::Volume(1)));
+                    assert!(view.contains("Audio delay ≈27.3 ms"));
+                    a.on_key(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE));
+                    assert!(render(&mut a, w, h).contains("Audio delay ≈170.7 ms"));
+                    a.control.sound.devices[1].output_latency_ms = None;
+                    assert!(render(&mut a, w, h).contains("Audio delay N/A"));
+                    a.on_key(KeyEvent::new(KeyCode::Char('i'), KeyModifiers::NONE));
+                    assert!(!render(&mut a, w, h).contains("Audio delay"));
                 }
                 Tab::NowPlaying => {
                     for label in ["[j ‹]", "[k Ⅱ]", "[l ›]"] {

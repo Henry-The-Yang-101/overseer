@@ -914,6 +914,7 @@ impl ControlCenter {
                 can_volume: true,
                 can_mute: true,
                 sample_rate: Some(48000.),
+                output_latency_ms: Some(27.3),
                 volume: Some(0.35),
                 muted: Some(false),
                 ..AudioDevice::default()
@@ -923,6 +924,7 @@ impl ControlCenter {
                 name: "AirPods Pro".into(),
                 outputs: 2,
                 sample_rate: Some(48000.),
+                output_latency_ms: Some(170.7),
                 ..AudioDevice::default()
             },
             AudioDevice {

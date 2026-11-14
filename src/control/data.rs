@@ -284,6 +284,7 @@ pub struct AudioDevice {
     pub can_mute: bool,
     pub manufacturer: Option<String>,
     pub sample_rate: Option<f64>,
+    pub output_latency_ms: Option<f64>,
     pub volume: Option<f32>,
     pub muted: Option<bool>,
 }

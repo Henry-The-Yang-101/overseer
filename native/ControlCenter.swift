@@ -27,8 +27,8 @@ func string(_ id: AudioObjectID, _ selector: AudioObjectPropertySelector) -> Str
     guard AudioObjectGetPropertyData(id, &key, 0, nil, &size, &value) == noErr else { return nil }
     return value?.takeRetainedValue() as String?
 }
-func ids(_ id: AudioObjectID, _ selector: AudioObjectPropertySelector) -> [AudioObjectID] {
-    var key = address(selector), size: UInt32 = 0
+func ids(_ id: AudioObjectID, _ selector: AudioObjectPropertySelector, _ scope: AudioObjectPropertyScope = kAudioObjectPropertyScopeGlobal) -> [AudioObjectID] {
+    var key = address(selector, scope), size: UInt32 = 0
     guard AudioObjectGetPropertyDataSize(id, &key, 0, nil, &size) == noErr, size > 0, size < 65536 else { return [] }
     var values = [AudioObjectID](repeating: 0, count: Int(size) / MemoryLayout<AudioObjectID>.size)
     guard AudioObjectGetPropertyData(id, &key, 0, nil, &size, &values) == noErr else { return [] }
@@ -49,6 +49,22 @@ func settable(_ id: AudioObjectID, _ selector: AudioObjectPropertySelector, _ el
 func volumeElements(_ id: AudioObjectID) -> [UInt32] {
     if settable(id, kAudioDevicePropertyVolumeScalar) { return [0] }
     return (1...max(1, channels(id, kAudioDevicePropertyScopeOutput))).filter { settable(id, kAudioDevicePropertyVolumeScalar, $0) }
+}
+func outputLatencyMs(_ id: AudioObjectID, _ sampleRate: Double) -> Double? {
+    let scope = kAudioDevicePropertyScopeOutput
+    guard sampleRate.isFinite, sampleRate > 0,
+          let buffer = read(id, kAudioDevicePropertyBufferFrameSize, UInt32(0), scope)
+            ?? read(id, kAudioDevicePropertyBufferFrameSize, UInt32(0)), buffer > 0,
+          let device = read(id, kAudioDevicePropertyLatency, UInt32(0), scope),
+          let safety = read(id, kAudioDevicePropertySafetyOffset, UInt32(0), scope) else { return nil }
+
+    // Output streams run in parallel, so use the slowest stream's latency.
+    let streams = ids(id, kAudioDevicePropertyStreams, scope)
+    let latencies = streams.compactMap { read($0, kAudioStreamPropertyLatency, UInt32(0)) }
+    guard latencies.count == streams.count, let stream = latencies.max() else { return nil }
+    let frames = Double(buffer) + Double(device) + Double(safety) + Double(stream)
+    let milliseconds = frames * 1000 / sampleRate
+    return milliseconds.isFinite ? milliseconds : nil
 }
 func write<T: BitwiseCopyable>(_ id: AudioObjectID, _ selector: AudioObjectPropertySelector, _ value: T, _ scope: AudioObjectPropertyScope = kAudioObjectPropertyScopeGlobal, _ element: UInt32 = 0) throws {
     var key = address(selector, scope, element), value = value
@@ -71,7 +87,9 @@ func audio() -> [String: Any] {
             "default_input": id == input, "default_output": id == output,
             "can_volume": !volumeElements(id).isEmpty, "can_mute": settable(id, kAudioDevicePropertyMute)]
         d["manufacturer"] = string(id, kAudioObjectPropertyManufacturer)
-        d["sample_rate"] = read(id, kAudioDevicePropertyNominalSampleRate, Float64(0))
+        let sampleRate = read(id, kAudioDevicePropertyNominalSampleRate, Float64(0))
+        d["sample_rate"] = sampleRate
+        if outs > 0, let sampleRate { d["output_latency_ms"] = outputLatencyMs(id, sampleRate) }
         let elements = volumeElements(id)
         let levels = (elements.isEmpty ? [0] : elements).compactMap { read(id, kAudioDevicePropertyVolumeScalar, Float32(0), kAudioDevicePropertyScopeOutput, $0) }
         if !levels.isEmpty { d["volume"] = levels.reduce(0, +) / Float32(levels.count) }

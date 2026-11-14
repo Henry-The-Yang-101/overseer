@@ -911,6 +911,12 @@ fn sound(b: &mut Buffer, r: Rect, a: &mut App) {
             ),
             if selected { t.cpu } else { t.muted },
         );
+        if !a.control.input {
+            let delay = d
+                .output_latency_ms
+                .map_or_else(|| "N/A".into(), |ms| format!("≈{ms:.1} ms"));
+            line(b, rr, 2, format!("Audio delay {delay}"), t.muted);
+        }
         a.hitmap.add(rr, 10, Hit::ControlSelect(i));
     }
     let panel = frame(
