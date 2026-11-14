@@ -1321,6 +1321,44 @@ fn systems_details_pin_samples_and_support_small_layouts() {
 }
 
 #[test]
+fn now_playing_artwork_fills_a_square_frame() {
+    use image::{Rgb, RgbImage};
+    use overseer::control::Tab;
+    use std::sync::Arc;
+
+    for (w, h) in [(60, 18), (60, 36), (200, 55)] {
+        let mut a = app("balanced");
+        a.act(Action::ControlTab(Tab::NowPlaying));
+        a.control.artwork = Some(Arc::new(RgbImage::from_fn(300, 100, |x, _| {
+            Rgb(if (90..210).contains(&x) {
+                [255; 3]
+            } else {
+                [0; 3]
+            })
+        })));
+        let mut term = Terminal::new(TestBackend::new(w, h)).unwrap();
+        term.draw(|f| ui::draw(f, &mut a, Duration::ZERO)).unwrap();
+        let buffer = term.backend().buffer();
+        let (x, y) = (1, 5);
+        assert_eq!(buffer[(x, y)].symbol(), "╭");
+        let right = (x + 1..w)
+            .find(|&col| buffer[(col, y)].symbol() == "╮")
+            .unwrap();
+        let bottom = (y + 1..h)
+            .find(|&row| buffer[(x, row)].symbol() == "╰")
+            .unwrap();
+        let width = (right - x + 1) as f32;
+        let height = (bottom - y + 1) as f32;
+        assert!((width / a.cell_aspect - height).abs() <= 0.5);
+        for row in y + 1..bottom {
+            for col in x + 1..right {
+                assert_eq!(buffer[(col, row)].symbol(), "@", "{w}x{h} at {col},{row}");
+            }
+        }
+    }
+}
+
+#[test]
 fn control_center_tabs_fit_and_own_their_controls() {
     use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
     use overseer::control::{ControlAction as C, Tab};

@@ -1039,28 +1039,25 @@ fn sound(b: &mut Buffer, r: Rect, a: &mut App) {
     );
 }
 fn album(b: &mut Buffer, r: Rect, a: &App) {
+    if r.is_empty() {
+        return;
+    }
     let t = &a.theme;
-    let image_aspect = a.control.artwork.as_ref().map_or(1., |image| {
-        image.width() as f32 / image.height().max(1) as f32
-    });
-    let width = r
-        .width
-        .saturating_sub(4)
-        .min((r.height.saturating_sub(2) as f32 * a.cell_aspect * image_aspect) as u16);
-    let height = (width as f32 / a.cell_aspect / image_aspect).round() as u16;
-    let rect = Rect::new(
-        r.x + (r.width - width) / 2,
-        r.y + (r.height - height) / 2,
-        width,
-        height,
-    );
-    if let Some(image) = &a.control.artwork {
+    if let Some(image) = &a.control.artwork
+        && image.width() > 0
+        && image.height() > 0
+    {
+        let aspect = r.width as f32 / (r.height as f32 * a.cell_aspect);
+        let src_width = ((image.height() as f32 * aspect).round() as u32).clamp(1, image.width());
+        let src_height = ((image.width() as f32 / aspect).round() as u32).clamp(1, image.height());
+        let src_x = (image.width() - src_width) / 2;
+        let src_y = (image.height() - src_height) / 2;
         let ramp = b" .,:;irsXA253hMHGS#9B&@";
-        for y in 0..rect.height {
-            for x in 0..rect.width {
+        for y in 0..r.height {
+            for x in 0..r.width {
                 let pixel = image.get_pixel(
-                    (x as u32 * image.width() / rect.width as u32).min(image.width() - 1),
-                    (y as u32 * image.height() / rect.height as u32).min(image.height() - 1),
+                    src_x + x as u32 * src_width / r.width as u32,
+                    src_y + y as u32 * src_height / r.height as u32,
                 );
                 let [red, green, blue] = pixel.0;
                 let l = (0.2126 * red as f32 + 0.7152 * green as f32 + 0.0722 * blue as f32) / 255.;
@@ -1070,7 +1067,7 @@ fn album(b: &mut Buffer, r: Rect, a: &App) {
                     green.saturating_add(20),
                     blue.saturating_add(20),
                 );
-                b[(rect.x + x, rect.y + y)]
+                b[(r.x + x, r.y + y)]
                     .set_char(ch)
                     .set_fg(fg)
                     .set_bg(Color::Rgb(red / 4, green / 4, blue / 4));
@@ -1078,8 +1075,9 @@ fn album(b: &mut Buffer, r: Rect, a: &App) {
         }
     } else {
         let time = phase(a);
-        let mut grid = BrailleGrid::new(rect.width, rect.height);
-        let (cx, cy) = (rect.width as f32, rect.height as f32 * 2.);
+        let canvas = row(r, 0, r.height - 1);
+        let mut grid = BrailleGrid::new(canvas.width, canvas.height);
+        let (cx, cy) = (canvas.width as f32, canvas.height as f32 * 2.);
         let radius = cx.min(cy) * 0.85;
         for ring in 1..=12 {
             let rr = radius * ring as f32 / 12.;
@@ -1101,8 +1099,8 @@ fn album(b: &mut Buffer, r: Rect, a: &App) {
                 prev = Some(p);
             }
         }
-        grid.flush(rect, b, a.cfg.ui.glyphs == "ascii");
-        line(b, r, r.height.saturating_sub(1), "No artwork", t.muted);
+        grid.flush(canvas, b, a.cfg.ui.glyphs == "ascii");
+        line(b, r, r.height - 1, "No artwork", t.muted);
     }
 }
 fn clock_time(seconds: f64) -> String {
@@ -1110,10 +1108,15 @@ fn clock_time(seconds: f64) -> String {
     format!("{}:{:02}", s / 60, s % 60)
 }
 fn now_playing(b: &mut Buffer, r: Rect, a: &mut App) {
+    const MIN_PLAYER_WIDTH: u16 = 28;
     let t = a.theme.clone();
-    let (left, right) = split(r, r.width * 44 / 100);
-    let cover = frame(b, left, "ALBUM ART", "", false, &t);
-    album(b, cover, a);
+    let cover_width = ((r.height as f32 * a.cell_aspect).round() as u16)
+        .min(r.width.saturating_sub(MIN_PLAYER_WIDTH + 1));
+    let cover_height = (cover_width as f32 / a.cell_aspect).round() as u16;
+    let (left, right) = split(r, cover_width);
+    let cover = row(left, 0, cover_height);
+    frame(b, cover, "ALBUM ART", "", false, &t);
+    album(b, inner(cover, 1, 1), a);
     let panel = frame(b, right, "NOW PLAYING", "", false, &t);
     let compact = panel.height < 18;
     let metadata = match &a.control.now {
