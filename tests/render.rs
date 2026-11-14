@@ -1217,6 +1217,33 @@ fn speaker_bars_keep_a_mirrored_bell_envelope_at_high_levels() {
     }
 }
 #[test]
+fn audio_histogram_combines_channels_in_bottom_aligned_bars() {
+    use overseer::audio::Frame;
+    use ratatui::{buffer::Buffer, layout::Rect};
+
+    let mut a = app("balanced");
+    let bounds = Rect::new(3, 5, 7, 4);
+    let audio = Frame {
+        status: String::new(),
+        channels: vec![vec![0.125, 0., 0., 0.], vec![0., -0.25, 0., -0.125]],
+    };
+    for (glyphs, expected) in [
+        ("unicode", ["       ", "  ▇    ", "▃ █   ▃", "█ █   █"]),
+        ("ascii", ["       ", "  #    ", "# #   #", "# #   #"]),
+    ] {
+        a.cfg.ui.glyphs = glyphs.into();
+        let mut buffer = Buffer::empty(bounds);
+        ui::audio::histogram(&mut buffer, bounds, &a, &audio);
+        let rows: Vec<String> = buffer
+            .content
+            .chunks(bounds.width.into())
+            .map(|row| row.iter().map(|cell| cell.symbol()).collect())
+            .collect();
+        assert_eq!(rows, expected);
+    }
+}
+
+#[test]
 fn unavailable_sensors_and_small_resizes_stay_usable() {
     for scenario in [
         "missing-sensors",

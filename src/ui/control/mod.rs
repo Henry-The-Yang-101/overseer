@@ -5,7 +5,7 @@ use super::{
     theme::{Theme, blend},
 };
 use crate::{
-    app::{App, Part},
+    app::App,
     control::{ControlAction as C, Tab},
     motion::Motion,
     now_playing::State,
@@ -1261,18 +1261,18 @@ fn now_playing(b: &mut Buffer, r: Rect, a: &mut App) {
         };
         line(b, panel, transport + 1, message, t.muted);
     }
-    let wave_y = transport + 3;
-    let wave = row(panel, wave_y, panel.height.saturating_sub(wave_y + 2));
-    super::audio::waveform(b, wave, Part::SpeakerLeft, a, false);
     if panel.height > transport + 5 {
         let samples = super::audio::frame(a);
+        let chart_y = transport + 3;
+        let chart = row(panel, chart_y, panel.height - chart_y - 2);
+        super::audio::histogram(b, chart, a, &samples);
         line(
             b,
             panel,
             panel.height.saturating_sub(2),
             if !a.cfg.teardown.audio_enabled {
                 "Capture off · e enable"
-            } else if samples.channels.is_empty() {
+            } else if samples.channels.iter().all(Vec::is_empty) {
                 "No samples · e off/on"
             } else {
                 "SYSTEM MIX"

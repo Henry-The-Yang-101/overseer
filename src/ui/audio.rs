@@ -76,6 +76,46 @@ pub fn waveform(b: &mut Buffer, r: Rect, p: Part, a: &App, vertical: bool) {
     }
     g.flush(r, b, a.cfg.ui.glyphs == "ascii");
 }
+
+pub fn histogram(b: &mut Buffer, r: Rect, a: &App, frame: &Frame) {
+    if r.is_empty() || frame.channels.iter().all(Vec::is_empty) {
+        return;
+    }
+    let bars = usize::from(r.width.div_ceil(2));
+    let ascii = a.cfg.ui.glyphs == "ascii";
+    let blocks = ["", "▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"];
+    for i in 0..bars {
+        let mut energy = 0.;
+        let mut count = 0;
+        for samples in &frame.channels {
+            if samples.is_empty() {
+                continue;
+            }
+            let start = i * samples.len() / bars;
+            let end = ((i + 1) * samples.len() / bars).max(start + 1);
+            energy += samples[start..end].iter().map(|v| v * v).sum::<f32>();
+            count += end - start;
+        }
+        let level = ((energy / count as f32).sqrt() * 4.).clamp(0., 1.);
+        let eighths = (level * f32::from(r.height) * 8.).round() as u32;
+        for y in 0..eighths.div_ceil(8) {
+            let block = if ascii {
+                "#"
+            } else {
+                blocks[(eighths - y * 8).min(8) as usize]
+            };
+            text(
+                b,
+                r,
+                (i * 2) as u16,
+                r.height - 1 - y as u16,
+                block,
+                a.theme.accent,
+            );
+        }
+    }
+}
+
 pub fn inspector(b: &mut Buffer, r: Rect, p: Part, a: &App) {
     Clear.render(r, b);
     let t = &a.theme;
