@@ -1620,7 +1620,8 @@ fn wiring(b: &mut Buffer, c: Rect, a: &App, mirror: bool, layout: &Layout) {
         trace(b, c, &layout.cell_path(i, c), wire, None);
     }
     let power_input = crate::metrics::ports::power_input(&s);
-    let mut adapter_lead = None;
+    let bms = (center, layout.part(Part::Battery).y);
+    let mut adapter_paths = None;
     for (i, (kind, left, y, label)) in PORTS.iter().enumerate() {
         let left = *left != mirror;
         let y = c.y + (y * c.height as f32).round() as u16;
@@ -1646,7 +1647,16 @@ fn wiring(b: &mut Buffer, c: Rect, a: &App, mirror: bool, layout: &Layout) {
         ];
         let connected = ports::indicator(&s, *kind, t).2 == "CONNECTED";
         if power_input.value() == Some(kind) {
-            adapter_lead = Some([(edge, y), (lane, y), (lane, layout.power_y)]);
+            adapter_paths = Some((
+                path,
+                [
+                    (edge, y),
+                    (lane, y),
+                    (lane, layout.power_y),
+                    (center, layout.power_y),
+                    bms,
+                ],
+            ));
         } else {
             trace(
                 b,
@@ -1660,31 +1670,24 @@ fn wiring(b: &mut Buffer, c: Rect, a: &App, mirror: bool, layout: &Layout) {
     let battery = s.battery.value();
     let flow = cell_flow(battery);
     if let Some(battery) = battery {
-        let bms = (center, layout.part(Part::Battery).y);
         let chip = (center, soc.bottom() - 1);
-        let junction = (center, layout.power_y);
         let color = blend(t.battery, t.panel, 0.50);
         let pulse = moving.then_some((phase, t.battery));
         let supplying_power = !battery.ac || flow.is_some_and(|f| !f.charging);
 
-        // The adapter joins the same rail that links the battery and chip.
-        if !supplying_power {
+        if let Some((upper, lower)) = adapter_paths {
+            // The adapter feeds the SoC on the upper wire and the BMS on the lower wire.
+            if !supplying_power {
+                trace(b, c, &lower, color, pulse.filter(|_| battery.charging));
+            }
+            trace(b, c, &upper, color, pulse.filter(|_| !supplying_power));
+        } else if !supplying_power {
+            // Without a known input port, show power flow along the center rail only.
             trace(b, c, &[bms, chip], color, None);
             if battery.charging {
-                trace(b, c, &[(center, junction.1 + 1), bms], color, pulse);
+                trace(b, c, &[(center, layout.power_y + 1), bms], color, pulse);
             }
-        }
-        if let Some([port, lane, bend]) = adapter_lead {
-            let adapter_pulse = if supplying_power { None } else { pulse };
-            trace(
-                b,
-                c,
-                &[port, lane, bend, junction, chip],
-                color,
-                adapter_pulse,
-            );
-        } else if !supplying_power {
-            trace(b, c, &[junction, chip], color, pulse);
+            trace(b, c, &[(center, layout.power_y), chip], color, pulse);
         }
         if supplying_power {
             trace(b, c, &[bms, chip], color, pulse);
@@ -1883,7 +1886,9 @@ mod tests {
     }
 
     #[test]
-    fn power_rail_links_bms_and_chip_with_pulses_from_the_active_source() {
+    fn adapter_uses_separate_wires_and_battery_power_uses_the_center_rail() {
+        use std::sync::Arc;
+
         for mirror in [false, true] {
             let c = Rect::new(2, 3, 107, 38);
             let layout = Layout::new(c, mirror);
@@ -1892,10 +1897,16 @@ mod tests {
             let soc = layout.part(Part::Soc);
             let chip_y = soc.bottom() - 1;
             let mut a = App::new(Config::default(), Some("balanced".into()));
-            assert!(
-                crate::metrics::ports::power_input(&a.sample())
-                    .value()
-                    .is_some()
+            let sample = Arc::make_mut(a.history.back_mut().unwrap());
+            let Avail::Ok(ports) = &mut sample.ports else {
+                unreachable!()
+            };
+            for port in Arc::make_mut(ports) {
+                port.connected = Avail::Ok(port.kind == PortKind::MagSafe);
+            }
+            assert_eq!(
+                crate::metrics::ports::power_input(&a.sample()).value(),
+                Some(&PortKind::MagSafe)
             );
             a.motion = crate::motion::Motion::Off;
             let mut buffer = Buffer::empty(Rect::new(0, 0, c.right(), c.bottom()));
@@ -1927,35 +1938,46 @@ mod tests {
                 );
             }
             let wire_color = blend(a.theme.battery, a.theme.panel, 0.50);
-            let junction = if mirror { "├" } else { "┤" };
-            for y in chip_y..=bms.y {
-                let cell = &buffer[(center, y)];
-                assert_eq!(cell.fg, wire_color);
-                assert_eq!(
-                    cell.symbol(),
-                    if y == layout.power_y { junction } else { "│" }
-                );
+            let chip_input = if mirror { center - 2 } else { center + 2 };
+            let upper_bend = (chip_input, layout.data_y);
+            let lower_bend = (center, layout.power_y);
+            assert_eq!(buffer[upper_bend].symbol(), if mirror { "╯" } else { "╰" });
+            assert_eq!(buffer[lower_bend].symbol(), if mirror { "╮" } else { "╭" });
+            for y in chip_y..layout.power_y {
+                assert_eq!(buffer[(center, y)].symbol(), " ");
+                assert_eq!(buffer[(chip_input, y)].fg, wire_color);
+            }
+            for y in layout.power_y..=bms.y {
+                assert_eq!(buffer[(center, y)].fg, wire_color);
             }
             a.motion = crate::motion::Motion::Full;
-            for phase in [0., 0.9999] {
-                a.anim.phases.insert("ambient".into(), phase);
-                buffer.reset();
-                wiring(&mut buffer, c, &a, mirror, &layout);
-                assert_eq!(buffer[(center, bms.y)].symbol() == "·", phase > 0.);
-                assert_eq!(
-                    buffer[(center, chip_y)].symbol() == "·",
-                    phase > 0.,
-                    "adapter power also travels toward the chip while charging"
-                );
+            a.anim.phases.insert("ambient".into(), 0.5);
+            buffer.reset();
+            wiring(&mut buffer, c, &a, mirror, &layout);
+            for y in [layout.data_y, layout.power_y] {
+                assert!((c.x..c.right()).any(|x| {
+                    let cell = &buffer[(x, y)];
+                    cell.symbol() == "·" && cell.fg == a.theme.battery
+                }));
             }
+            a.anim.phases.insert("ambient".into(), 0.9999);
+            buffer.reset();
+            wiring(&mut buffer, c, &a, mirror, &layout);
+            assert_eq!(buffer[(center, bms.y)].symbol(), "·");
+            assert_eq!(buffer[(chip_input, chip_y)].symbol(), "·");
 
-            let sample = std::sync::Arc::make_mut(a.history.back_mut().unwrap());
-            sample.ports = Avail::Acquiring;
+            let sample = Arc::make_mut(a.history.back_mut().unwrap());
             let Avail::Ok(battery) = &mut sample.battery else {
                 unreachable!()
             };
             battery.charging = false;
             battery.watts = Avail::Ok(0.);
+            buffer.reset();
+            wiring(&mut buffer, c, &a, mirror, &layout);
+            assert_eq!(buffer[(chip_input, chip_y)].symbol(), "·");
+            assert_eq!(buffer[(center, bms.y)].symbol(), "│");
+
+            Arc::make_mut(a.history.back_mut().unwrap()).ports = Avail::Acquiring;
             buffer.reset();
             wiring(&mut buffer, c, &a, mirror, &layout);
             assert_eq!(buffer[(center, chip_y)].symbol(), "·");
@@ -1964,7 +1986,7 @@ mod tests {
                 assert_eq!(buffer[(center, y)].fg, wire_color);
             }
 
-            let sample = std::sync::Arc::make_mut(a.history.back_mut().unwrap());
+            let sample = Arc::make_mut(a.history.back_mut().unwrap());
             let Avail::Ok(battery) = &mut sample.battery else {
                 unreachable!()
             };
