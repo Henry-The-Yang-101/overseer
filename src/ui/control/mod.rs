@@ -1245,21 +1245,21 @@ fn now_playing(b: &mut Buffer, r: Rect, a: &mut App) {
             );
         }
     }
-    button(b, panel, 0, transport + 2, "[p ‹]", C::Previous, a);
+    button(b, panel, 0, transport + 2, "[j ‹]", C::Previous, a);
     button(
         b,
         panel,
         7,
         transport + 2,
         if metadata.as_ref().is_some_and(|m| m.playing == Some(true)) {
-            "[Space Ⅱ]"
+            "[k Ⅱ]"
         } else {
-            "[Space ▶]"
+            "[k ▶]"
         },
         C::TogglePlayback,
         a,
     );
-    button(b, panel, 18, transport + 2, "[n ›]", C::Next, a);
+    button(b, panel, 14, transport + 2, "[l ›]", C::Next, a);
     let wave_y = transport + if compact { 3 } else { 4 };
     let wave = row(panel, wave_y, panel.height.saturating_sub(wave_y + 2));
     super::audio::waveform(b, wave, Part::SpeakerLeft, a, false);

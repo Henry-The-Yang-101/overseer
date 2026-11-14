@@ -1386,6 +1386,9 @@ fn control_center_tabs_fit_and_own_their_controls() {
                     assert!(actions.contains(&C::Activate) && actions.contains(&C::Volume(1)))
                 }
                 Tab::NowPlaying => {
+                    for label in ["[j ‹]", "[k Ⅱ]", "[l ›]"] {
+                        assert!(view.contains(label), "{w}x{h} missing {label}\n{view}");
+                    }
                     for action in [
                         C::Previous,
                         C::TogglePlayback,
@@ -1406,11 +1409,15 @@ fn control_center_tabs_fit_and_own_their_controls() {
         }
         a.act(Action::ControlTab(Tab::NowPlaying));
         for key in [
+            KeyCode::Char('j'),
+            KeyCode::Char('k'),
+            KeyCode::Char('l'),
             KeyCode::Char(' '),
             KeyCode::Left,
             KeyCode::Right,
             KeyCode::Char('+'),
         ] {
+            a.control.message = None;
             a.on_key(KeyEvent::new(key, KeyModifiers::NONE));
             assert_eq!(a.control.tab, Tab::NowPlaying);
             assert!(a.cursor.is_none());

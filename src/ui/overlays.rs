@@ -446,7 +446,7 @@ fn help(b: &mut Buffer, r: Rect, a: &App) {
             "DISPLAY      ↑ ↓ displays · r refresh",
             "SOUND        i / o input / output · Enter set device",
             "             + / − volume · m mute · e audio capture",
-            "NOW PLAYING  Space play/pause · p / n previous/next",
+            "NOW PLAYING  j prev · k / Space play/pause · l next",
             "             ← / → seek 10s · click timeline to seek",
             "             + / − volume · m mute · e audio capture",
             "",
