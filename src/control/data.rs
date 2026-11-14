@@ -22,13 +22,22 @@ impl Tab {
         Self::ALL.iter().position(|v| *v == self).unwrap()
     }
     pub fn name(self) -> &'static str {
-        ["wi-fi", "bluetooth", "display", "sound", "now playing"][self.index()]
+        match self {
+            Self::Wifi => "Wi-Fi",
+            Self::Bluetooth => "Bluetooth",
+            Self::Display => "Display",
+            Self::Sound => "Sound",
+            Self::NowPlaying => "Now Playing",
+        }
     }
     pub fn parse(s: &str) -> Self {
-        Self::ALL
-            .into_iter()
-            .find(|t| t.name().replace(' ', "-") == s)
-            .unwrap_or_default()
+        match s {
+            "bluetooth" => Self::Bluetooth,
+            "display" => Self::Display,
+            "sound" => Self::Sound,
+            "now-playing" => Self::NowPlaying,
+            _ => Self::default(),
+        }
     }
     pub fn step(self, n: i32) -> Self {
         Self::ALL[(self.index() as i32 + n).rem_euclid(5) as usize]
