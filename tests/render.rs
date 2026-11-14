@@ -1321,7 +1321,7 @@ fn systems_details_pin_samples_and_support_small_layouts() {
 }
 
 #[test]
-fn now_playing_artwork_fills_a_square_frame() {
+fn now_playing_artwork_fits_without_cropping() {
     use image::{Rgb, RgbImage};
     use overseer::control::Tab;
     use std::sync::Arc;
@@ -1329,13 +1329,7 @@ fn now_playing_artwork_fills_a_square_frame() {
     for (w, h) in [(60, 18), (60, 36), (200, 55)] {
         let mut a = app("balanced");
         a.act(Action::ControlTab(Tab::NowPlaying));
-        a.control.artwork = Some(Arc::new(RgbImage::from_fn(300, 100, |x, _| {
-            Rgb(if (90..210).contains(&x) {
-                [255; 3]
-            } else {
-                [0; 3]
-            })
-        })));
+        a.control.artwork = Some(Arc::new(RgbImage::from_pixel(100, 100, Rgb([255; 3]))));
         let mut term = Terminal::new(TestBackend::new(w, h)).unwrap();
         term.draw(|f| ui::draw(f, &mut a, Duration::ZERO)).unwrap();
         let buffer = term.backend().buffer();
@@ -1354,6 +1348,27 @@ fn now_playing_artwork_fills_a_square_frame() {
             for col in x + 1..right {
                 assert_eq!(buffer[(col, row)].symbol(), "@", "{w}x{h} at {col},{row}");
             }
+        }
+        a.control.artwork = Some(Arc::new(RgbImage::from_fn(160, 90, |x, _| {
+            if (20..140).contains(&x) {
+                Rgb([255; 3])
+            } else {
+                Rgb([64; 3])
+            }
+        })));
+        term.draw(|f| ui::draw(f, &mut a, Duration::ZERO)).unwrap();
+        let buffer = term.backend().buffer();
+        let populated_rows: Vec<_> = (y + 1..bottom)
+            .filter(|&row| buffer[((x + right) / 2, row)].symbol() == "@")
+            .collect();
+        let expected_height = ((width - 2.) / a.cell_aspect * 9. / 16.).round() as usize;
+        assert_eq!(populated_rows.len(), expected_height);
+        let first = populated_rows[0];
+        let last = populated_rows[expected_height - 1];
+        assert!((first - y - 1).abs_diff(bottom - last - 1) <= 1);
+        for row in first..=last {
+            assert_eq!(buffer[(x + 1, row)].symbol(), "5");
+            assert_eq!(buffer[(right - 1, row)].symbol(), "5");
         }
     }
 }

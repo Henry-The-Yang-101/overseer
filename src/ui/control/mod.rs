@@ -1047,17 +1047,25 @@ fn album(b: &mut Buffer, r: Rect, a: &App) {
         && image.width() > 0
         && image.height() > 0
     {
-        let aspect = r.width as f32 / (r.height as f32 * a.cell_aspect);
-        let src_width = ((image.height() as f32 * aspect).round() as u32).clamp(1, image.width());
-        let src_height = ((image.width() as f32 / aspect).round() as u32).clamp(1, image.height());
-        let src_x = (image.width() - src_width) / 2;
-        let src_y = (image.height() - src_height) / 2;
+        let rect = if image.width() == image.height() {
+            r
+        } else {
+            let aspect = image.width() as f32 / image.height() as f32 * a.cell_aspect;
+            let width = ((r.height as f32 * aspect).round() as u16).clamp(1, r.width);
+            let height = ((r.width as f32 / aspect).round() as u16).clamp(1, r.height);
+            Rect::new(
+                r.x + (r.width - width) / 2,
+                r.y + (r.height - height) / 2,
+                width,
+                height,
+            )
+        };
         let ramp = b" .,:;irsXA253hMHGS#9B&@";
-        for y in 0..r.height {
-            for x in 0..r.width {
+        for y in 0..rect.height {
+            for x in 0..rect.width {
                 let pixel = image.get_pixel(
-                    src_x + x as u32 * src_width / r.width as u32,
-                    src_y + y as u32 * src_height / r.height as u32,
+                    x as u32 * image.width() / rect.width as u32,
+                    y as u32 * image.height() / rect.height as u32,
                 );
                 let [red, green, blue] = pixel.0;
                 let l = (0.2126 * red as f32 + 0.7152 * green as f32 + 0.0722 * blue as f32) / 255.;
@@ -1067,7 +1075,7 @@ fn album(b: &mut Buffer, r: Rect, a: &App) {
                     green.saturating_add(20),
                     blue.saturating_add(20),
                 );
-                b[(r.x + x, r.y + y)]
+                b[(rect.x + x, rect.y + y)]
                     .set_char(ch)
                     .set_fg(fg)
                     .set_bg(Color::Rgb(red / 4, green / 4, blue / 4));
