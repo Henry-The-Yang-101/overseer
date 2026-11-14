@@ -15,6 +15,8 @@ use std::{
 #[serde(rename_all = "camelCase")]
 pub struct Metadata {
     pub bundle_identifier: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub process_identifier: Option<u32>,
     pub title: Option<String>,
     pub artist: Option<String>,
     pub album: Option<String>,

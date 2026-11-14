@@ -48,7 +48,7 @@ impl Tab {
             Self::Bluetooth => "↑↓ devices   Tab tabs   r refresh   ? help",
             Self::Display => "↑↓ displays   Tab tabs   r refresh   ? help",
             Self::Sound => "↑↓ device   i/o input/output   Enter select   ± volume   m mute",
-            Self::NowPlaying => "j prev   k play/pause   l next   ←→ seek   ± volume   Tab tabs",
+            Self::NowPlaying => "↑↓ players   j prev   k play/pause   l next   ←→ seek   Tab tabs",
         }
     }
 }

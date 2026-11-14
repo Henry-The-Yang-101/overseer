@@ -447,7 +447,7 @@ fn help(b: &mut Buffer, r: Rect, a: &App) {
             "SOUND        i / o input / output · Enter set device",
             "             + / − volume · m mute · e audio capture",
             "NOW PLAYING  j prev · k / Space play/pause · l next",
-            "             ← / → seek 10s · click timeline to seek",
+            "             ↑ / ↓ switch players · ← / → seek 10s",
             "             + / − volume · m mute · e audio capture",
             "",
             "t theme · a motion · : commands · Esc close · q quit",

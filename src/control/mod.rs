@@ -3,7 +3,7 @@
 mod data;
 pub mod models;
 mod worker;
-use crate::now_playing::{Listener, State};
+use crate::now_playing::{Listener, Metadata, State};
 pub use data::*;
 use std::{
     process::Command,
@@ -17,7 +17,37 @@ enum Snapshot {
     Bluetooth(Bluetooth),
     Displays(Vec<Display>),
     Sound(Sound),
+    Media(MediaSnapshot),
 }
+#[derive(serde::Deserialize)]
+struct MediaSnapshot {
+    sound: Sound,
+    applications: Vec<AudioSource>,
+}
+
+#[derive(Clone, PartialEq, Eq)]
+enum MediaId {
+    Bundle(String),
+    Process(u32),
+}
+impl From<&AudioSource> for MediaId {
+    fn from(source: &AudioSource) -> Self {
+        if source.bundle.is_empty() {
+            Self::Process(source.pid)
+        } else {
+            Self::Bundle(source.bundle.clone())
+        }
+    }
+}
+
+pub(crate) struct MediaSource<'a> {
+    id: MediaId,
+    pub name: &'a str,
+    pub metadata: Option<&'a Metadata>,
+    pub current: bool,
+    pub outputting: bool,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ControlAction {
     SpeedTest,
@@ -27,6 +57,7 @@ pub enum ControlAction {
     Input,
     Output,
     Activate,
+    SelectMedia(i8),
     Previous,
     TogglePlayback,
     Next,
@@ -68,6 +99,9 @@ pub struct ControlCenter {
     action: Option<Job<Sound>>,
     media_action: Option<Job<()>>,
     listener: Option<Listener>,
+    media_applications: Vec<AudioSource>,
+    recent_media: Vec<Metadata>,
+    selected_media: Option<MediaId>,
     media_attempted: bool,
     last_media: Option<Instant>,
     art_source: Option<Arc<str>>,
@@ -111,6 +145,9 @@ impl Default for ControlCenter {
             action: None,
             media_action: None,
             listener: None,
+            media_applications: vec![],
+            recent_media: vec![],
+            selected_media: None,
             media_attempted: false,
             last_media: None,
             art_source: None,
@@ -146,6 +183,10 @@ impl ControlCenter {
             .collect()
     }
     pub fn move_selection(&mut self, n: i32) {
+        if self.tab == Tab::NowPlaying {
+            self.step_media(n);
+            return;
+        }
         let (index, len) = match self.tab {
             Tab::Bluetooth => (&mut self.device_index, self.bluetooth.devices.len()),
             Tab::Display => (&mut self.display_index, self.displays.len()),
@@ -163,6 +204,130 @@ impl ControlCenter {
     pub fn select_device(&mut self, i: usize) {
         self.device_index = i.min(self.bluetooth.devices.len().saturating_sub(1));
         self.device_since = Instant::now();
+    }
+    fn current_media(&self) -> Option<&Metadata> {
+        match &self.now {
+            State::Active(metadata) => Some(metadata),
+            _ => None,
+        }
+    }
+    pub(crate) fn media_sources(&self) -> Vec<MediaSource<'_>> {
+        let mut sources = Vec::new();
+        let name = |metadata: &'_ Metadata| {
+            self.media_applications
+                .iter()
+                .chain(&self.sound.sources)
+                .find(|app| app.bundle == metadata.bundle_identifier)
+                .map(|app| app.name.as_str())
+        };
+        for (metadata, current) in self
+            .current_media()
+            .map(|metadata| (metadata, true))
+            .into_iter()
+            .chain(self.recent_media.iter().map(|metadata| (metadata, false)))
+        {
+            let id = MediaId::Bundle(metadata.bundle_identifier.clone());
+            if sources
+                .iter()
+                .any(|source: &MediaSource<'_>| source.id == id)
+            {
+                continue;
+            }
+            sources.push(MediaSource {
+                id,
+                name: name(metadata).unwrap_or(&metadata.bundle_identifier),
+                metadata: Some(metadata),
+                current,
+                outputting: self
+                    .sound
+                    .sources
+                    .iter()
+                    .any(|app| app.bundle == metadata.bundle_identifier),
+            });
+        }
+        for app in &self.sound.sources {
+            let id = MediaId::from(app);
+            if sources.iter().any(|source| source.id == id) {
+                continue;
+            }
+            sources.push(MediaSource {
+                id,
+                name: if app.name.is_empty() {
+                    "Unknown app"
+                } else {
+                    &app.name
+                },
+                metadata: None,
+                current: false,
+                outputting: true,
+            });
+        }
+        sources
+    }
+    pub(crate) fn media_selection(&self, sources: &[MediaSource<'_>]) -> usize {
+        sources
+            .iter()
+            .position(|source| self.selected_media.as_ref() == Some(&source.id))
+            .unwrap_or(0)
+    }
+    fn step_media(&mut self, step: i32) {
+        let sources = self.media_sources();
+        if sources.len() > 1 {
+            let index =
+                (self.media_selection(&sources) as i32 + step).rem_euclid(sources.len() as i32);
+            let source = &sources[index as usize];
+            self.selected_media = (!source.current).then(|| source.id.clone());
+            self.message = None;
+        }
+    }
+    pub(crate) fn displayed_artwork(
+        &self,
+        source: Option<&MediaSource<'_>>,
+    ) -> Option<&image::RgbImage> {
+        let source = source?;
+        let artwork = source.metadata?.artwork_data.as_ref();
+        if artwork == self.art_source.as_ref() && (source.current || artwork.is_some()) {
+            self.artwork.as_deref()
+        } else {
+            None
+        }
+    }
+    fn remember_media(&mut self, now: State) {
+        let previous = std::mem::replace(&mut self.now, now);
+        if let State::Active(metadata) = previous
+            && self.current_media().is_none_or(|current| {
+                current.bundle_identifier != metadata.bundle_identifier
+                    || current.process_identifier != metadata.process_identifier
+            })
+        {
+            if let Some(index) = self
+                .recent_media
+                .iter()
+                .position(|m| m.bundle_identifier == metadata.bundle_identifier)
+            {
+                self.recent_media.remove(index);
+            }
+            self.recent_media.insert(0, metadata);
+            self.recent_media.truncate(6);
+        }
+    }
+    fn update_media_sources(&mut self, snapshot: MediaSnapshot) {
+        self.sound = snapshot.sound;
+        self.media_applications = snapshot.applications;
+        self.recent_media.retain(|metadata| {
+            self.media_applications
+                .iter()
+                .chain(&self.sound.sources)
+                .any(|app| {
+                    app.bundle == metadata.bundle_identifier
+                        && metadata.process_identifier.is_none_or(|pid| app.pid == pid)
+                })
+        });
+        if let Some(id) = &self.selected_media
+            && !self.media_sources().iter().any(|source| source.id == *id)
+        {
+            self.selected_media = None;
+        }
     }
     pub fn tick(&mut self, active: bool, demo: bool) {
         if !active || demo {
@@ -260,6 +425,7 @@ impl ControlCenter {
                                 .position(|d| Some(d.id) == id)
                                 .unwrap_or(0);
                         }
+                        Snapshot::Media(snapshot) => self.update_media_sources(snapshot),
                     }
                 }
                 Err(e) => self.errors[self.tab.index()] = Some(e),
@@ -278,9 +444,8 @@ impl ControlCenter {
             self.snapshot = Some(Job::start(move |cancel| match tab {
                 Tab::Wifi => native(&["wifi".into()], cancel).map(Snapshot::Wifi),
                 Tab::Display => native(&["display".into()], cancel).map(Snapshot::Displays),
-                Tab::Sound | Tab::NowPlaying => {
-                    native(&["sound".into()], cancel).map(Snapshot::Sound)
-                }
+                Tab::Sound => native(&["sound".into()], cancel).map(Snapshot::Sound),
+                Tab::NowPlaying => native(&["media-sources".into()], cancel).map(Snapshot::Media),
                 Tab::Bluetooth => {
                     if !cfg!(target_os = "macos") {
                         return Err("Bluetooth inventory requires macOS".into());
@@ -380,12 +545,12 @@ impl ControlCenter {
             match Listener::start_with_artwork() {
                 Ok(listener) => {
                     self.listener = Some(listener);
-                    self.now = State::Waiting;
+                    self.remember_media(State::Waiting);
                 }
                 Err(e) => {
-                    self.now = State::Failed(format!(
+                    self.remember_media(State::Failed(format!(
                         "media-control unavailable: {e}. Install with brew install media-control"
-                    ))
+                    )));
                 }
             }
         }
@@ -395,12 +560,13 @@ impl ControlCenter {
         {
             self.last_media = Some(Instant::now());
             if let Some(listener) = &self.listener {
-                self.now = listener.snapshot();
+                self.remember_media(listener.snapshot());
             }
-            let source = match &self.now {
-                State::Active(m) => m.artwork_data.clone(),
-                _ => None,
-            };
+            let sources = self.media_sources();
+            let source = sources
+                .get(self.media_selection(&sources))
+                .and_then(|source| source.metadata)
+                .and_then(|metadata| metadata.artwork_data.clone());
             if source != self.art_source {
                 self.art_job = None;
                 self.artwork = None;
@@ -469,6 +635,10 @@ impl ControlCenter {
         }
     }
     pub fn act(&mut self, action: ControlAction, demo: bool) {
+        if let ControlAction::SelectMedia(step) = action {
+            self.step_media(step.into());
+            return;
+        }
         if matches!(action, ControlAction::Input | ControlAction::Output) {
             self.input = action == ControlAction::Input;
             self.audio_index = 0;
@@ -541,11 +711,20 @@ impl ControlCenter {
                 if self.media_action.is_some() {
                     return;
                 }
-                let State::Active(metadata) = &self.now else {
+                let sources = self.media_sources();
+                if sources
+                    .get(self.media_selection(&sources))
+                    .is_some_and(|source| !source.current)
+                {
+                    self.message = Some("Playback controls follow the system player".into());
+                    return;
+                }
+                let Some(metadata) = self.current_media() else {
                     self.message = Some("No system media session to control".into());
                     return;
                 };
                 let bundle = metadata.bundle_identifier.clone();
+                let pid = metadata.process_identifier;
                 let args: Vec<String> = match action {
                     ControlAction::Previous => vec!["previous-track".into()],
                     ControlAction::Next => vec!["next-track".into()],
@@ -586,7 +765,12 @@ impl ControlCenter {
                     )?;
                     let current: serde_json::Value =
                         serde_json::from_slice(&bytes).map_err(|e| e.to_string())?;
-                    if !ok || current["bundleIdentifier"].as_str() != Some(&bundle) {
+                    if !ok
+                        || current["bundleIdentifier"].as_str() != Some(&bundle)
+                        || pid.is_some_and(|pid| {
+                            current["processIdentifier"].as_u64() != Some(pid.into())
+                        })
+                    {
                         return Err("Active player changed; retry the control".into());
                     }
                     let (ok, _) = output(
@@ -774,5 +958,71 @@ impl ControlCenter {
             ])
         })));
         c
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn media_picker_keeps_its_selection_and_drops_closed_sessions() {
+        let mut control = ControlCenter::default();
+        control.change_tab(Tab::NowPlaying);
+        let music = AudioSource {
+            pid: 10,
+            bundle: "music".into(),
+            name: "Music".into(),
+        };
+        let browser = AudioSource {
+            pid: 20,
+            bundle: "browser".into(),
+            name: "Browser".into(),
+        };
+        let session =
+            |app: &AudioSource, title: &str| {
+                State::Active(serde_json::from_value(serde_json::json!({
+                "bundleIdentifier": app.bundle, "processIdentifier": app.pid, "title": title,
+                "artworkData": title,
+            })).unwrap())
+            };
+        control.update_media_sources(MediaSnapshot {
+            sound: Sound {
+                sources: vec![browser.clone(), browser.clone()],
+                ..Sound::default()
+            },
+            applications: vec![music.clone(), browser.clone()],
+        });
+        control.remember_media(session(&browser, "Video"));
+        control.remember_media(session(&music, "Song"));
+        control.art_source = Some(Arc::from("Song"));
+        control.artwork = Some(Arc::new(image::RgbImage::new(1, 1)));
+        control.move_selection(1);
+        let sources = control.media_sources();
+        assert_eq!(sources.len(), 2);
+        let selected = &sources[control.media_selection(&sources)];
+        assert_eq!(selected.metadata.unwrap().title.as_deref(), Some("Video"));
+        assert!(control.displayed_artwork(Some(selected)).is_none());
+        control.act(ControlAction::TogglePlayback, false);
+        assert!(control.media_action.is_none());
+        assert_eq!(
+            control.message.as_deref(),
+            Some("Playback controls follow the system player")
+        );
+
+        control.remember_media(session(&browser, "New video"));
+        let sources = control.media_sources();
+        assert!(sources[control.media_selection(&sources)].current);
+        control.remember_media(session(&music, "New song"));
+        let sources = control.media_sources();
+        assert_eq!(sources[control.media_selection(&sources)].name, "Browser");
+
+        control.update_media_sources(MediaSnapshot {
+            sound: Sound::default(),
+            applications: vec![music],
+        });
+        let sources = control.media_sources();
+        assert_eq!(sources.len(), 1);
+        assert!(sources[control.media_selection(&sources)].current);
     }
 }

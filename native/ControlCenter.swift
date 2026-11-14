@@ -84,11 +84,18 @@ func audio() -> [String: Any] {
             guard read(id, kAudioProcessPropertyIsRunningOutput, UInt32(0)) == 1 else { continue }
             let pid = read(id, kAudioProcessPropertyPID, Int32(0)) ?? 0
             let app = NSRunningApplication(processIdentifier: pid)
-            let bundle = string(id, kAudioProcessPropertyBundleID) ?? app?.bundleIdentifier ?? ""
+            let bundle = app?.bundleIdentifier ?? string(id, kAudioProcessPropertyBundleID) ?? ""
             sources.append(["pid": pid, "bundle": bundle, "name": app?.localizedName ?? bundle])
         }
     }
     return ["devices": devices, "sources": sources]
+}
+func mediaSources() -> [String: Any] {
+    let applications = NSWorkspace.shared.runningApplications.compactMap { app -> [String: Any]? in
+        guard let bundle = app.bundleIdentifier, app.processIdentifier > 0 else { return nil }
+        return ["pid": app.processIdentifier, "bundle": bundle, "name": app.localizedName ?? bundle]
+    }
+    return ["sound": audio(), "applications": applications]
 }
 func controlAudio(_ args: [String]) throws -> [String: Any] {
     guard let command = args.first else { try fail("Missing audio action") }
@@ -187,6 +194,7 @@ do {
     case "wifi": result = wifi()
     case "display": result = displays()
     case "sound": result = audio()
+    case "media-sources": result = mediaSources()
     case "audio": result = try controlAudio(Array(args.dropFirst()))
     default: try fail("Unknown Control Center request")
     }

@@ -1038,12 +1038,12 @@ fn sound(b: &mut Buffer, r: Rect, a: &mut App) {
         a,
     );
 }
-fn album(b: &mut Buffer, r: Rect, a: &App) {
+fn album(b: &mut Buffer, r: Rect, image: Option<&image::RgbImage>, a: &App) {
     if r.is_empty() {
         return;
     }
     let t = &a.theme;
-    if let Some(image) = &a.control.artwork
+    if let Some(image) = image
         && image.width() > 0
         && image.height() > 0
     {
@@ -1124,32 +1124,63 @@ fn now_playing(b: &mut Buffer, r: Rect, a: &mut App) {
     let (left, right) = split(r, cover_width);
     let cover = row(left, 0, cover_height);
     frame(b, cover, "ALBUM ART", "", false, &t);
-    album(b, inner(cover, 1, 1), a);
+    let sources = a.control.media_sources();
+    let count = sources.len();
+    let has_current = sources.first().is_some_and(|source| source.current);
+    let index = a.control.media_selection(&sources);
+    let source = sources.get(index);
+    album(
+        b,
+        inner(cover, 1, 1),
+        a.control.displayed_artwork(source),
+        a,
+    );
+    let player = source.map(|source| {
+        let status = match source
+            .metadata
+            .filter(|_| source.current)
+            .and_then(|m| m.playing)
+        {
+            Some(true) => "▶ ",
+            Some(false) => "Ⅱ ",
+            None => "",
+        };
+        format!("{}/{count} {status}{}", index + 1, source.name)
+    });
+    let current = source.is_some_and(|source| source.current);
+    let outputting = source.is_some_and(|source| source.outputting);
+    let metadata = source.and_then(|source| source.metadata).cloned();
     let panel = frame(b, right, "NOW PLAYING", "", false, &t);
-    let compact = panel.height < 18;
-    let metadata = match &a.control.now {
-        State::Active(m) => Some(m.clone()),
-        state => {
-            line(
+    if let Some(player) = player {
+        let selector = row(panel, 0, 1);
+        if count > 1 {
+            line(b, inner(selector, 4, 0), 0, player, t.bright);
+            button(b, selector, 0, 0, "[↑]", C::SelectMedia(-1), a);
+            button(
                 b,
-                panel,
+                selector,
+                selector.width - 3,
                 0,
-                match state {
-                    State::Waiting => "Loading player…",
-                    State::Idle => "Nothing playing",
-                    State::Failed(e) => e.as_str(),
-                    _ => unreachable!(),
-                },
-                t.muted,
+                "[↓]",
+                C::SelectMedia(1),
+                a,
             );
-            None
+        } else {
+            line(b, selector, 0, player, t.bright);
         }
-    };
+    } else {
+        let state = match &a.control.now {
+            State::Waiting => "Loading player…",
+            State::Failed(e) => e.as_str(),
+            _ => "Nothing playing",
+        };
+        line(b, panel, 0, state, t.muted);
+    }
     if let Some(m) = &metadata {
         line(
             b,
             panel,
-            u16::from(!compact),
+            1,
             m.title
                 .as_deref()
                 .filter(|s| !s.is_empty())
@@ -1159,116 +1190,78 @@ fn now_playing(b: &mut Buffer, r: Rect, a: &mut App) {
         line(
             b,
             panel,
-            if compact { 1 } else { 3 },
+            2,
             m.artist.as_deref().unwrap_or("Unknown artist"),
             t.cpu,
         );
         if panel.height >= 12 {
-            line(
-                b,
-                panel,
-                if compact { 2 } else { 4 },
-                m.album.as_deref().unwrap_or(""),
-                t.muted,
-            );
+            line(b, panel, 3, m.album.as_deref().unwrap_or(""), t.muted);
         }
-        let player = a
-            .control
-            .sound
-            .sources
-            .iter()
-            .find(|s| s.bundle == m.bundle_identifier)
-            .map_or(m.bundle_identifier.as_str(), |s| s.name.as_str());
+    } else if outputting {
+        line(b, panel, 1, "Outputting audio", t.text);
+    }
+    let transport = if panel.height >= 12 { 5 } else { 3 };
+    if current {
+        let position = metadata.as_ref().and_then(|m| m.position());
+        let duration = metadata.as_ref().and_then(|m| m.duration_seconds());
         line(
             b,
             panel,
-            if compact {
-                if panel.height >= 12 { 3 } else { 2 }
-            } else {
-                6
-            },
+            transport,
             format!(
-                "{} · {player}",
-                match m.playing {
-                    Some(true) => "▶",
-                    Some(false) => "Ⅱ",
-                    None => "—",
-                }
+                "{} / {}",
+                value(position, clock_time),
+                value(duration, clock_time)
             ),
-            t.muted,
+            t.text,
         );
-        if panel.height >= 26 {
-            let others: Vec<_> = a
-                .control
-                .sound
-                .sources
-                .iter()
-                .filter(|s| s.bundle != m.bundle_identifier)
-                .collect();
-            if !others.is_empty() {
-                line(b, panel, 8, "ALSO OUTPUTTING AUDIO", t.muted);
-                for (i, source) in others.iter().take(3).enumerate() {
-                    line(b, panel, 9 + i as u16, &source.name, t.text);
-                }
+        let seek = row(panel, transport + 1, 1);
+        meter(
+            b,
+            seek,
+            position.zip(duration).map_or(0., |(p, d)| (p / d) as f32),
+            t.accent,
+            &t,
+            a.cfg.ui.glyphs == "ascii",
+        );
+        if duration.is_some() {
+            for x in 0..seek.width {
+                a.hitmap.add(
+                    Rect::new(seek.x + x, seek.y, 1, seek.height),
+                    15,
+                    Hit::Control(C::SeekPercent(
+                        (x as u32 * 1000 / seek.width.saturating_sub(1).max(1) as u32) as u16,
+                    )),
+                );
             }
         }
-    }
-    let transport = if compact {
-        if panel.height >= 12 { 5 } else { 3 }
-    } else if panel.height >= 26 {
-        14
-    } else {
-        8
-    };
-    let position = metadata.as_ref().and_then(|m| m.position());
-    let duration = metadata.as_ref().and_then(|m| m.duration_seconds());
-    line(
-        b,
-        panel,
-        transport,
-        format!(
-            "{} / {}",
-            value(position, clock_time),
-            value(duration, clock_time)
-        ),
-        t.text,
-    );
-    let seek = row(panel, transport + 1, 1);
-    meter(
-        b,
-        seek,
-        position.zip(duration).map_or(0., |(p, d)| (p / d) as f32),
-        t.accent,
-        &t,
-        a.cfg.ui.glyphs == "ascii",
-    );
-    if duration.is_some() {
-        for x in 0..seek.width {
-            a.hitmap.add(
-                Rect::new(seek.x + x, seek.y, 1, seek.height),
-                15,
-                Hit::Control(C::SeekPercent(
-                    (x as u32 * 1000 / seek.width.saturating_sub(1).max(1) as u32) as u16,
-                )),
-            );
+        button(b, panel, 0, transport + 2, "[j ‹]", C::Previous, a);
+        button(
+            b,
+            panel,
+            7,
+            transport + 2,
+            if metadata.as_ref().is_some_and(|m| m.playing == Some(true)) {
+                "[k Ⅱ]"
+            } else {
+                "[k ▶]"
+            },
+            C::TogglePlayback,
+            a,
+        );
+        button(b, panel, 14, transport + 2, "[l ›]", C::Next, a);
+    } else if count > 0 {
+        if metadata.is_some() {
+            line(b, panel, transport, "Last reported track", t.muted);
         }
-    }
-    button(b, panel, 0, transport + 2, "[j ‹]", C::Previous, a);
-    button(
-        b,
-        panel,
-        7,
-        transport + 2,
-        if metadata.as_ref().is_some_and(|m| m.playing == Some(true)) {
-            "[k Ⅱ]"
+        let message = if has_current {
+            "Controls on player 1"
         } else {
-            "[k ▶]"
-        },
-        C::TogglePlayback,
-        a,
-    );
-    button(b, panel, 14, transport + 2, "[l ›]", C::Next, a);
-    let wave_y = transport + if compact { 3 } else { 4 };
+            "No live player controls"
+        };
+        line(b, panel, transport + 1, message, t.muted);
+    }
+    let wave_y = transport + 3;
     let wave = row(panel, wave_y, panel.height.saturating_sub(wave_y + 2));
     super::audio::waveform(b, wave, Part::SpeakerLeft, a, false);
     if panel.height > transport + 5 {

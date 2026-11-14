@@ -1375,7 +1375,9 @@ fn now_playing_artwork_fits_without_cropping() {
 
 #[test]
 fn control_center_tabs_fit_and_own_their_controls() {
-    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+    use crossterm::event::{
+        KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
+    };
     use overseer::control::{ControlAction as C, Tab};
     for (w, h) in [(60, 18), (80, 24), (120, 36), (200, 55)] {
         let mut a = app("balanced");
@@ -1443,6 +1445,25 @@ fn control_center_tabs_fit_and_own_their_controls() {
                     .is_some_and(|m| m.contains("Demo"))
             );
         }
+        a.on_key(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE));
+        let view = render(&mut a, w, h);
+        assert!(view.contains("2/2 Browser") && view.contains("Outputting audio"));
+        assert!(view.contains("No artwork"));
+        assert!(!view.contains("Midnight transmission") && !view.contains("[j ‹]"));
+        let selector = a
+            .hitmap
+            .0
+            .iter()
+            .find(|(_, _, hit)| *hit == Hit::Control(C::SelectMedia(-1)))
+            .unwrap()
+            .0;
+        a.on_mouse(MouseEvent {
+            kind: MouseEventKind::Down(MouseButton::Left),
+            column: selector.x,
+            row: selector.y,
+            modifiers: KeyModifiers::NONE,
+        });
+        assert!(render(&mut a, w, h).contains("Midnight transmission"));
         a.act(Action::ControlTab(Tab::Bluetooth));
         a.control.select_device(7);
         render(&mut a, w, h);
