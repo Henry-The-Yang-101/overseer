@@ -1222,14 +1222,23 @@ fn audio_histogram_combines_channels_in_bottom_aligned_bars() {
     use ratatui::{buffer::Buffer, layout::Rect};
 
     let mut a = app("balanced");
-    let bounds = Rect::new(3, 5, 7, 4);
+    let bounds = Rect::new(3, 5, 9, 4);
     let audio = Frame {
         status: String::new(),
-        channels: vec![vec![0.125, 0., 0., 0.], vec![0., -0.25, 0., -0.125]],
+        channels: vec![
+            vec![0.125, 0., 0., 0.0625, 0.25],
+            vec![0., -0.25, 0., -0.0625, -0.25],
+        ],
     };
     for (glyphs, expected) in [
-        ("unicode", ["       ", "  ▇    ", "▃ █   ▃", "█ █   █"]),
-        ("ascii", ["       ", "  #    ", "# #   #", "# #   #"]),
+        (
+            "unicode",
+            ["  ▃     █", "▃ █     █", "█ █   █ █", "█ █   █ █"],
+        ),
+        (
+            "ascii",
+            ["  #     #", "# #     #", "# #   # #", "# #   # #"],
+        ),
     ] {
         a.cfg.ui.glyphs = glyphs.into();
         let mut buffer = Buffer::empty(bounds);

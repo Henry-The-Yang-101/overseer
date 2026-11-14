@@ -97,7 +97,9 @@ pub fn histogram(b: &mut Buffer, r: Rect, a: &App, frame: &Frame) {
             count += end - start;
         }
         let level = ((energy / count as f32).sqrt() * 4.).clamp(0., 1.);
-        let eighths = (level * f32::from(r.height) * 8.).round() as u32;
+        // Give quieter audio more of the display: quarter amplitude draws a half-height bar.
+        let height = level.sqrt();
+        let eighths = (height * f32::from(r.height) * 8.).round() as u32;
         for y in 0..eighths.div_ceil(8) {
             let block = if ascii {
                 "#"
