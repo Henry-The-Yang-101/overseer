@@ -1676,11 +1676,20 @@ fn wiring(b: &mut Buffer, c: Rect, a: &App, mirror: bool, layout: &Layout) {
         let supplying_power = !battery.ac || flow.is_some_and(|f| !f.charging);
 
         if let Some((upper, lower)) = adapter_paths {
-            // The adapter feeds the SoC on the upper wire and the BMS on the lower wire.
-            if !supplying_power {
-                trace(b, c, &lower, color, pulse.filter(|_| battery.charging));
+            if supplying_power {
+                trace(b, c, &upper, color, None);
+            } else {
+                let lower = trace(b, c, &lower, color, None);
+                let upper = trace(b, c, &upper, color, None);
+                if let Some((phase, color)) = pulse {
+                    // Use the same distance on both routes so the dots overlap until the fork.
+                    let step = (phase.fract() * upper.len().max(lower.len()) as f32) as usize;
+                    for route in [&upper, &lower] {
+                        let (x, y) = route[step.min(route.len() - 1)];
+                        text(b, c, x - c.x, y - c.y, "·", color);
+                    }
+                }
             }
-            trace(b, c, &upper, color, pulse.filter(|_| !supplying_power));
         } else if !supplying_power {
             // Without a known input port, show power flow along the center rail only.
             trace(b, c, &[bms, chip], color, None);
@@ -1716,7 +1725,7 @@ fn trace(
     points: &[(u16, u16)],
     color: Color,
     pulse: Option<(f32, Color)>,
-) {
+) -> Vec<(u16, u16)> {
     let mut cells = Vec::new();
     for pair in points.windows(2) {
         let (mut x, mut y) = pair[0];
@@ -1787,6 +1796,7 @@ fn trace(
         let i = (phase.fract() * cells.len() as f32) as usize % cells.len();
         text(b, c, cells[i].0 - c.x, cells[i].1 - c.y, "·", color);
     }
+    cells
 }
 
 #[cfg(test)]
@@ -1951,6 +1961,19 @@ mod tests {
                 assert_eq!(buffer[(center, y)].fg, wire_color);
             }
             a.motion = crate::motion::Motion::Full;
+            a.cells = true;
+            a.anim.phases.insert("ambient".into(), 0.12);
+            buffer.reset();
+            wiring(&mut buffer, c, &a, mirror, &layout);
+            assert_eq!(
+                buffer
+                    .content
+                    .iter()
+                    .filter(|cell| cell.symbol() == "·" && cell.fg == a.theme.battery)
+                    .count(),
+                1,
+                "only one dot should appear on the shared wire before the split"
+            );
             a.anim.phases.insert("ambient".into(), 0.5);
             buffer.reset();
             wiring(&mut buffer, c, &a, mirror, &layout);
@@ -1975,7 +1998,7 @@ mod tests {
             buffer.reset();
             wiring(&mut buffer, c, &a, mirror, &layout);
             assert_eq!(buffer[(chip_input, chip_y)].symbol(), "·");
-            assert_eq!(buffer[(center, bms.y)].symbol(), "│");
+            assert_eq!(buffer[(center, bms.y)].symbol(), "·");
 
             Arc::make_mut(a.history.back_mut().unwrap()).ports = Avail::Acquiring;
             buffer.reset();
