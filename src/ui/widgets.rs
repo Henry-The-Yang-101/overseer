@@ -7,10 +7,7 @@ use crate::{
     metrics::{Avail, Sample},
     motion::{Mood, face},
 };
-use ratatui::{
-    buffer::Buffer,
-    layout::{Constraint::Fill, Layout, Rect},
-};
+use ratatui::{buffer::Buffer, layout::Rect};
 pub fn tint(p: Part, t: &Theme) -> ratatui::style::Color {
     match p {
         Part::Cpu | Part::Soc => t.cpu,
@@ -103,8 +100,6 @@ pub fn panel(b: &mut Buffer, r: Rect, p: Part, a: &mut App) {
             s.memory_used as f64 / base,
             s.machine.memory as f64 / base
         )
-    } else if p == Part::Soc {
-        String::new()
     } else {
         readout(p, &s, a)
     };
@@ -149,8 +144,7 @@ pub fn content(b: &mut Buffer, r: Rect, p: Part, s: &Sample, a: &App) {
     }
     let t = &a.theme;
     match p {
-        Part::Cpu => cpu(b, r, s, a),
-        Part::Soc => soc_utilization(b, r, s, a, 60),
+        Part::Cpu | Part::Soc => cpu(b, r, s, a),
         Part::Gpu => gpu(b, r, s, a),
         Part::Ane => ane(b, r, s, a),
         Part::Memory => memory(b, r, s, a),
@@ -218,55 +212,6 @@ pub fn content(b: &mut Buffer, r: Rect, p: Part, s: &Sample, a: &App) {
         Part::Battery => battery(b, r, s, a),
         Part::SpeakerLeft | Part::SpeakerRight => super::audio::waveform(b, r, p, a, false),
         Part::Cell(_) => {}
-    }
-}
-pub(super) fn soc_utilization(b: &mut Buffer, r: Rect, s: &Sample, a: &App, seconds: u32) {
-    let [cpu, gpu] = Layout::horizontal([Fill(1), Fill(1)]).spacing(1).areas(r);
-    let t = &a.theme;
-    for (panel, part, label, heading) in [
-        (cpu, Part::Cpu, "CPU", "TOTAL CPU UTILIZATION"),
-        (gpu, Part::Gpu, "GPU", "GPU UTILIZATION"),
-    ] {
-        let color = tint(part, t);
-        let current = readout(part, s, a);
-        let chart_y = if panel.width >= 22 && panel.height >= 5 {
-            line(b, panel, 0, heading, color);
-            line(b, panel, 1, current.trim_start(), color);
-            2
-        } else {
-            line(
-                b,
-                panel,
-                0,
-                format!("{label} {}", current.trim_start()),
-                color,
-            );
-            1
-        };
-        let history = a.history_values_in(part, seconds);
-        let show_stats = panel.width >= 22 && panel.height >= chart_y + 3 && !history.is_empty();
-        let chart = row(
-            panel,
-            chart_y,
-            panel.height.saturating_sub(chart_y + u16::from(show_stats)),
-        );
-        let plot = scale_axis(b, chart, "100%", "0%", t);
-        if history.is_empty() {
-            line(b, plot, 0, "No readings", t.muted);
-        } else {
-            spark(b, plot, &history, 1., color, t, a.cfg.ui.glyphs == "ascii");
-        }
-        if show_stats {
-            let min = history.iter().copied().fold(1., f32::min);
-            let peak = history.iter().copied().fold(0., f32::max);
-            line(
-                b,
-                panel,
-                panel.height - 1,
-                format!("min {:.0}% · peak {:.0}%", min * 100., peak * 100.),
-                t.muted,
-            );
-        }
     }
 }
 fn cpu(b: &mut Buffer, r: Rect, s: &Sample, a: &App) {

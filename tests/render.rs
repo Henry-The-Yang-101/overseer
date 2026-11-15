@@ -754,15 +754,14 @@ fn component_inspectors_have_no_sample_summary() {
     }
 }
 #[test]
-fn soc_selection_shows_total_cpu_and_gpu_utilization() {
+fn soc_inspector_uses_total_cpu_and_ignores_core_navigation() {
     use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-    use overseer::{app::Layer, metrics::Avail};
+    use overseer::app::Layer;
     use std::sync::Arc;
     let mut a = app("balanced");
     for sample in &mut a.history {
         let sample = Arc::make_mut(sample);
         sample.cpu = 0.73;
-        sample.gpu = Avail::Ok(0.42);
         for tier in &mut sample.tiers {
             for core in &mut tier.cores {
                 core.active = 0.11;
@@ -771,16 +770,12 @@ fn soc_selection_shows_total_cpu_and_gpu_utilization() {
     }
     a.inspect_core = 3;
     a.select(Part::Soc);
-    for (w, h) in [(60, 18), (200, 55)] {
-        let view = render(&mut a, w, h);
-        assert!(view.contains("CPU 73.0%") && view.contains("GPU 42.0%"));
-    }
     a.on_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
     assert!(matches!(a.layers.last(), Some(Layer::Inspector(Part::Soc))));
     for (w, h) in [(60, 18), (120, 36), (200, 55)] {
         let before = render(&mut a, w, h);
-        assert!(before.contains("TOTAL CPU UTILIZATION") && before.contains("GPU UTILIZATION"));
-        assert!(before.contains("peak 73%") && before.contains("peak 42%"));
+        assert!(before.contains("% TOTAL CPU UTILIZATION"));
+        assert!(before.contains("peak 73%"));
         assert!(!before.contains("← → core"));
         assert!(!before.contains(" / PCPU"));
         for key in [KeyCode::Left, KeyCode::Right, KeyCode::Up, KeyCode::Down] {
@@ -789,12 +784,6 @@ fn soc_selection_shows_total_cpu_and_gpu_utilization() {
             assert_eq!(render(&mut a, w, h), before);
         }
     }
-    for sample in &mut a.history {
-        Arc::make_mut(sample).gpu = Avail::Unsupported("GPU telemetry unavailable".into());
-    }
-    let unavailable = render(&mut a, 120, 36);
-    assert!(unavailable.contains("N/A") && unavailable.contains("No readings"));
-    assert!(unavailable.contains("peak 73%") && !unavailable.contains("peak 0%"));
 }
 #[test]
 fn selected_graph_scales_follow_units_and_task_cpu_can_exceed_100_percent() {

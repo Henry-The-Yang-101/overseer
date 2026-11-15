@@ -1085,15 +1085,10 @@ impl App {
             .cloned()
     }
     pub fn history_values(&self, part: Part) -> Vec<f32> {
-        self.history_values_in(part, 60)
-    }
-    pub(crate) fn history_values_in(&self, part: Part, seconds: u32) -> Vec<f32> {
         let end = self.sample().at;
         self.history
             .iter()
-            .filter(|s| {
-                s.at >= end - f64::from(seconds) && s.at <= end && metric_available(part, s)
-            })
+            .filter(|s| s.at >= end - 60. && s.at <= end && metric_available(part, s))
             .map(|s| metric(part, s))
             .collect()
     }
