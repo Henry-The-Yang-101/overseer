@@ -568,6 +568,7 @@ pub struct App {
     pub hitmap: HitMap,
     pub parts: Vec<(Part, Rect)>,
     pub rail: Rect,
+    pub(crate) teardown_player_visible: bool,
     pub toasts: VecDeque<Toast>,
     pub cooldown: HashMap<String, Instant>,
     pub ghosts: Vec<(Proc, Instant)>,
@@ -675,6 +676,7 @@ impl App {
             hitmap: HitMap::default(),
             parts: vec![],
             rail: Rect::default(),
+            teardown_player_visible: false,
             toasts: VecDeque::new(),
             cooldown: HashMap::new(),
             ghosts: vec![],
@@ -884,8 +886,12 @@ impl App {
         });
     }
     pub fn tick(&mut self, dt: Duration) {
-        self.control
-            .tick(self.screen == Screen::ControlCenter, self.demo.is_some());
+        let compact_media = self.teardown_player_active();
+        self.control.tick(
+            self.screen == Screen::ControlCenter,
+            self.demo.is_some(),
+            compact_media,
+        );
         if self.caffeinate.expire() {
             self.info("Caffeinate timer finished".into());
         }
@@ -1087,8 +1093,18 @@ impl App {
             .collect()
     }
     pub fn select(&mut self, p: Part) {
+        if self.screen == Screen::Teardown && matches!(p, Part::SpeakerLeft | Part::SpeakerRight) {
+            self.control.message = None;
+        }
         self.selection = Some(p.selection_group());
         self.selected_at = Instant::now();
+    }
+    fn teardown_player_active(&self) -> bool {
+        self.teardown_player_visible
+            && self.screen == Screen::Teardown
+            && self.zoom.is_none()
+            && self.cursor.is_none()
+            && matches!(self.selection, Some(Part::SpeakerLeft | Part::SpeakerRight))
     }
     pub fn part_order(&self) -> Vec<Part> {
         if self.screen != Screen::Teardown {
@@ -1274,7 +1290,9 @@ impl App {
                     if self.demo.is_none() {
                         self.cfg.teardown.audio_enabled = !self.cfg.teardown.audio_enabled;
                     }
-                } else {
+                } else if self.teardown_player_active() {
+                    self.control.act_current_media(action, self.demo.is_some());
+                } else if self.screen == Screen::ControlCenter {
                     self.control.act(action, self.demo.is_some());
                 }
             }

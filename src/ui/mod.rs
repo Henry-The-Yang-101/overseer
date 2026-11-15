@@ -47,6 +47,7 @@ pub fn draw(f: &mut Frame, a: &mut App, dt: std::time::Duration) {
     b.set_style(area, Style::new().bg(t.void).fg(t.text));
     a.hitmap.0.clear();
     a.parts.clear();
+    a.teardown_player_visible = false;
     let size = SizeClass::of(area);
     if size == SizeClass::TooSmall {
         let w = area.width.min(48);

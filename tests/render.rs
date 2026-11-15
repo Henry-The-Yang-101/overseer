@@ -108,6 +108,8 @@ fn representative_layouts() {
         let selected = render(&mut a, w, h);
         if w >= 150 {
             assert!(selected.contains("SELECTED"));
+            assert!(!selected.contains("PHYSICAL PORTS"));
+            assert!(!selected.contains("NOW PLAYING"));
             frames += &format!("\nSELECTED COMPONENT\n{selected}");
         }
         a.act(Action::Back);
@@ -1103,6 +1105,79 @@ fn speaker_sidebar_waveform_rows(view: &str) -> usize {
         .filter(|line| line.chars().any(|c| ('\u{2801}'..='\u{28ff}').contains(&c)))
         .count()
 }
+
+#[test]
+fn speaker_sidebar_shows_live_now_playing_with_clickable_transport() {
+    use crossterm::event::{KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
+    use overseer::control::ControlAction as C;
+
+    let mut a = app("balanced");
+    let image = image::RgbImage::from_pixel(8, 8, image::Rgb([255; 3]));
+    a.control.artwork = Some(std::sync::Arc::new(image));
+    for (speaker, w, h) in [(Part::SpeakerLeft, 150, 42), (Part::SpeakerRight, 200, 55)] {
+        a.select(speaker);
+        let view = render(&mut a, w, h);
+        for label in [
+            "NOW PLAYING",
+            "@@@@@@@@",
+            "Midnight transmission",
+            "Overseer sessions",
+            "Signals / Vol. 01",
+            "1:23 / 4:05",
+            "[Prev]",
+            "[Pause]",
+            "[Next]",
+        ] {
+            assert!(view.contains(label), "missing {label} at {w}x{h}");
+        }
+        let seek = a
+            .hitmap
+            .0
+            .iter()
+            .find_map(|(_, _, hit)| match hit {
+                Hit::Control(C::SeekPercent(percent @ 450..=550)) => Some(*percent),
+                _ => None,
+            })
+            .unwrap();
+        for action in [
+            C::Previous,
+            C::TogglePlayback,
+            C::Next,
+            C::SeekPercent(seek),
+        ] {
+            let rect = a
+                .hitmap
+                .0
+                .iter()
+                .find(|(_, _, hit)| *hit == Hit::Control(action))
+                .unwrap()
+                .0;
+            a.control.message = None;
+            a.on_mouse(MouseEvent {
+                kind: MouseEventKind::Down(MouseButton::Left),
+                column: rect.x,
+                row: rect.y,
+                modifiers: KeyModifiers::NONE,
+            });
+            assert!(
+                a.control
+                    .message
+                    .as_deref()
+                    .is_some_and(|m| m.contains("Demo"))
+            );
+        }
+    }
+    assert!(!render(&mut a, 120, 36).contains("NOW PLAYING"));
+    a.cursor = Some(a.latest_time());
+    assert!(render(&mut a, 200, 55).contains("End returns to live playback"));
+    assert!(
+        !a.hitmap
+            .0
+            .iter()
+            .any(|(_, _, hit)| matches!(hit, Hit::Control(_)))
+    );
+}
+
 #[test]
 fn speaker_grilles_follow_channels_and_respect_motion_settings() {
     use overseer::{audio::Frame, motion::Motion};

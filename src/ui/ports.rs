@@ -50,17 +50,12 @@ pub fn summary(s: &Sample) -> String {
         }
     )
 }
-pub fn card(b: &mut Buffer, r: Rect, a: &App) {
-    let t = &a.theme;
-    let rr = frame(b, r, "PHYSICAL PORTS", "p details", false, t);
-    contents(b, rr, a, false);
-}
 pub fn modal(b: &mut Buffer, r: Rect, a: &App) {
     Clear.render(r, b);
     let rr = frame(b, r, "PHYSICAL PORTS", "Esc / p close", true, &a.theme);
-    contents(b, rr, a, true);
+    contents(b, rr, a);
 }
-fn contents(b: &mut Buffer, r: Rect, a: &App, expanded: bool) {
+fn contents(b: &mut Buffer, r: Rect, a: &App) {
     let s = a.sample();
     let t = &a.theme;
     line(b, r, 0, summary(&s).trim_end_matches("   [p]"), t.text);
@@ -94,7 +89,7 @@ fn contents(b: &mut Buffer, r: Rect, a: &App, expanded: bool) {
                 truncate(&detail, r.width.saturating_sub(3) as usize),
                 t.muted,
             );
-        } else if expanded && r.width >= 58 {
+        } else if r.width >= 58 {
             text(
                 b,
                 r,
@@ -113,13 +108,7 @@ fn contents(b: &mut Buffer, r: Rect, a: &App, expanded: bool) {
         let input = crate::metrics::ports::power_input(&s);
         let label = input
             .value()
-            .map(|p| {
-                if expanded {
-                    format!("Power → BMS · ≈ {} (inferred)", p.label())
-                } else {
-                    format!("≈ {} → BMS · inferred", p.label())
-                }
-            })
+            .map(|p| format!("Power → BMS · ≈ {} (inferred)", p.label()))
             .unwrap_or_else(|| {
                 if s.battery.value().is_some_and(|b| !b.ac) {
                     "Power · running on battery".into()

@@ -1309,6 +1309,9 @@ fn selected(b: &mut Buffer, r: Rect, a: &mut App, part: Part) {
             a,
             false,
         );
+        a.teardown_player_visible = true;
+        let player = row(r, card.height, r.height - card.height);
+        super::control::compact_now_playing(b, player, a);
     } else {
         line(b, inner, 3, widgets::readout(p, &s, a), t.text);
         if p == Part::Battery && s.battery.value().is_some() {
@@ -1366,9 +1369,6 @@ fn selected(b: &mut Buffer, r: Rect, a: &mut App, part: Part) {
             .style(Style::new().fg(t.muted))
             .render(text_rect, b);
     }
-    let legend = Rect::new(r.x, card.bottom(), r.width, r.height - card.height);
-    ports::card(b, legend, a);
-    a.hitmap.add(legend, 3, Hit::Ports);
 }
 fn reticle(b: &mut Buffer, r: Rect, c: ratatui::style::Color) {
     if r.width < 2 || r.height < 2 {

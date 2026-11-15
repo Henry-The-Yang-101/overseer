@@ -8,7 +8,7 @@ use crate::{
     app::App,
     control::{ControlAction as C, Tab},
     motion::Motion,
-    now_playing::State,
+    now_playing::{Metadata, State},
 };
 use ratatui::{
     buffer::Buffer,
@@ -1121,6 +1121,125 @@ fn clock_time(seconds: f64) -> String {
     let s = seconds.max(0.) as u64;
     format!("{}:{:02}", s / 60, s % 60)
 }
+fn timeline(b: &mut Buffer, r: Rect, metadata: Option<&Metadata>, a: &mut App) {
+    let position = metadata.and_then(Metadata::position);
+    let duration = metadata.and_then(Metadata::duration_seconds);
+    line(
+        b,
+        r,
+        0,
+        format!(
+            "{} / {}",
+            value(position, clock_time),
+            value(duration, clock_time)
+        ),
+        a.theme.text,
+    );
+    let seek = row(r, 1, 1);
+    meter(
+        b,
+        seek,
+        position.zip(duration).map_or(0., |(p, d)| (p / d) as f32),
+        a.theme.accent,
+        &a.theme,
+        a.cfg.ui.glyphs == "ascii",
+    );
+    if duration.is_some() && !seek.is_empty() {
+        for x in 0..seek.width {
+            a.hitmap.add(
+                Rect::new(seek.x + x, seek.y, 1, 1),
+                15,
+                Hit::Control(C::SeekPercent(
+                    (x as u32 * 1000 / seek.width.saturating_sub(1).max(1) as u32) as u16,
+                )),
+            );
+        }
+    }
+}
+
+pub(crate) fn compact_now_playing(b: &mut Buffer, r: Rect, a: &mut App) {
+    let t = a.theme.clone();
+    let panel = frame(b, r, "NOW PLAYING", "", false, &t);
+    let cover_height =
+        ((panel.width as f32 / a.cell_aspect).floor() as u16).min(panel.height.saturating_sub(9));
+    let cover_width = ((cover_height as f32 * a.cell_aspect).round() as u16).min(panel.width);
+    let cover = Rect::new(
+        panel.x + (panel.width - cover_width) / 2,
+        panel.y,
+        cover_width,
+        cover_height,
+    );
+    let details = cover_height + 1;
+    let state = a.control.compact_media_state(a.demo.is_some());
+    let metadata = match state {
+        State::Active(metadata) if a.cursor.is_none() => Some(metadata),
+        _ => None,
+    };
+    album(
+        b,
+        cover,
+        metadata.and_then(|m| a.control.artwork_for(m, true)),
+        a,
+    );
+    let Some(metadata) = metadata.cloned() else {
+        let status = if a.cursor.is_some() {
+            "End returns to live playback"
+        } else {
+            match state {
+                State::Waiting => "Loading player…",
+                State::Failed(_) => "media-control unavailable",
+                _ => "Nothing playing",
+            }
+        };
+        line(b, panel, details, status, t.muted);
+        return;
+    };
+    for (offset, label, color) in [
+        (
+            0,
+            metadata
+                .title
+                .as_deref()
+                .filter(|s| !s.is_empty())
+                .unwrap_or("Untitled audio"),
+            t.bright,
+        ),
+        (
+            1,
+            metadata.artist.as_deref().unwrap_or("Unknown artist"),
+            t.cpu,
+        ),
+        (2, metadata.album.as_deref().unwrap_or(""), t.muted),
+    ] {
+        line(
+            b,
+            panel,
+            details + offset,
+            truncate(label, panel.width.into()),
+            color,
+        );
+    }
+    timeline(b, row(panel, details + 4, 2), Some(&metadata), a);
+    let y = details + 6;
+    let toggle = if metadata.playing == Some(true) {
+        "[Pause]"
+    } else {
+        "[Play]"
+    };
+    button(b, panel, 0, y, "[Prev]", C::Previous, a);
+    button(b, panel, 8, y, toggle, C::TogglePlayback, a);
+    button(b, panel, 17, y, "[Next]", C::Next, a);
+    if let Some(message) = &a.control.message {
+        line(
+            b,
+            panel,
+            y + 1,
+            truncate(message, panel.width.into()),
+            t.muted,
+        );
+    }
+}
+
 fn now_playing(b: &mut Buffer, r: Rect, a: &mut App) {
     const MIN_PLAYER_WIDTH: u16 = 28;
     let t = a.theme.clone();
@@ -1208,39 +1327,7 @@ fn now_playing(b: &mut Buffer, r: Rect, a: &mut App) {
     }
     let transport = if panel.height >= 12 { 5 } else { 3 };
     if current {
-        let position = metadata.as_ref().and_then(|m| m.position());
-        let duration = metadata.as_ref().and_then(|m| m.duration_seconds());
-        line(
-            b,
-            panel,
-            transport,
-            format!(
-                "{} / {}",
-                value(position, clock_time),
-                value(duration, clock_time)
-            ),
-            t.text,
-        );
-        let seek = row(panel, transport + 1, 1);
-        meter(
-            b,
-            seek,
-            position.zip(duration).map_or(0., |(p, d)| (p / d) as f32),
-            t.accent,
-            &t,
-            a.cfg.ui.glyphs == "ascii",
-        );
-        if duration.is_some() {
-            for x in 0..seek.width {
-                a.hitmap.add(
-                    Rect::new(seek.x + x, seek.y, 1, seek.height),
-                    15,
-                    Hit::Control(C::SeekPercent(
-                        (x as u32 * 1000 / seek.width.saturating_sub(1).max(1) as u32) as u16,
-                    )),
-                );
-            }
-        }
+        timeline(b, row(panel, transport, 2), metadata.as_ref(), a);
         button(b, panel, 0, transport + 2, "[j ‹]", C::Previous, a);
         button(
             b,

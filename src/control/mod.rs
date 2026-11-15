@@ -211,6 +211,13 @@ impl ControlCenter {
             _ => None,
         }
     }
+    pub(crate) fn compact_media_state(&self, demo: bool) -> &State {
+        if demo || self.media_attempted {
+            &self.now
+        } else {
+            &State::Waiting
+        }
+    }
     pub(crate) fn media_sources(&self) -> Vec<MediaSource<'_>> {
         let mut sources = Vec::new();
         let name = |metadata: &'_ Metadata| {
@@ -285,8 +292,15 @@ impl ControlCenter {
         source: Option<&MediaSource<'_>>,
     ) -> Option<&image::RgbImage> {
         let source = source?;
-        let artwork = source.metadata?.artwork_data.as_ref();
-        if artwork == self.art_source.as_ref() && (source.current || artwork.is_some()) {
+        self.artwork_for(source.metadata?, source.current)
+    }
+    pub(crate) fn artwork_for(
+        &self,
+        metadata: &Metadata,
+        current: bool,
+    ) -> Option<&image::RgbImage> {
+        let artwork = metadata.artwork_data.as_ref();
+        if artwork == self.art_source.as_ref() && (current || artwork.is_some()) {
             self.artwork.as_deref()
         } else {
             None
@@ -329,12 +343,22 @@ impl ControlCenter {
             self.selected_media = None;
         }
     }
-    pub fn tick(&mut self, active: bool, demo: bool) {
+    pub fn tick(&mut self, active: bool, demo: bool, compact_media: bool) {
+        if !demo && (compact_media || (active && self.tab == Tab::NowPlaying)) {
+            self.tick_media(compact_media);
+        } else {
+            self.listener = None;
+            self.media_attempted = false;
+        }
+        if let Some(result) = self.media_action.as_ref().and_then(Job::poll) {
+            self.media_action = None;
+            if let Err(e) = result {
+                self.message = Some(e);
+            }
+        }
         if !active || demo {
             self.snapshot = None;
             self.ping = None;
-            self.listener = None;
-            self.media_attempted = false;
             self.last_snapshot = None;
             if !active && self.speed_job.take().is_some() {
                 self.speed_started = None;
@@ -359,12 +383,6 @@ impl ControlCenter {
                 Err(e) => self.message = Some(e),
             }
             self.last_snapshot = None;
-        }
-        if let Some(result) = self.media_action.as_ref().and_then(Job::poll) {
-            self.media_action = None;
-            if let Err(e) = result {
-                self.message = Some(e);
-            }
         }
         if self.snapshot_tab != self.tab {
             self.snapshot = None;
@@ -529,17 +547,11 @@ impl ControlCenter {
                 Err(e) => self.speed_error = Some(e),
             }
         }
-        if self.tab == Tab::NowPlaying {
-            self.tick_media();
-        } else {
-            self.listener = None;
-            self.media_attempted = false;
-        }
         if self.tab == Tab::Bluetooth {
             self.tick_model();
         }
     }
-    fn tick_media(&mut self) {
+    fn tick_media(&mut self, compact: bool) {
         if !self.media_attempted {
             self.media_attempted = true;
             match Listener::start_with_artwork() {
@@ -562,11 +574,15 @@ impl ControlCenter {
             if let Some(listener) = &self.listener {
                 self.remember_media(listener.snapshot());
             }
-            let sources = self.media_sources();
-            let source = sources
-                .get(self.media_selection(&sources))
-                .and_then(|source| source.metadata)
-                .and_then(|metadata| metadata.artwork_data.clone());
+            let source = if compact {
+                self.current_media().and_then(|m| m.artwork_data.clone())
+            } else {
+                let sources = self.media_sources();
+                sources
+                    .get(self.media_selection(&sources))
+                    .and_then(|source| source.metadata)
+                    .and_then(|m| m.artwork_data.clone())
+            };
             if source != self.art_source {
                 self.art_job = None;
                 self.artwork = None;
@@ -635,6 +651,12 @@ impl ControlCenter {
         }
     }
     pub fn act(&mut self, action: ControlAction, demo: bool) {
+        self.act_with_player(action, demo, false);
+    }
+    pub(crate) fn act_current_media(&mut self, action: ControlAction, demo: bool) {
+        self.act_with_player(action, demo, true);
+    }
+    fn act_with_player(&mut self, action: ControlAction, demo: bool, follow_system: bool) {
         if let ControlAction::SelectMedia(step) = action {
             self.step_media(step.into());
             return;
@@ -711,13 +733,15 @@ impl ControlCenter {
                 if self.media_action.is_some() {
                     return;
                 }
-                let sources = self.media_sources();
-                if sources
-                    .get(self.media_selection(&sources))
-                    .is_some_and(|source| !source.current)
-                {
-                    self.message = Some("Playback controls follow the system player".into());
-                    return;
+                if !follow_system {
+                    let sources = self.media_sources();
+                    if sources
+                        .get(self.media_selection(&sources))
+                        .is_some_and(|source| !source.current)
+                    {
+                        self.message = Some("Playback controls follow the system player".into());
+                        return;
+                    }
                 }
                 let Some(metadata) = self.current_media() else {
                     self.message = Some("No system media session to control".into());
