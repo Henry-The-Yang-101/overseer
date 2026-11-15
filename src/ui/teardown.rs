@@ -1276,56 +1276,35 @@ fn selected(b: &mut Buffer, r: Rect, a: &mut App, part: Part) {
     let p = a.resolve(part);
     let s = a.sample();
     let card = Rect::new(r.x, r.y, r.width, (r.height * 43 / 100).max(8));
-    let inner = frame(b, card, "SELECTED", "Enter / z", true, t);
-    line(
-        b,
-        inner,
-        1,
-        p.selection_name().to_uppercase(),
-        widgets::tint(p, t),
-    );
+    let title = if p == Part::Soc {
+        "CPU"
+    } else {
+        p.selection_name()
+    }
+    .to_uppercase();
+    let inner = frame(b, card, &title, "Enter / z", true, t);
+    let body = row(inner, 1, inner.height.saturating_sub(1));
     if p.selection_group() == Part::Fan0 {
-        super::fan::summary(
-            b,
-            Rect::new(
-                inner.x,
-                inner.y + 3,
-                inner.width,
-                inner.height.saturating_sub(3),
-            ),
-            &s,
-            a,
-        );
+        super::fan::summary(b, body, &s, a);
     } else if matches!(p, Part::SpeakerLeft | Part::SpeakerRight) {
-        super::audio::waveform(
-            b,
-            Rect::new(
-                inner.x,
-                inner.y + 3,
-                inner.width,
-                inner.height.saturating_sub(3),
-            ),
-            p,
-            a,
-            false,
-        );
+        super::audio::waveform(b, body, p, a, false);
         a.teardown_player_visible = true;
         let player = row(r, card.height, r.height - card.height);
         super::control::compact_now_playing(b, player, a);
     } else {
-        line(b, inner, 3, widgets::readout(p, &s, a), t.text);
+        line(b, inner, 1, widgets::readout(p, &s, a), t.text);
         if p == Part::Battery && s.battery.value().is_some() {
             line(
                 b,
                 inner,
-                2,
+                0,
                 format!("LIMIT {}", super::insights::charge_limit(&s)),
                 t.battery,
             );
             line(
                 b,
                 inner,
-                4,
+                2,
                 format!(
                     "OPTIMIZED {} · {}",
                     super::insights::optimized_charging(&s),
@@ -1339,12 +1318,7 @@ fn selected(b: &mut Buffer, r: Rect, a: &mut App, part: Part) {
         let max = values.iter().copied().fold(1., f32::max);
         let chart = scale_axis(
             b,
-            Rect::new(
-                inner.x,
-                inner.y + 5,
-                inner.width,
-                h.min(inner.height.saturating_sub(5)),
-            ),
+            row(inner, 3, h),
             &widgets::history_label(p, max, a),
             &widgets::history_label(p, 0., a),
             t,
@@ -1358,12 +1332,7 @@ fn selected(b: &mut Buffer, r: Rect, a: &mut App, part: Part) {
             t,
             a.cfg.ui.glyphs == "ascii",
         );
-        let text_rect = Rect::new(
-            inner.x,
-            inner.y + (6 + h).min(inner.height),
-            inner.width,
-            inner.height.saturating_sub(6 + h),
-        );
+        let text_rect = row(inner, 4 + h, inner.height);
         ratatui::widgets::Paragraph::new(p.note())
             .wrap(ratatui::widgets::Wrap { trim: true })
             .style(Style::new().fg(t.muted))
@@ -1374,9 +1343,9 @@ fn selected(b: &mut Buffer, r: Rect, a: &mut App, part: Part) {
         let gpu = frame(
             b,
             row(r, card.height, r.height - card.height),
-            "GPU UTILIZATION",
+            "GPU",
             "",
-            false,
+            true,
             t,
         );
         line(

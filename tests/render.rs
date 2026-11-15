@@ -98,7 +98,7 @@ fn representative_layouts() {
         let mut a = app("balanced");
         let unselected = render(&mut a, w, h);
         assert_eq!(a.selection, None);
-        assert!(!unselected.contains("SELECTED"));
+        assert!(!unselected.contains("┏ FANS"));
         assert!(!unselected.contains("SYSTEM ON CHIP"));
         assert!(!unselected.contains("ORIENTATION"));
         assert!(!unselected.contains("PORTS ·"));
@@ -107,7 +107,7 @@ fn representative_layouts() {
         a.select(Part::Fan0);
         let selected = render(&mut a, w, h);
         if w >= 150 {
-            assert!(selected.contains("SELECTED"));
+            assert!(selected.contains("┏ FANS"));
             assert!(!selected.contains("PHYSICAL PORTS"));
             assert!(!selected.contains("NOW PLAYING"));
             frames += &format!("\nSELECTED COMPONENT\n{selected}");
@@ -799,8 +799,8 @@ fn soc_sidebar_stacks_a_separate_gpu_widget_below_cpu() {
     a.select(Part::Soc);
     for (w, h) in [(150, 42), (200, 55)] {
         let view = render(&mut a, w, h);
-        let (cpu, gpu) = view.split_once("╭ GPU UTILIZATION").unwrap();
-        assert!(cpu.contains("SELECTED") && cpu.contains("73.0%"));
+        let (cpu, gpu) = view.split_once("┏ GPU ").unwrap();
+        assert!(cpu.contains("┏ CPU ") && cpu.contains("73.0%"));
         assert!(gpu.contains("42.0%") && gpu.contains("Last 60 seconds"));
         assert!(gpu.contains("100% ┤") && gpu.contains("0% ┤"));
     }
@@ -808,10 +808,10 @@ fn soc_sidebar_stacks_a_separate_gpu_widget_below_cpu() {
         Arc::make_mut(sample).gpu = Avail::Unsupported("GPU telemetry unavailable".into());
     }
     let view = render(&mut a, 200, 55);
-    let (_, gpu) = view.split_once("╭ GPU UTILIZATION").unwrap();
+    let (_, gpu) = view.split_once("┏ GPU ").unwrap();
     assert!(gpu.contains("N/A") && gpu.contains("No recorded GPU readings"));
     a.select(Part::Fan0);
-    assert!(!render(&mut a, 200, 55).contains("GPU UTILIZATION"));
+    assert!(!render(&mut a, 200, 55).contains("┏ GPU "));
 }
 
 #[test]
@@ -822,7 +822,8 @@ fn selected_graph_scales_follow_units_and_task_cpu_can_exceed_100_percent() {
     a.select(Part::Soc);
     assert!(render(&mut a, 200, 55).contains("100% ┤"));
     a.select(Part::Disk);
-    assert!(render(&mut a, 200, 55).contains("0.0 B/s ┤"));
+    let storage = render(&mut a, 200, 55);
+    assert!(storage.contains("┏ STORAGE ") && storage.contains("0.0 B/s ┤"));
     a.cfg.units.temp = "f".into();
     let bounds = ratatui::layout::Rect::new(0, 0, 112, 32);
     let mut buffer = ratatui::buffer::Buffer::empty(bounds);
@@ -1126,6 +1127,7 @@ fn unavailable_audio_shows_an_idle_waveform_without_status_text() {
 }
 fn speaker_sidebar_waveform_rows(view: &str) -> usize {
     view.lines()
+        .take_while(|line| !line.contains("┏ NOW PLAYING"))
         .filter_map(|line| {
             let (before_right_border, _) = line.rsplit_once('┃')?;
             let (_, inside) = before_right_border.rsplit_once('┃')?;
@@ -1146,8 +1148,9 @@ fn speaker_sidebar_shows_live_now_playing_with_clickable_transport() {
     for (speaker, w, h) in [(Part::SpeakerLeft, 150, 42), (Part::SpeakerRight, 200, 55)] {
         a.select(speaker);
         let view = render(&mut a, w, h);
+        assert!(view.contains(&format!("┏ {} ", speaker.name().to_uppercase())));
         for label in [
-            "NOW PLAYING",
+            "┏ NOW PLAYING",
             "@@@@@@@@",
             "Midnight transmission",
             "Overseer sessions",

@@ -1159,7 +1159,7 @@ fn timeline(b: &mut Buffer, r: Rect, metadata: Option<&Metadata>, a: &mut App) {
 
 pub(crate) fn compact_now_playing(b: &mut Buffer, r: Rect, a: &mut App) {
     let t = a.theme.clone();
-    let panel = frame(b, r, "NOW PLAYING", "", false, &t);
+    let panel = frame(b, r, "NOW PLAYING", "", true, &t);
     let cover_height =
         ((panel.width as f32 / a.cell_aspect).floor() as u16).min(panel.height.saturating_sub(9));
     let cover_width = ((cover_height as f32 * a.cell_aspect).round() as u16).min(panel.width);
