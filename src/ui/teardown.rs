@@ -1265,6 +1265,10 @@ fn navigator(b: &mut Buffer, r: Rect, a: &mut App) {
         r.height.saturating_sub(1),
     );
     let inside = frame(b, right, &p.selection_name().to_uppercase(), "", true, &t);
+    if p == Part::Soc {
+        widgets::soc_utilization(b, inside, &s, a, 60);
+        return;
+    }
     line(b, inside, 0, widgets::readout(p, &s, a), t.text);
     if inside.height > 3 {
         let inner = Rect::new(inside.x, inside.y + 2, inside.width, inside.height - 2);
@@ -1312,6 +1316,8 @@ fn selected(b: &mut Buffer, r: Rect, a: &mut App, part: Part) {
         a.teardown_player_visible = true;
         let player = row(r, card.height, r.height - card.height);
         super::control::compact_now_playing(b, player, a);
+    } else if p == Part::Soc {
+        widgets::soc_utilization(b, row(inner, 3, inner.height.saturating_sub(4)), &s, a, 60);
     } else {
         line(b, inner, 3, widgets::readout(p, &s, a), t.text);
         if p == Part::Battery && s.battery.value().is_some() {

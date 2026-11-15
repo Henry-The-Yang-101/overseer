@@ -603,6 +603,40 @@ pub fn detail(b: &mut Buffer, r: Rect, a: &mut App, part: Part, zoom: bool) {
         true,
         &t,
     );
+    if p == Part::Soc {
+        let seconds = crate::app::WINDOWS[a.window];
+        let show_details = inside.width >= 43 && inside.height >= 9;
+        let reserved = if show_details { 2 } else { 1 };
+        widgets::soc_utilization(
+            b,
+            row(inside, 0, inside.height.saturating_sub(reserved)),
+            &s,
+            a,
+            seconds,
+        );
+        if show_details {
+            line(
+                b,
+                inside,
+                inside.height - 2,
+                format!(
+                    "{} cores / {} tiers · CPU {}",
+                    s.core_count(),
+                    s.tiers.len(),
+                    watts(&s.power[0])
+                ),
+                t.text,
+            );
+        }
+        line(
+            b,
+            inside,
+            inside.height.saturating_sub(1),
+            format!("{} history", ["1m", "5m", "15m", "1h"][a.window]),
+            t.muted,
+        );
+        return;
+    }
     let wide = inside.width >= 85;
     let header_h = if wide {
         inside.height * 50 / 100
@@ -615,7 +649,7 @@ pub fn detail(b: &mut Buffer, r: Rect, a: &mut App, part: Part, zoom: bool) {
         inside.width,
         header_h.saturating_sub(1),
     );
-    if p == Part::Soc || (p == Part::Cpu && wide) {
+    if p == Part::Cpu && wide {
         let ring_w = 24.min(widget.width / 2);
         arc(
             b,
@@ -636,22 +670,7 @@ pub fn detail(b: &mut Buffer, r: Rect, a: &mut App, part: Part, zoom: bool) {
             (active * 100.).round() as u32,
             t.cpu,
         );
-        text(
-            b,
-            widget,
-            ring_w + 3,
-            if p == Part::Soc && widget.height <= 5 {
-                0
-            } else {
-                5
-            },
-            if p == Part::Soc {
-                "% TOTAL CPU UTILIZATION"
-            } else {
-                "% ACTIVE RESIDENCY"
-            },
-            t.muted,
-        );
+        text(b, widget, ring_w + 3, 5, "% ACTIVE RESIDENCY", t.muted);
         text(
             b,
             widget,
@@ -736,10 +755,6 @@ pub fn detail(b: &mut Buffer, r: Rect, a: &mut App, part: Part, zoom: bool) {
         );
     }
     let note_y = inside.height.saturating_sub(4);
-    if p == Part::Soc && note_y <= hist_y + hist_h {
-        return;
-    }
-
     paragraph(
         b,
         Rect::new(
