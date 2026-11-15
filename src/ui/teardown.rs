@@ -1369,6 +1369,44 @@ fn selected(b: &mut Buffer, r: Rect, a: &mut App, part: Part) {
             .style(Style::new().fg(t.muted))
             .render(text_rect, b);
     }
+    if p == Part::Soc {
+        let t = &a.theme;
+        let gpu = frame(
+            b,
+            row(r, card.height, r.height - card.height),
+            "GPU UTILIZATION",
+            "",
+            false,
+            t,
+        );
+        line(
+            b,
+            gpu,
+            1,
+            widgets::readout(Part::Gpu, &s, a).trim_start(),
+            t.gpu,
+        );
+        let values = a.history_values(Part::Gpu);
+        if values.is_empty() {
+            line(b, gpu, 3, "No recorded GPU readings", t.muted);
+        } else {
+            let chart = scale_axis(
+                b,
+                row(gpu, 3, gpu.height.saturating_sub(5)),
+                "100%",
+                "0%",
+                t,
+            );
+            spark(b, chart, &values, 1., t.gpu, t, a.cfg.ui.glyphs == "ascii");
+            line(
+                b,
+                gpu,
+                gpu.height.saturating_sub(2),
+                "Last 60 seconds",
+                t.muted,
+            );
+        }
+    }
 }
 fn reticle(b: &mut Buffer, r: Rect, c: ratatui::style::Color) {
     if r.width < 2 || r.height < 2 {

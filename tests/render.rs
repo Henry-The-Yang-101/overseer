@@ -786,6 +786,35 @@ fn soc_inspector_uses_total_cpu_and_ignores_core_navigation() {
     }
 }
 #[test]
+fn soc_sidebar_stacks_a_separate_gpu_widget_below_cpu() {
+    use overseer::metrics::Avail;
+    use std::sync::Arc;
+
+    let mut a = app("balanced");
+    for sample in &mut a.history {
+        let sample = Arc::make_mut(sample);
+        sample.cpu = 0.73;
+        sample.gpu = Avail::Ok(0.42);
+    }
+    a.select(Part::Soc);
+    for (w, h) in [(150, 42), (200, 55)] {
+        let view = render(&mut a, w, h);
+        let (cpu, gpu) = view.split_once("╭ GPU UTILIZATION").unwrap();
+        assert!(cpu.contains("SELECTED") && cpu.contains("73.0%"));
+        assert!(gpu.contains("42.0%") && gpu.contains("Last 60 seconds"));
+        assert!(gpu.contains("100% ┤") && gpu.contains("0% ┤"));
+    }
+    for sample in &mut a.history {
+        Arc::make_mut(sample).gpu = Avail::Unsupported("GPU telemetry unavailable".into());
+    }
+    let view = render(&mut a, 200, 55);
+    let (_, gpu) = view.split_once("╭ GPU UTILIZATION").unwrap();
+    assert!(gpu.contains("N/A") && gpu.contains("No recorded GPU readings"));
+    a.select(Part::Fan0);
+    assert!(!render(&mut a, 200, 55).contains("GPU UTILIZATION"));
+}
+
+#[test]
 fn selected_graph_scales_follow_units_and_task_cpu_can_exceed_100_percent() {
     use overseer::{app::Layer, metrics::Avail};
     use std::sync::Arc;
